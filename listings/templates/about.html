@@ -1,0 +1,149 @@
+{% extends 'base.html' %}
+
+{% block title %}About Us - EasyRent{% endblock %}
+
+{% block content %}
+<style>
+    /* Custom Styles for About Page */
+    .hero-section {
+        background: url('https://www.example.com/your-hero-image.jpg') no-repeat center center/cover;
+        height: 60vh;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        text-align: center;
+        color: white;
+        padding: 20px;
+    }
+
+    .hero-section h1 {
+        font-size: 3rem;
+        font-weight: bold;
+        margin-bottom: 15px;
+    }
+
+    .hero-section p {
+        font-size: 1.5rem;
+        margin-bottom: 40px;
+    }
+
+    .card-custom {
+        border-radius: 12px;
+        box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.1);
+        margin-bottom: 30px;
+    }
+
+    .card-custom .card-body {
+        background-color: #f8f9fa;
+    }
+
+    .btn-custom {
+        padding: 12px 20px;
+        font-size: 18px;
+        border-radius: 8px;
+        transition: all 0.3s ease-in-out;
+    }
+
+    .btn-custom:hover {
+        transform: scale(1.1);
+    }
+
+    .card-title {
+        font-size: 1.5rem;
+        font-weight: bold;
+        margin-bottom: 20px;
+    }
+
+    .card-text {
+        font-size: 1.1rem;
+        line-height: 1.6;
+    }
+
+    .section-title {
+        font-size: 2rem;
+        font-weight: bold;
+        margin-bottom: 30px;
+    }
+
+    .row {
+        margin-top: 30px;
+    }
+
+    .col-md-4 {
+        margin-bottom: 30px;
+    }
+
+    .text-muted {
+        font-size: 1.2rem;
+        margin-bottom: 30px;
+    }
+</style>
+
+<!-- Hero Section -->
+<div class="hero-section">
+    <div class="hero-content">
+        <h1>About EasyRent</h1>
+        <p>Your trusted platform for seamless property rentals.</p>
+    </div>
+</div>
+
+<!-- About Us Section -->
+<div class="container mt-5">
+    <div class="card p-4 text-center card-custom">
+        <h1 class="mb-3 text-primary">Welcome to EasyRent</h1>
+        <p class="lead">At EasyRent, we're revolutionizing the way you find and manage rental properties. Our mission is to make the rental process easy, transparent, and efficient for everyone involved.</p>
+    </div>
+    
+    <div class="row mt-5">
+        <div class="col-md-6">
+            <div class="card p-4 card-custom">
+                <h3 class="text-secondary">Our Mission</h3>
+                <p>At EasyRent, we believe in connecting people with homes. Our goal is to eliminate the stress and complexity of finding the right property or tenant by providing a seamless and user-friendly platform. We ensure all properties are verified and that the process remains transparent and straightforward for both landlords and tenants.</p>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="card p-4 card-custom">
+                <h3 class="text-secondary">Why Choose Us?</h3>
+                <ul class="list-unstyled">
+                    <li>✔️ Easy property listings & searches</li>
+                    <li>✔️ Secure and verified landlords & tenants</li>
+                    <li>✔️ Intuitive, user-friendly interface</li>
+                    <li>✔️ Personalized dashboards for tenants & landlords</li>
+                    <li>✔️ 24/7 customer support for all your needs</li>
+                    <li>✔️ High-quality images and detailed property descriptions</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <!-- Our Values Section -->
+    <div class="text-center mt-5">
+        <h3 class="text-primary section-title">Our Core Values</h3>
+        <p class="lead text-muted">We believe in providing our users with more than just a platform – we offer a community built on trust, transparency, and efficiency.</p>
+        <div class="row">
+            <div class="col-md-4">
+                <div class="card p-4 card-custom">
+                    <h4 class="text-success">Trust</h4>
+                    <p>We ensure that all landlords and tenants are verified, fostering a sense of security and trust within our community.</p>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card p-4 card-custom">
+                    <h4 class="text-warning">Transparency</h4>
+                    <p>Our platform is designed to provide all relevant property information up front so you can make informed decisions.</p>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card p-4 card-custom">
+                    <h4 class="text-info">Efficiency</h4>
+                    <p>We prioritize ease of use and speed to ensure that you can find the perfect property or tenant in no time.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="text-center mt-5">
+        <a href="{% url 'home' %}" class="btn btn-primary px-4 btn-custom">Get Started</a>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{% block title %}EasyRent{% endblock %}</title>
+    {% load django_bootstrap5 %}
+    {% bootstrap_css %}
+    {% bootstrap_javascript %}
+    <style>
+        body {
+            background: linear-gradient(135deg, #6a4c9c, #50c9c3);
+            min-height: 100vh;
+            padding-top: 50px; /* Reduced padding for navbar height */
+            display: flex;
+            flex-direction: column;
+        }
+        .navbar {
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+            position: fixed;
+            width: 100%;
+            top: 0;
+            z-index: 1000;
+            padding: 5px 20px; /* Reduced padding for a more compact navbar */
+            background-color: rgba(0, 0, 0, 0.7); /* Slight transparency for modern look */
+        }
+        .navbar-brand {
+            font-weight: bold;
+            font-size: 1.4rem; /* Reduced font size */
+            color: #fff;
+            text-align: center;
+            transition: color 0.3s ease;
+        }
+        .navbar-brand:hover {
+            color: #dcdcdc;
+        }
+        .navbar-nav .nav-link {
+            font-size: 1rem; /* Adjusted font size */
+            color: #ffffff;
+            padding: 8px 12px; /* Reduced padding around links */
+            transition: color 0.3s ease;
+        }
+        .navbar-nav .nav-link:hover {
+            color: #50c9c3; /* Smooth hover effect */
+        }
+        .container {
+            max-width: 900px;
+            flex: 1;
+            padding-top: 70px;
+        }
+        .btn-primary {
+            background-color: #4a90e2;
+            border: none;
+            transition: background-color 0.3s ease;
+        }
+        .btn-primary:hover {
+            background-color: #3e72b2;
+        }
+        .card {
+            border-radius: 10px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+        }
+        .card-body {
+            padding: 20px;
+        }
+        .footer {
+            background: linear-gradient(135deg, #4a90e2, #50c9c3);
+            text-align: center;
+            padding: 15px 20px; /* Reduced padding */
+            margin-top: auto;
+            color: white;
+        }
+        .footer a {
+            color: #fff;
+            margin: 0 10px; /* Adjusted margin */
+            text-decoration: none;
+            font-weight: bold;
+            font-size: 1rem; /* Slightly smaller font size */
+        }
+        .footer a:hover {
+            text-decoration: underline;
+            color: #dcdcdc;
+        }
+        .navbar-toggler-icon {
+            background-color: #ffffff;
+        }
+        @media (max-width: 768px) {
+            .navbar-brand {
+                font-size: 1.3rem; /* Adjusted for smaller screens */
+            }
+            .navbar-nav .nav-link {
+                font-size: 0.95rem; /* Smaller font size for better mobile layout */
+            }
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark">
+        <div class="container">
+            <a class="navbar-brand" href="{% url 'home' %}">EasyRent</a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav ms-auto">
+                    <li class="nav-item"><a class="nav-link" href="{% url 'about' %}">About</a></li>
+                    {% if user.is_authenticated %}
+                        {% if user.is_tenant %}
+                            <li class="nav-item"><a class="nav-link" href="{% url 'tenant_feed' %}">Browse Listings</a></li>
+                            <li class="nav-item"><a class="nav-link" href="{% url 'view_collection' %}">My Collection</a></li>
+                        {% elif user.is_landlord %}
+                            <li class="nav-item"><a class="nav-link" href="{% url 'landlord_dashboard' %}">Dashboard</a></li>
+                        {% endif %}
+                        <li class="nav-item">
+                            <a class="nav-link text-white btn btn-danger px-3 py-1" href="{% url 'logout' %}">Logout</a>
+                        </li>
+                    {% else %}
+                        <li class="nav-item"><a class="nav-link" href="{% url 'login' %}">Login</a></li>
+                        <li class="nav-item"><a class="nav-link" href="{% url 'signup' %}">Sign Up</a></li>
+                    {% endif %}
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container mt-5">
+        {% block content %}{% endblock %}
+    </div>
+
+    <footer class="footer">
+        <p>Designed By Coolech Software</p>
+        <p>&copy; 2025 EasyRent. All rights reserved.</p>
+        <p>
+            <a href="https://www.facebook.com" target="_blank">Facebook</a>
+            <a href="https://www.twitter.com" target="_blank">Twitter</a>
+            <a href="https://www.instagram.com" target="_blank">Instagram</a>
+        </p>
+    </footer>
+</body>
+</html>

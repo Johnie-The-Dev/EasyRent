@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+
+{% block content %}
+<style>
+    body {
+        background: linear-gradient(135deg, #4A90E2, #50C9C3);
+        min-height: 100vh;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+    }
+    .welcome-container {
+        background: rgba(255, 255, 255, 0.9);
+        padding: 40px;
+        border-radius: 12px;
+        text-align: center;
+        box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.1);
+    }
+    .btn-custom {
+        padding: 12px 20px;
+        font-size: 18px;
+        border-radius: 8px;
+        margin: 8px 0;  /* Adding space between buttons */
+        transition: all 0.3s ease-in-out;  /* Smooth transition for hover effect */
+    }
+    .btn-custom:hover {
+        transform: scale(1.05);  /* Slightly enlarge the button on hover */
+    }
+</style>
+
+<div class="container d-flex justify-content-center">
+    <div class="welcome-container">
+        <h1 class="fw-bold text-primary">Welcome to EasyRent</h1>
+        <p class="lead text-secondary">Find your perfect home with ease.</p>
+
+        <!-- Navigation Links -->
+        <div class="mt-4">
+            {% if user.is_authenticated %}
+                {% if user.is_landlord %}
+                    <a href="{% url 'landlord_dashboard' %}" class="btn btn-primary btn-lg btn-custom">Go to Dashboard</a>
+                {% else %}
+                    <a href="{% url 'tenant_feed' %}" class="btn btn-primary btn-lg btn-custom">Browse Properties</a>
+                    <a href="{% url 'view_collection' %}" class="btn btn-outline-secondary btn-lg btn-custom">My Collection</a>
+                {% endif %}
+                <a href="{% url 'logout' %}" class="btn btn-danger btn-lg btn-custom">Logout</a>
+            {% else %}
+                <a href="{% url 'signup' %}" class="btn btn-success btn-lg btn-custom">Sign Up</a>
+                <a href="{% url 'login' %}" class="btn btn-outline-primary btn-lg btn-custom">Login</a>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

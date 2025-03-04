@@ -1,0 +1,13 @@
+.env
+__pycache__/
+*.pyc
+*.log
+*.sqlite3
+# Ignore media files
+/media/
+*.jpg
+*.png
+*.gif
+*.mp4
+*.pdf
+*.jpeg

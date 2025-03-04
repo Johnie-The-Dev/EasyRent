@@ -1,0 +1,66 @@
+{% extends 'base.html' %}
+
+{% block title %}My Collection - EasyRent{% endblock %}
+
+{% block content %}
+<div class="container py-4" style="background: linear-gradient(135deg, #6a11cb, #2575fc); border-radius: 8px;">
+    <h2 class="text-center mb-4 text-white fw-bold">My Saved Properties</h2>
+    
+    {% if collection %}
+    <div class="row">
+        {% for item in collection %}
+        <div class="col-md-4 mb-4">
+            <div class="card shadow-sm border-0 property-card">
+                <img src="{{ item.property.image.url }}" class="card-img-top rounded-top" alt="{{ item.property.name }}" style="height: 200px; object-fit: cover;">
+                <div class="card-body">
+                    <h5 class="card-title fw-bold">{{ item.property.name }}</h5>
+                    <p class="card-text text-muted"><i class="bi bi-geo-alt"></i> <strong>{{ item.property.county }}</strong>, {{ item.property.town }}</p>
+                    <p class="card-text"><strong>Price:</strong> Ksh {{ item.property.price }}</p>
+                    <p class="card-text"><strong>Contact:</strong> {{ item.property.landlord_phone }}</p>
+                    <p class="card-text"><strong>Type:</strong> {{ item.property.property_type }}</p>
+                    <p class="card-text text-muted">{{ item.property.description|truncatewords:15 }}</p>
+                    <p class="card-text"><strong>Vacancy:</strong> {{ item.property.vacancy }}</p>
+                    <div class="d-flex justify-content-between">
+                        <a href="{% url 'remove_from_collection' item.property.id %}" class="btn btn-danger btn-sm w-100">Remove</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <p class="text-center text-white">You have no saved properties.</p>
+    {% endif %}
+
+    <div class="text-center mt-4">
+        <a href="{% url 'tenant_feed' %}" class="btn btn-primary">Back to Feed</a>
+    </div>
+</div>
+
+<!-- Custom Styles for Hover Effect -->
+<style>
+    .property-card {
+        transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+    }
+
+    .property-card:hover {
+        transform: scale(1.03);
+        box-shadow: 0px 10px 20px rgba(0, 0, 0, 0.1);
+    }
+
+    /* Gradient Background */
+    body {
+        background: linear-gradient(135deg, #6a11cb, #2575fc);
+    }
+
+    /* Subtle Shadow on Form Fields */
+    .form-floating input,
+    .form-floating select {
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    }
+
+    .form-floating label {
+        color: #5a5a5a;
+    }
+</style>
+{% endblock %}

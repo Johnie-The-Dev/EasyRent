@@ -1,0 +1,144 @@
+{% extends 'base.html' %}
+
+{% block title %}Tenant Feed - EasyRent{% endblock %}
+
+{% block content %}
+<div class="container py-4" style="background: linear-gradient(135deg, #6a11cb, #2575fc); border-radius: 8px;">
+    <h2 class="mb-4 text-center text-white fw-bold">🏡  Available Properties</h2>
+
+    <!-- Filter Form -->
+    <form method="GET" class="mb-4 p-4 bg-white rounded shadow-sm">
+        <div class="row g-3">
+            <div class="col-md-3">
+                <div class="form-floating">
+                    <input type="text" name="county" class="form-control" id="countyInput" placeholder="Search by County" value="{{ selected_county }}">
+                    <label for="countyInput">Search by County</label>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="form-floating">
+                    <input type="text" name="town" class="form-control" id="townInput" placeholder="Search by Town" value="{{ selected_town }}">
+                    <label for="townInput">Search by Town</label>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="form-floating">
+                    <select name="property_type" class="form-select" id="propertyTypeSelect">
+                        <option value="Single Room" {% if selected_type == 'Single Room' %}selected{% endif %}>Single Room</option>
+                        <option value="Bed Sitter" {% if selected_type == 'Bed Sitter' %}selected{% endif %}>Bed Sitter</option>
+                        <option value="One Bedroom" {% if selected_type == 'One Bedroom' %}selected{% endif %}>One Bedroom</option>
+                        <option value="Two Bedroom" {% if selected_type == 'Two Bedroom' %}selected{% endif %}>Two Bedroom</option>
+                        <option value="Three Bedroom" {% if selected_type == 'Three Bedroom' %}selected{% endif %}>Three Bedroom</option>
+                        <option value="Apartment" {% if selected_type == 'Apartment' %}selected{% endif %}>Apartment</option>
+                    </select>
+                    <label for="propertyTypeSelect">Property Type</label>
+                </div>
+            </div>
+            <div class="col-md-2">
+                <div class="form-floating">
+                    <input type="number" name="min_price" class="form-control" id="minPriceInput" placeholder="Min Price" value="{{ selected_min_price }}">
+                    <label for="minPriceInput">Min Price</label>
+                </div>
+            </div>
+            <div class="col-md-2">
+                <div class="form-floating">
+                    <input type="number" name="max_price" class="form-control" id="maxPriceInput" placeholder="Max Price" value="{{ selected_max_price }}">
+                    <label for="maxPriceInput">Max Price</label>
+                </div>
+            </div>
+            <div class="col-md-2 d-grid">
+                <button type="submit" class="btn btn-primary">🔍 Filter</button>
+            </div>
+        </div>
+    </form>
+
+    <!-- Property Listings -->
+    <div class="row">
+        {% for property in properties %}
+        <div class="col-md-4 mb-4">
+            <div class="card shadow-sm border-0 property-card">
+                <img src="{{ property.image.url }}" class="card-img-top rounded-top" alt="{{ property.name }}" style="height: 200px; object-fit: cover;">
+                <div class="card-body">
+                    <h5 class="card-title fw-bold">{{ property.name }}</h5>
+                    <p class="card-text text-muted">
+                        <i class="bi bi-geo-alt"></i> <strong>{{ property.county }}</strong>, {{ property.town }}
+                    </p>
+                    <p class="card-text"><strong>Type:</strong> {{ property.property_type }}</p>
+                    <p class="card-text"><strong>Price:</strong> <span class="text-success fw-bold">Ksh {{ property.price }}</span></p>
+                    <p class="card-text"><i class="bi bi-phone"></i> <strong>Contact:</strong> {{ property.landlord_phone }}</p>
+                    <p class="text-muted">{{ property.description|truncatewords:15 }}</p>
+
+                    <!-- Save/Remove Buttons -->
+                    {% if property.id in saved_properties %}
+                        <a href="{% url 'remove_from_collection' property.id %}" class="btn btn-danger w-100">
+                            <i class="bi bi-heart-fill"></i> Remove from Collection
+                        </a>
+                    {% else %}
+                        <a href="{% url 'add_to_collection' property.id %}" class="btn btn-outline-success w-100">
+                            <i class="bi bi-heart"></i> Save Property
+                        </a>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        {% empty %}
+        <p class="text-center text-muted">No properties available.</p>
+        {% endfor %}
+    </div>
+
+    <!-- Pagination -->
+    {% if properties.has_other_pages %}
+    <nav aria-label="Property pagination">
+        <ul class="pagination justify-content-center mt-4">
+            {% if properties.has_previous %}
+                <li class="page-item">
+                    <a class="page-link" href="?page=1">First</a>
+                </li>
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ properties.previous_page_number }}">Previous</a>
+                </li>
+            {% endif %}
+
+            <li class="page-item active">
+                <span class="page-link">Page {{ properties.number }} of {{ properties.paginator.num_pages }}</span>
+            </li>
+
+            {% if properties.has_next %}
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ properties.next_page_number }}">Next</a>
+                </li>
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ properties.paginator.num_pages }}">Last</a>
+                </li>
+            {% endif %}
+        </ul>
+    </nav>
+    {% endif %}
+</div>
+
+<!-- Custom Styles for Hover Effect -->
+<style>
+    .property-card {
+        transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+    }
+    .property-card:hover {
+        transform: scale(1.03);
+        box-shadow: 0px 10px 20px rgba(0, 0, 0, 0.1);
+    }
+
+    /* Gradient Background */
+    body {
+        background: linear-gradient(135deg, #6a11cb, #2575fc);
+    }
+
+    /* Subtle Shadow on Form Fields */
+    .form-floating input,
+    .form-floating select {
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    }
+
+    .form-floating label {
+        color: #5a5a5a;
+    }
+</style>
+{% endblock %}

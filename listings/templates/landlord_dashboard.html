@@ -1,0 +1,38 @@
+{% extends 'base.html' %}
+
+{% block title %}Landlord Dashboard - EasyRent{% endblock %}
+
+{% block content %}
+<div class="container">
+    <h2 class="text-center mb-4">My Properties</h2>
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <a href="{% url 'add_property' %}" class="btn btn-success">+ Add Property</a>
+    </div>
+    <div class="row">
+        {% for property in properties %}
+        <div class="col-md-4 mb-4">
+            <div class="card shadow-sm">
+                <img src="{{ property.image.url }}" class="card-img-top img-fluid" alt="{{ property.name }}">
+                <div class="card-body">
+                    <h5 class="card-title">{{ property.name }}</h5>
+                    <p class="card-text"><strong>County:</strong> {{ property.county }}</p>
+                    <p class="card-text"><strong>Town:</strong> {{ property.town }}</p>
+                    <p class="card-text"><strong>Property Type:</strong> {{ property.property_type }}</p>
+                    <p class="card-text"><strong>Price:</strong> Ksh {{ property.price }}</p>
+                    <p class="card-text">{{ property.description }}</p>
+                    <p class="card-text"><strong>Vacancy:</strong> {{ property.vacancy }}</p>
+                    <div class="d-flex justify-content-between">
+                        <a href="{% url 'edit_property' property.id %}" class="btn btn-warning btn-sm">Edit</a>
+                        <a href="{% url 'delete_property' property.id %}" class="btn btn-danger btn-sm">Delete</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% empty %}
+        <div class="col-12">
+            <p class="text-center text-muted">No properties listed yet. Start by adding a new property!</p>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}

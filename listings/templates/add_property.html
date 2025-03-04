@@ -1,0 +1,92 @@
+{% extends 'base.html' %}
+
+{% block title %}Add Property - EasyRent{% endblock %}
+
+{% block content %}
+<div class="container py-4" style="background: linear-gradient(135deg, #6a11cb, #2575fc); border-radius: 8px;">
+    <div class="row justify-content-center">
+        <div class="col-md-6">
+            <div class="card shadow-sm mt-4">
+                <div class="card-header bg-primary text-white">
+                    <h4 class="mb-0">Add a New Property</h4>
+                </div>
+                <div class="card-body">
+                    <form method="post" enctype="multipart/form-data">
+                        {% csrf_token %}
+                        <div class="mb-3">
+                            <label class="form-label">Property Name</label>
+                            {{ form.name }}
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">County</label>
+                            {{ form.county }}
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Town</label>
+                            {{ form.town }}
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Property Type</label>
+                            {{ form.property_type }}
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Price (Ksh)</label>
+                            {{ form.price }}
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Landlord Phone</label>
+                            {{ form.landlord_phone }}
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Description</label>
+                            {{ form.description }}
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Vacancy</label>
+                            {{ form.vacancy }}
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Upload Image</label>
+                            {{ form.image }}
+                        </div>
+                        <button type="submit" class="btn btn-success w-100">Add Property</button>
+                    </form>
+                </div>
+            </div>
+            <div class="text-center mt-3">
+                <a href="{% url 'landlord_dashboard' %}" class="btn btn-secondary">Back to Dashboard</a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Custom Styles for Form Fields and Buttons -->
+<style>
+    /* Gradient Background */
+    body {
+        background: linear-gradient(135deg, #6a11cb, #2575fc);
+    }
+
+    /* Subtle Shadow on Form Fields */
+    .form-floating input,
+    .form-floating select,
+    .form-floating textarea {
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    }
+
+    .form-floating label {
+        color: #5a5a5a;
+    }
+
+    /* Hover Effects for Buttons */
+    .btn-success:hover {
+        background-color: #28a745;
+        border-color: #28a745;
+    }
+
+    .btn-secondary:hover {
+        background-color: #6c757d;
+        border-color: #6c757d;
+    }
+</style>
+{% endblock %}

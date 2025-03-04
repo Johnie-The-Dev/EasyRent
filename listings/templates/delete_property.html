@@ -1,0 +1,36 @@
+{% extends 'base.html' %}
+
+{% block title %}Delete Property - EasyRent{% endblock %}
+
+{% block content %}
+<div class="container d-flex justify-content-center align-items-center" style="min-height: 60vh;">
+    <div class="card shadow-sm p-4 text-center" style="max-width: 500px;">
+        <h3 class="text-danger">Confirm Deletion</h3>
+        <p class="mb-3">Are you sure you want to delete <strong>"{{ property.name }}"</strong>?</p>
+        <form method="post">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-danger w-100 mb-3 mb-sm-0">Yes, Delete</button>
+            <a href="{% url 'landlord_dashboard' %}" class="btn btn-secondary w-100">Cancel</a>
+        </form>
+    </div>
+</div>
+
+<!-- Custom Styles for Buttons -->
+<style>
+    /* Button Hover Effects */
+    .btn-danger:hover {
+        background-color: #d32f2f;
+        border-color: #d32f2f;
+    }
+
+    .btn-secondary:hover {
+        background-color: #6c757d;
+        border-color: #6c757d;
+    }
+
+    /* Ensure Button and Card are Responsive */
+    .btn {
+        transition: background-color 0.3s ease;
+    }
+</style>
+{% endblock %}
