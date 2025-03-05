@@ -1,0 +1,35 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgres
+    container_name: postgres-db
+    restart: always
+    environment:
+      POSTGRES_USER: cooltech
+      POSTGRES_PASSWORD: easyhouse
+      POSTGRES_DB: easy_rent
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  web:
+    build: .
+    container_name: django-app
+    restart: always
+    depends_on:
+      - db
+    ports:
+      - "8000:8000"
+    environment:
+      DATABASE_NAME: easy_rent
+      DATABASE_USER: cooltech
+      DATABASE_PASSWORD: easyhouse
+      DATABASE_HOST: db
+      DATABASE_PORT: 5432
+    volumes:
+      - .:/app
+
+volumes:
+  postgres_data:
