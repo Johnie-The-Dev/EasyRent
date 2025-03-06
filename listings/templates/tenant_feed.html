@@ -67,6 +67,8 @@
                     <p class="card-text"><strong>Price:</strong> <span class="text-success fw-bold">Ksh {{ property.price }}</span></p>
                     <p class="card-text"><i class="bi bi-phone"></i> <strong>Contact:</strong> {{ property.landlord_phone }}</p>
                     <p class="text-muted">{{ property.description|truncatewords:15 }}</p>
+                    
+                    
 
                     <!-- Save/Remove Buttons -->
                     {% if property.id in saved_properties %}

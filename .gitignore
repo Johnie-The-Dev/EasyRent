@@ -5,9 +5,3 @@ __pycache__/
 *.sqlite3
 # Ignore media files
 /media/
-*.jpg
-*.png
-*.gif
-*.mp4
-*.pdf
-*.jpeg
