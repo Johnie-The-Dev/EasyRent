@@ -3,8 +3,8 @@
 {% block title %}Tenant Feed - EasyRent{% endblock %}
 
 {% block content %}
-<div class="container py-4" style="background: linear-gradient(135deg, #6a11cb, #2575fc); border-radius: 8px;">
-    <h2 class="mb-4 text-center text-white fw-bold">🏡  Available Properties</h2>
+<div class="container py-4">
+    <h2 class="mb-4 text-center text-white fw-bold">🏡 Available Properties</h2>
 
     <!-- Filter Form -->
     <form method="GET" class="mb-4 p-4 bg-white rounded shadow-sm">
@@ -24,6 +24,7 @@
             <div class="col-md-3">
                 <div class="form-floating">
                     <select name="property_type" class="form-select" id="propertyTypeSelect">
+                        <option value="">All Types</option>
                         <option value="Single Room" {% if selected_type == 'Single Room' %}selected{% endif %}>Single Room</option>
                         <option value="Bed Sitter" {% if selected_type == 'Bed Sitter' %}selected{% endif %}>Bed Sitter</option>
                         <option value="One Bedroom" {% if selected_type == 'One Bedroom' %}selected{% endif %}>One Bedroom</option>
@@ -68,21 +69,47 @@
                     <p class="card-text"><i class="bi bi-phone"></i> <strong>Contact:</strong> {{ property.landlord_phone }}</p>
                     <p class="text-muted">{{ property.description|truncatewords:15 }}</p>
                     
-                    
+                    <!-- Buttons Row -->
+                    <div class="d-flex justify-content-between">
+                        {% if property.id in saved_properties %}
+                            <a href="{% url 'remove_from_collection' property.id %}" class="btn btn-danger w-50 me-1">
+                                <i class="bi bi-heart-fill"></i> Remove
+                            </a>
+                        {% else %}
+                            <a href="{% url 'add_to_collection' property.id %}" class="btn btn-outline-success w-50 me-1">
+                                <i class="bi bi-heart"></i> Save Property
+                            </a>
+                        {% endif %}
 
-                    <!-- Save/Remove Buttons -->
-                    {% if property.id in saved_properties %}
-                        <a href="{% url 'remove_from_collection' property.id %}" class="btn btn-danger w-100">
-                            <i class="bi bi-heart-fill"></i> Remove from Collection
-                        </a>
-                    {% else %}
-                        <a href="{% url 'add_to_collection' property.id %}" class="btn btn-outline-success w-100">
-                            <i class="bi bi-heart"></i> Save Property
-                        </a>
-                    {% endif %}
+                        {% if property.video %}
+                            <button type="button" class="btn btn-primary w-50 ms-1" data-bs-toggle="modal" data-bs-target="#videoModal{{ property.id }}">
+                                🎥 Watch Video
+                            </button>
+                        {% endif %}
+                    </div>
                 </div>
             </div>
         </div>
+
+        <!-- Video Modal -->
+        {% if property.video %}
+        <div class="modal fade" id="videoModal{{ property.id }}" tabindex="-1" aria-labelledby="videoModalLabel{{ property.id }}" aria-hidden="true">
+            <div class="modal-dialog modal-lg">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="videoModalLabel{{ property.id }}">{{ property.name }} - Video</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <video width="100%" controls>
+                            <source src="{{ property.video.url }}" type="video/mp4">
+                            Your browser does not support the video tag.
+                        </video>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
         {% empty %}
         <p class="text-center text-muted">No properties available.</p>
         {% endfor %}
@@ -118,29 +145,20 @@
     {% endif %}
 </div>
 
-<!-- Custom Styles for Hover Effect -->
+<!-- Custom Styles -->
 <style>
     .property-card {
         transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+        border-radius: 12px;
+        overflow: hidden;
     }
     .property-card:hover {
         transform: scale(1.03);
-        box-shadow: 0px 10px 20px rgba(0, 0, 0, 0.1);
+        box-shadow: 0px 10px 20px rgba(0, 0, 0, 0.15);
     }
 
-    /* Gradient Background */
-    body {
-        background: linear-gradient(135deg, #6a11cb, #2575fc);
-    }
-
-    /* Subtle Shadow on Form Fields */
-    .form-floating input,
-    .form-floating select {
-        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-    }
-
-    .form-floating label {
-        color: #5a5a5a;
+    .btn {
+        border-radius: 8px;
     }
 </style>
 {% endblock %}

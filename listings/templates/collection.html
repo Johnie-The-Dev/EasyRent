@@ -20,12 +20,42 @@
                     <p class="card-text"><strong>Type:</strong> {{ item.property.property_type }}</p>
                     <p class="card-text text-muted">{{ item.property.description|truncatewords:15 }}</p>
                     <p class="card-text"><strong>Vacancy:</strong> {{ item.property.vacancy }}</p>
+
                     <div class="d-flex justify-content-between">
-                        <a href="{% url 'remove_from_collection' item.property.id %}" class="btn btn-danger btn-sm w-100">Remove</a>
+                        <!-- Remove Button -->
+                        <a href="{% url 'remove_from_collection' item.property.id %}" class="btn btn-danger w-50">
+                            <i class="bi bi-trash"></i> Remove
+                        </a>
+                        <!-- Video Button (If Exists) -->
+                        {% if item.property.video %}
+                        <button type="button" class="btn btn-primary w-50 ms-2" data-bs-toggle="modal" data-bs-target="#videoModal{{ item.property.id }}">
+                            🎥 Watch Video
+                        </button>
+                        {% endif %}
                     </div>
                 </div>
             </div>
         </div>
+
+        <!-- Video Modal -->
+        {% if item.property.video %}
+        <div class="modal fade" id="videoModal{{ item.property.id }}" tabindex="-1" aria-labelledby="videoModalLabel{{ item.property.id }}" aria-hidden="true">
+            <div class="modal-dialog modal-lg">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="videoModalLabel{{ item.property.id }}">{{ item.property.name }} - Video</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <video width="100%" controls>
+                            <source src="{{ item.property.video.url }}" type="video/mp4">
+                            Your browser does not support the video tag.
+                        </video>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
         {% endfor %}
     </div>
     {% else %}
@@ -33,34 +63,25 @@
     {% endif %}
 
     <div class="text-center mt-4">
-        <a href="{% url 'tenant_feed' %}" class="btn btn-primary">Back to Feed</a>
+        <a href="{% url 'tenant_feed' %}" class="btn btn-light">🔙 Back to Feed</a>
     </div>
 </div>
 
-<!-- Custom Styles for Hover Effect -->
+<!-- Custom Styles -->
 <style>
     .property-card {
         transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+        border-radius: 12px;
+        overflow: hidden;
     }
 
     .property-card:hover {
         transform: scale(1.03);
-        box-shadow: 0px 10px 20px rgba(0, 0, 0, 0.1);
+        box-shadow: 0px 10px 20px rgba(0, 0, 0, 0.15);
     }
 
-    /* Gradient Background */
-    body {
-        background: linear-gradient(135deg, #6a11cb, #2575fc);
-    }
-
-    /* Subtle Shadow on Form Fields */
-    .form-floating input,
-    .form-floating select {
-        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-    }
-
-    .form-floating label {
-        color: #5a5a5a;
+    .btn {
+        border-radius: 8px;
     }
 </style>
 {% endblock %}

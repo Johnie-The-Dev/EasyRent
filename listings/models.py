@@ -18,7 +18,7 @@ class User(AbstractUser):
 class Property(models.Model):
     name = models.CharField(max_length=255)
     image = models.ImageField(upload_to='property_images/')
-    #video = models.FileField(upload_to='property_videos/', null=True)  # Added video field
+    video = models.FileField(upload_to='property_videos/', null=True, blank=True)  # Video field
     county = models.CharField(max_length=255,null=True)  # Added county field
     town = models.CharField(max_length=255)  # Changed from location to town
     property_type = models.CharField(max_length=50, choices=[
