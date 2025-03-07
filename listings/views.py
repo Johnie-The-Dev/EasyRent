@@ -5,7 +5,6 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.auth.views import LoginView
 from .forms import SignUpForm, PropertyForm
 from .models import Property, TenantCollection
-import random
 from django.shortcuts import render, redirect
 from django.contrib.auth.models import User
 from django.contrib.auth import get_user_model
@@ -14,10 +13,13 @@ from django.contrib import messages
 from django.views import View
 from django.utils.crypto import get_random_string
 from django.conf import settings
-from django.contrib.auth import get_user_model
 from django.core.paginator import Paginator
 from .forms import LandlordProfileForm
 from .forms import TenantProfileForm
+
+
+
+
 User = get_user_model()
 
 
