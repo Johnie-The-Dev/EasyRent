@@ -9,6 +9,7 @@ from .views import add_to_collection, remove_from_collection, view_collection
 from .views import custom_logout
 from django.views.generic import TemplateView
 from .views import RequestPasswordResetCodeView, VerifyResetCodeView, SetNewPasswordView
+from . import views
 
 urlpatterns = [
     path('', home, name='home'),  # ✅ Add this line for the homepage
@@ -28,6 +29,9 @@ urlpatterns = [
     path('password-reset/', RequestPasswordResetCodeView.as_view(), name='password_reset'),
     path('password-reset/verify/', VerifyResetCodeView.as_view(), name='password_reset_verify'),
     path('password-reset/new-password/', SetNewPasswordView.as_view(), name='password_reset_new_password'),
+
+    path('landlord/profile/', views.landlord_profile, name='landlord_profile'),
+    path('tenant/profile/', views.tenant_profile, name='tenant_profile'),
 ]
 
 

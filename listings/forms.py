@@ -21,3 +21,22 @@ class PropertyForm(forms.ModelForm):
     class Meta:
         model = Property
         fields = ['name', 'image','county', 'town', 'property_type', 'price', 'landlord_phone', 'description', 'vacancy', 'video']
+
+class LandlordProfileForm(forms.ModelForm):
+    class Meta:
+        model = User
+        fields = ['username', 'email']
+
+        widgets = {
+            'username': forms.TextInput(attrs={'class': 'form-control'}),
+            'email': forms.EmailInput(attrs={'class': 'form-control'}),
+        }
+
+class TenantProfileForm(forms.ModelForm):
+    class Meta:
+        model = User
+        fields = ['username', 'email']
+        widgets = {
+            'username': forms.TextInput(attrs={'class': 'form-control'}),
+            'email': forms.EmailInput(attrs={'class': 'form-control'}),
+        }

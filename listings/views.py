@@ -16,6 +16,8 @@ from django.utils.crypto import get_random_string
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.core.paginator import Paginator
+from .forms import LandlordProfileForm
+from .forms import TenantProfileForm
 User = get_user_model()
 
 
@@ -204,3 +206,31 @@ class SetNewPasswordView(View):
 
         messages.error(request, "Something went wrong. Please try again.")
         return redirect('password_reset')
+
+
+@login_required
+def landlord_profile(request):
+    if request.method == "POST":
+        form = LandlordProfileForm(request.POST, instance=request.user)
+        if form.is_valid():
+            form.save()
+            messages.success(request, "Profile updated successfully!")
+            return redirect("landlord_profile")
+    else:
+        form = LandlordProfileForm(instance=request.user)
+
+    return render(request, "landlord_profile.html", {"form": form})
+
+
+@login_required
+def tenant_profile(request):
+    if request.method == 'POST':
+        form = TenantProfileForm(request.POST, instance=request.user)
+        if form.is_valid():
+            form.save()
+            messages.success(request, "Profile updated successfully!")
+            return redirect('tenant_profile')
+    else:
+        form = TenantProfileForm(instance=request.user)
+
+    return render(request, 'tenant_profile.html', {'form': form})

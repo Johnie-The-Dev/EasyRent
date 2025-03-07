@@ -38,9 +38,12 @@
             {% if user.is_authenticated %}
                 {% if user.is_landlord %}
                     <a href="{% url 'landlord_dashboard' %}" class="btn btn-primary btn-lg btn-custom">Go to Dashboard</a>
+                    <a href="{% url 'landlord_profile' %}" class="btn btn-outline-info btn-lg btn-custom">My Profile</a>
                 {% else %}
                     <a href="{% url 'tenant_feed' %}" class="btn btn-primary btn-lg btn-custom">Browse Properties</a>
                     <a href="{% url 'view_collection' %}" class="btn btn-outline-secondary btn-lg btn-custom">My Collection</a>
+                    <a href="{% url 'tenant_profile' %}" class="btn btn-info btn-lg btn-custom">My Profile</a>
+
                 {% endif %}
                 <a href="{% url 'logout' %}" class="btn btn-danger btn-lg btn-custom">Logout</a>
             {% else %}
