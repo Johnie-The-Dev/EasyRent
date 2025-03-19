@@ -236,3 +236,41 @@ def tenant_profile(request):
         form = TenantProfileForm(instance=request.user)
 
     return render(request, 'tenant_profile.html', {'form': form})
+
+
+#property management
+from django.shortcuts import render, redirect, get_object_or_404
+from .models import Tenant
+from .forms import TenantForm
+
+def manage_tenants(request):
+    if request.method == 'POST':
+        form = TenantForm(request.POST)
+        if form.is_valid():
+            tenant = form.save()
+            return redirect('tenant_list')
+        else:
+            print("Form errors:", form.errors)  # Debug: Print form errors
+    else:
+        form = TenantForm()
+    return render(request, 'manage_tenants.html', {'form': form})
+
+def tenant_list(request):
+    tenants = Tenant.objects.all()
+    return render(request, 'tenant_list.html', {'tenant_list': tenants})
+
+def edit_tenant(request, tenant_id):
+    tenant = get_object_or_404(Tenant, id=tenant_id)
+    if request.method == 'POST':
+        form = TenantForm(request.POST, instance=tenant)
+        if form.is_valid():
+            tenant = form.save()
+            return redirect('tenant_list')
+    else:
+        form = TenantForm(instance=tenant)
+    return render(request, 'edit_tenant.html', {'form': form, 'tenant': tenant})
+
+def delete_tenant(request, tenant_id):
+    tenant = get_object_or_404(Tenant, id=tenant_id)
+    tenant.delete()
+    return redirect('tenant_list')

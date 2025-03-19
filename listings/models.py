@@ -1,6 +1,7 @@
 from django.contrib.auth.models import AbstractUser
 from django.db import models
 from django.contrib.auth.models import User
+from django.conf import settings
 
 class User(AbstractUser):
     ROLE_CHOICES = (
@@ -30,7 +31,7 @@ class Property(models.Model):
         ('Apartment', 'Apartment')
     ])
     price = models.DecimalField(max_digits=10, decimal_places=2)
-    landlord = models.ForeignKey(User, on_delete=models.CASCADE)
+    landlord = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="listings_properties")
     landlord_phone = models.CharField(max_length=20)
     description = models.TextField(null=True)
     vacancy = models.CharField(max_length=20,null=True, choices=[
@@ -52,3 +53,24 @@ class TenantCollection(models.Model):
 
     def __str__(self):
         return f"{self.tenant.username} - {self.property.name}"
+
+#property management
+
+from django.db import models
+from datetime import datetime
+
+def get_current_month():
+    return datetime.now().strftime("%Y-%m")
+
+class Tenant(models.Model):
+    name = models.CharField(max_length=100)
+    phone = models.CharField(max_length=15)
+    unit = models.CharField(max_length=50)
+    date_occupied = models.DateField()
+    rent_paid = models.DecimalField(max_digits=10, decimal_places=2)
+    date_paid = models.DateField()
+    month_paid_for = models.CharField(max_length=7, default=get_current_month)  # Format: YYYY-MM
+    monthly_rent = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
+
+    def __str__(self):
+        return self.name

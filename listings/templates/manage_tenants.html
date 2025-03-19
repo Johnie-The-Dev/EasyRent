@@ -1,0 +1,51 @@
+{% extends 'base.html' %}
+
+{% block title %}Manage Tenants - EasyRent{% endblock %}
+
+{% block content %}
+<div class="container">
+    <h2 class="text-center mb-4 fw-bold">Manage Tenants</h2>
+    <form method="post" action="{% url 'manage_tenants' %}">
+        {% csrf_token %}
+        <div class="mb-3">
+            <label for="tenant_name" class="form-label">Tenant Name:</label>
+            <input type="text" id="tenant_name" name="name" class="form-control" required>
+        </div>
+        <div class="mb-3">
+            <label for="tenant_phone" class="form-label">Tenant Phone:</label>
+            <input type="text" id="tenant_phone" name="phone" class="form-control" required>
+        </div>
+        <div class="mb-3">
+            <label for="unit_occupied" class="form-label">Unit Occupied:</label>
+            <input type="text" id="unit_occupied" name="unit" class="form-control" required>
+        </div>
+        <div class="mb-3">
+            <label for="date_occupied" class="form-label">Date Occupied:</label>
+            <input type="date" id="date_occupied" name="date_occupied" class="form-control" required>
+        </div>
+        <div class="mb-3">
+            <label for="rent_paid" class="form-label">Rent Paid:</label>
+            <input type="number" id="rent_paid" name="rent_paid" class="form-control" required>
+        </div>
+        <div class="mb-3">
+            <label for="date_paid" class="form-label">Date Paid:</label>
+            <input type="date" id="date_paid" name="date_paid" class="form-control" required>
+        </div>
+        <div class="mb-3">
+            <label for="month_paid_for" class="form-label">Month Paid For:</label>
+            <select id="month_paid_for" name="month_paid_for" class="form-control" required>
+                {% for value, display in form.month_paid_for.field.choices %}
+                    <option value="{{ value }}" {% if value == form.month_paid_for.value %}selected{% endif %}>{{ display }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="mb-3">
+            <label for="monthly_rent" class="form-label">Monthly Rent:</label>
+            <input type="number" id="monthly_rent" name="monthly_rent" class="form-control" required>
+        </div>
+        <button type="submit" class="btn btn-primary">Add Tenant</button>
+    </form>
+
+    
+</div>
+{% endblock %}

@@ -1,0 +1,14 @@
+{% extends 'base.html' %}
+
+{% block title %}Edit Tenant - EasyRent{% endblock %}
+
+{% block content %}
+<div class="container">
+    <h2 class="text-center mb-4 fw-bold">Edit Tenant</h2>
+    <form method="post" action="{% url 'edit_tenant' tenant.id %}">
+        {% csrf_token %}
+        {{ form.as_p }}
+        <button type="submit" class="btn btn-primary">Update Tenant</button>
+    </form>
+</div>
+{% endblock %}

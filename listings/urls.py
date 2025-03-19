@@ -11,6 +11,7 @@ from django.views.generic import TemplateView
 from .views import RequestPasswordResetCodeView, VerifyResetCodeView, SetNewPasswordView
 from . import views
 
+
 urlpatterns = [
     path('', home, name='home'),  # ✅ Add this line for the homepage
     path('signup/', signup_view, name='signup'),
@@ -32,7 +33,14 @@ urlpatterns = [
 
     path('landlord/profile/', views.landlord_profile, name='landlord_profile'),
     path('tenant/profile/', views.tenant_profile, name='tenant_profile'),
+
+    
+    path('manage_tenants/', views.manage_tenants, name='manage_tenants'),
+    path('tenant_list/', views.tenant_list, name='tenant_list'),
+    path('edit_tenant/<int:tenant_id>/', views.edit_tenant, name='edit_tenant'),
+    path('delete_tenant/<int:tenant_id>/', views.delete_tenant, name='delete_tenant'),
 ]
+
 
 
 

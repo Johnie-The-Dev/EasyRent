@@ -1,0 +1,42 @@
+{% extends 'base.html' %}
+
+{% block title %}Tenant List - EasyRent{% endblock %}
+
+{% block content %}
+<div class="container">
+    <h2 class="text-center mb-4 fw-bold">Tenant List</h2>
+    <table class="table table-striped">
+        <thead>
+            <tr>
+                <th>Name</th>
+                <th>Phone</th>
+                <th>Unit</th>
+                <th>Date Occupied</th>
+                <th>Rent Paid</th>
+                <th>Date Paid</th>
+                <th>Month Paid For</th>
+                <th>Monthly Rent</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for tenant in tenant_list %}
+            <tr>
+                <td>{{ tenant.name }}</td>
+                <td>{{ tenant.phone }}</td>
+                <td>{{ tenant.unit }}</td>
+                <td>{{ tenant.date_occupied }}</td>
+                <td>{{ tenant.rent_paid }}</td>
+                <td>{{ tenant.date_paid }}</td>
+                <td>{{ tenant.month_paid_for }}</td>
+                <td>{{ tenant.monthly_rent }}</td>
+                <td>
+                    <a href="{% url 'edit_tenant' tenant.id %}" class="btn btn-sm btn-warning">Edit</a>
+                    <a href="{% url 'delete_tenant' tenant.id %}" class="btn btn-sm btn-danger">Delete</a>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}
