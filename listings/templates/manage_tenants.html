@@ -5,7 +5,7 @@
 {% block content %}
 <div class="container">
     <h2 class="text-center mb-4 fw-bold">Manage Tenants</h2>
-    <form method="post" action="{% url 'manage_tenants' %}">
+    <form id="tenantForm" method="post" action="{% url 'manage_tenants' %}">
         {% csrf_token %}
         <div class="mb-3">
             <label for="tenant_name" class="form-label">Tenant Name:</label>
@@ -14,6 +14,10 @@
         <div class="mb-3">
             <label for="tenant_phone" class="form-label">Tenant Phone:</label>
             <input type="text" id="tenant_phone" name="phone" class="form-control" required>
+        </div>
+        <div class="mb-3">
+            <label for="property_name" class="form-label">Property Name:</label>
+            <input type="text" id="property_name" name="property_name" class="form-control" required>
         </div>
         <div class="mb-3">
             <label for="unit_occupied" class="form-label">Unit Occupied:</label>
@@ -43,9 +47,29 @@
             <label for="monthly_rent" class="form-label">Monthly Rent:</label>
             <input type="number" id="monthly_rent" name="monthly_rent" class="form-control" required>
         </div>
+        <div class="mb-3">
+            <label for="rent_balance" class="form-label">Rent Balance:</label>
+            <input type="number" id="rent_balance" name="rent_balance" class="form-control" readonly>
+        </div>
+        <div class="mb-3">
+            <label for="total_rent_balance" class="form-label">Total Rent Balance:</label>
+            <input type="number" id="total_rent_balance" name="total_rent_balance" class="form-control" readonly>
+        </div>
         <button type="submit" class="btn btn-primary">Add Tenant</button>
     </form>
-
-    
 </div>
+
+<script>
+    document.getElementById('tenantForm').addEventListener('input', function() {
+        var monthlyRent = parseFloat(document.getElementById('monthly_rent').value) || 0;
+        var rentPaid = parseFloat(document.getElementById('rent_paid').value) || 0;
+        var rentBalance = monthlyRent - rentPaid;
+        document.getElementById('rent_balance').value = rentBalance;
+
+        // Assuming you have a way to get the cumulative rent balance from the server or calculate it
+        // For demonstration, let's assume it's stored in a variable `cumulativeRentBalance`
+        var cumulativeRentBalance = 0; // Replace this with actual cumulative balance calculation
+        document.getElementById('total_rent_balance').value = cumulativeRentBalance + rentBalance;
+    });
+</script>
 {% endblock %}

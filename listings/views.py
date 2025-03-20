@@ -239,7 +239,12 @@ def tenant_profile(request):
 
 
 #property management
+
 from django.shortcuts import render, redirect, get_object_or_404
+from django.urls import reverse
+from django.http import HttpResponse
+from reportlab.lib.pagesizes import letter
+from reportlab.pdfgen import canvas
 from .models import Tenant
 from .forms import TenantForm
 
@@ -247,25 +252,25 @@ def manage_tenants(request):
     if request.method == 'POST':
         form = TenantForm(request.POST)
         if form.is_valid():
-            tenant = form.save()
-            return redirect('tenant_list')
-        else:
-            print("Form errors:", form.errors)  # Debug: Print form errors
+            tenant = form.save(commit=False)
+            tenant.rent_balance = tenant.monthly_rent - tenant.rent_paid
+            tenant.cumulative_rent_balance += tenant.rent_balance
+            tenant.save()
+            return redirect(reverse('tenant_list'))
     else:
         form = TenantForm()
     return render(request, 'manage_tenants.html', {'form': form})
-
-def tenant_list(request):
-    tenants = Tenant.objects.all()
-    return render(request, 'tenant_list.html', {'tenant_list': tenants})
 
 def edit_tenant(request, tenant_id):
     tenant = get_object_or_404(Tenant, id=tenant_id)
     if request.method == 'POST':
         form = TenantForm(request.POST, instance=tenant)
         if form.is_valid():
-            tenant = form.save()
-            return redirect('tenant_list')
+            tenant = form.save(commit=False)
+            tenant.rent_balance = tenant.monthly_rent - tenant.rent_paid
+            tenant.cumulative_rent_balance += tenant.rent_balance
+            tenant.save()
+            return redirect(reverse('tenant_list'))
     else:
         form = TenantForm(instance=tenant)
     return render(request, 'edit_tenant.html', {'form': form, 'tenant': tenant})
@@ -273,4 +278,79 @@ def edit_tenant(request, tenant_id):
 def delete_tenant(request, tenant_id):
     tenant = get_object_or_404(Tenant, id=tenant_id)
     tenant.delete()
-    return redirect('tenant_list')
+    return redirect(reverse('tenant_list'))
+
+def tenant_list(request):
+    tenant_list = Tenant.objects.all()
+    return render(request, 'tenant_list.html', {'tenant_list': tenant_list})
+
+from django.shortcuts import render, redirect, get_object_or_404
+from django.http import HttpResponse
+from reportlab.lib.pagesizes import A6
+from reportlab.lib.units import mm
+from reportlab.pdfgen import canvas
+from reportlab.lib.colors import HexColor
+from .models import Tenant
+
+def generate_receipt(request, tenant_id):
+    tenant = get_object_or_404(Tenant, id=tenant_id)
+    
+    response = HttpResponse(content_type='application/pdf')
+    response['Content-Disposition'] = f'attachment; filename="receipt_{tenant.name}.pdf"'
+    
+    p = canvas.Canvas(response, pagesize=A6)
+    width, height = A6
+    
+    # Background color
+    p.setFillColor(HexColor("#f5f5f5"))
+    p.rect(0, 0, width, height, fill=1)
+    
+    # Header
+    p.setFillColor(HexColor("#6a11cb"))
+    p.rect(0, height - 20 * mm, width, 20 * mm, fill=1)
+    p.setFont("Helvetica-Bold", 14)
+    p.setFillColor(HexColor("#ffffff"))
+    p.drawString(10 * mm, height - 10 * mm, "EasyRent Receipt")
+    
+    # Content
+    p.setFont("Helvetica", 10)
+    p.setFillColor(HexColor("#000000"))
+    y = height - 30 * mm
+    line_height = 5 * mm
+    
+    p.drawString(10 * mm, y, f"Tenant: {tenant.name}")
+    y -= line_height
+    p.drawString(10 * mm, y, f"Phone: {tenant.phone}")
+    y -= line_height
+    p.drawString(10 * mm, y, f"Property: {tenant.property_name}")
+    y -= line_height
+    p.drawString(10 * mm, y, f"Unit: {tenant.unit}")
+    y -= line_height
+    p.drawString(10 * mm, y, f"Date Occupied: {tenant.date_occupied}")
+    y -= line_height
+    p.drawString(10 * mm, y, f"Rent Paid: {tenant.rent_paid}")
+    y -= line_height
+    p.drawString(10 * mm, y, f"Date Paid: {tenant.date_paid}")
+    y -= line_height
+    p.drawString(10 * mm, y, f"Month Paid For: {tenant.month_paid_for}")
+    y -= line_height
+    p.drawString(10 * mm, y, f"Monthly Rent: {tenant.monthly_rent}")
+    y -= line_height
+    p.drawString(10 * mm, y, f"Rent Balance: {tenant.rent_balance}")
+    y -= line_height
+    p.drawString(10 * mm, y, f"Cumulative Rent Balance: {tenant.cumulative_rent_balance}")
+    
+    # Footer
+    p.setFont("Helvetica-Bold", 10)
+    p.setFillColor(HexColor("#6a11cb"))
+    p.drawString(10 * mm, y - 2 * line_height, "Thank you for your payment!")
+    
+    # Border
+    p.setStrokeColor(HexColor("#6a11cb"))
+    p.setLineWidth(1)
+    p.rect(5 * mm, 5 * mm, width - 10 * mm, height - 10 * mm)
+    
+    p.showPage()
+    p.save()
+    
+    return response

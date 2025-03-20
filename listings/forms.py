@@ -61,4 +61,4 @@ class TenantForm(forms.ModelForm):
 
     class Meta:
         model = Tenant
-        fields = ['name', 'phone', 'unit', 'date_occupied', 'rent_paid', 'date_paid', 'month_paid_for', 'monthly_rent']
+        fields = ['name', 'phone','property_name', 'unit', 'date_occupied', 'rent_paid', 'date_paid', 'month_paid_for', 'monthly_rent']

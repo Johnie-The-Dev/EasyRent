@@ -39,6 +39,7 @@ urlpatterns = [
     path('tenant_list/', views.tenant_list, name='tenant_list'),
     path('edit_tenant/<int:tenant_id>/', views.edit_tenant, name='edit_tenant'),
     path('delete_tenant/<int:tenant_id>/', views.delete_tenant, name='delete_tenant'),
+    path('generate_receipt/<int:tenant_id>/', views.generate_receipt, name='generate_receipt'),
 ]
 
 

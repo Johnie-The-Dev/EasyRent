@@ -65,12 +65,16 @@ def get_current_month():
 class Tenant(models.Model):
     name = models.CharField(max_length=100)
     phone = models.CharField(max_length=15)
+    property_name = models.CharField(max_length=255, null=True)
     unit = models.CharField(max_length=50)
     date_occupied = models.DateField()
     rent_paid = models.DecimalField(max_digits=10, decimal_places=2)
     date_paid = models.DateField()
     month_paid_for = models.CharField(max_length=7, default=get_current_month)  # Format: YYYY-MM
     monthly_rent = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
+    rent_balance = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    cumulative_rent_balance = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+
 
     def __str__(self):
         return self.name
