@@ -1,12 +1,7 @@
-# Create your views here.
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth import login, logout
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.views import LoginView
-from .forms import SignUpForm, PropertyForm
-from .models import Property, TenantCollection
-from django.shortcuts import render, redirect
-from django.contrib.auth.models import User
 from django.contrib.auth import get_user_model
 from django.core.mail import send_mail
 from django.contrib import messages
@@ -14,16 +9,17 @@ from django.views import View
 from django.utils.crypto import get_random_string
 from django.conf import settings
 from django.core.paginator import Paginator
-from .forms import LandlordProfileForm
-from .forms import TenantProfileForm
+from django.urls import reverse
+from django.http import HttpResponse
+from reportlab.lib.pagesizes import A6
+from reportlab.lib.units import mm
+from reportlab.pdfgen import canvas
+from reportlab.lib.colors import HexColor
 
-
-
+from .forms import SignUpForm, PropertyForm, LandlordProfileForm, TenantProfileForm, TenantForm
+from .models import Property, TenantCollection, Tenant, ReceiptHistory
 
 User = get_user_model()
-
-
-
 
 def signup_view(request):
     if request.method == 'POST':
@@ -80,6 +76,7 @@ def tenant_feed(request):
     }
 
     return render(request, "tenant_feed.html", context)
+
 @login_required
 def add_property(request):
     if request.method == "POST":
@@ -146,7 +143,6 @@ def custom_logout(request):
     logout(request)
     return redirect('login')  # Ensure 'login' matches your URL pattern name
 
-
 # Store codes temporarily (use cache or database in production)
 reset_codes = {}
 
@@ -209,7 +205,6 @@ class SetNewPasswordView(View):
         messages.error(request, "Something went wrong. Please try again.")
         return redirect('password_reset')
 
-
 @login_required
 def landlord_profile(request):
     if request.method == "POST":
@@ -222,7 +217,6 @@ def landlord_profile(request):
         form = LandlordProfileForm(instance=request.user)
 
     return render(request, "landlord_profile.html", {"form": form})
-
 
 @login_required
 def tenant_profile(request):
@@ -237,17 +231,7 @@ def tenant_profile(request):
 
     return render(request, 'tenant_profile.html', {'form': form})
 
-
-#property management
-
-from django.shortcuts import render, redirect, get_object_or_404
-from django.urls import reverse
-from django.http import HttpResponse
-from reportlab.lib.pagesizes import letter
-from reportlab.pdfgen import canvas
-from .models import Tenant
-from .forms import TenantForm
-
+@login_required
 def manage_tenants(request):
     if request.method == 'POST':
         form = TenantForm(request.POST)
@@ -261,6 +245,7 @@ def manage_tenants(request):
         form = TenantForm()
     return render(request, 'manage_tenants.html', {'form': form})
 
+@login_required
 def edit_tenant(request, tenant_id):
     tenant = get_object_or_404(Tenant, id=tenant_id)
     if request.method == 'POST':
@@ -275,25 +260,51 @@ def edit_tenant(request, tenant_id):
         form = TenantForm(instance=tenant)
     return render(request, 'edit_tenant.html', {'form': form, 'tenant': tenant})
 
+@login_required
 def delete_tenant(request, tenant_id):
     tenant = get_object_or_404(Tenant, id=tenant_id)
     tenant.delete()
     return redirect(reverse('tenant_list'))
 
+@login_required
 def tenant_list(request):
     tenant_list = Tenant.objects.all()
     return render(request, 'tenant_list.html', {'tenant_list': tenant_list})
 
-from django.shortcuts import render, redirect, get_object_or_404
-from django.http import HttpResponse
-from reportlab.lib.pagesizes import A6
-from reportlab.lib.units import mm
-from reportlab.pdfgen import canvas
-from reportlab.lib.colors import HexColor
-from .models import Tenant
+@login_required
+def tenant_list(request):
+    tenant_list = Tenant.objects.all()
+    return render(request, 'tenant_list.html', {'tenant_list': tenant_list})
 
+@login_required
 def generate_receipt(request, tenant_id):
+    """
+    Generate a PDF receipt for a tenant and save the receipt history.
+    This view function generates a PDF receipt for a tenant based on their payment details
+    and saves the receipt history in the database. The generated PDF is returned as an HTTP response
+    with the appropriate content type and disposition for download.
+    Args:
+        request (HttpRequest): The HTTP request object.
+        tenant_id (int): The ID of the tenant for whom the receipt is being generated.
+    Returns:
+        HttpResponse: An HTTP response with the generated PDF receipt as an attachment.
+    Raises:
+        Http404: If the tenant with the given ID does not exist.
+    Decorators:
+        login_required: Ensures that the user is authenticated before accessing this view.
+    """
     tenant = get_object_or_404(Tenant, id=tenant_id)
+    
+    # Save receipt history
+    ReceiptHistory.objects.create(
+        tenant=tenant,
+        rent_paid=tenant.rent_paid,
+        date_paid=tenant.date_paid,
+        month_paid_for=tenant.month_paid_for,
+        monthly_rent=tenant.monthly_rent,
+        rent_balance=tenant.rent_balance,
+        cumulative_rent_balance=tenant.cumulative_rent_balance
+    )
     
     response = HttpResponse(content_type='application/pdf')
     response['Content-Disposition'] = f'attachment; filename="receipt_{tenant.name}.pdf"'
@@ -354,3 +365,9 @@ def generate_receipt(request, tenant_id):
     p.save()
     
     return response
+
+@login_required
+def receipt_history(request, tenant_id):
+    tenant = get_object_or_404(Tenant, id=tenant_id)
+    history = ReceiptHistory.objects.filter(tenant=tenant).order_by('-date_generated')
+    return render(request, 'receipt_history.html', {'tenant': tenant, 'history': history})

@@ -53,8 +53,6 @@
                             <label class="form-label">Upload Video</label>
                             {{ form.video }}
                         </div>
-                          
-                       
                         <button type="submit" class="btn btn-success w-100">Add Property</button>
                     </form>
                 </div>
@@ -74,9 +72,11 @@
     }
 
     /* Subtle Shadow on Form Fields */
-    .form-label input,
-    .form-label select,
-    .form-label textarea {
+    .form-control {
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    }
+
+    .form-check-input {
         box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
     }
 
@@ -93,6 +93,19 @@
     .btn-secondary:hover {
         background-color: #6c757d;
         border-color: #6c757d;
+    }
+
+    /* Card Header Styling */
+    .card-header {
+        background: linear-gradient(135deg, #6a11cb, #2575fc);
+        border-bottom: none;
+    }
+
+    /* Card Shadow */
+    .card {
+        border: none;
+        border-radius: 8px;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
     }
 </style>
 {% endblock %}

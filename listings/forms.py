@@ -1,8 +1,8 @@
 from django import forms
 from django.contrib.auth.forms import UserCreationForm
-from .models import User
-from .models import Property
-from .models import Tenant
+from .models import User, Property, Tenant
+import calendar
+from datetime import datetime
 
 
 class SignUpForm(UserCreationForm):
@@ -11,7 +11,6 @@ class SignUpForm(UserCreationForm):
     class Meta:
         model = User
         fields = ('username', 'email', 'role', 'password1', 'password2')
-
         widgets = {
             'username': forms.TextInput(attrs={'class': 'form-control'}),
             'email': forms.EmailInput(attrs={'class': 'form-control'}),
@@ -19,20 +18,40 @@ class SignUpForm(UserCreationForm):
             'password2': forms.PasswordInput(attrs={'class': 'form-control'}),
         }
 
+
 class PropertyForm(forms.ModelForm):
+    VACANCY_CHOICES = [
+        ('vacant', 'Vacant'),
+        ('occupied', 'Occupied'),
+    ]
+
+    vacancy = forms.ChoiceField(choices=VACANCY_CHOICES, widget=forms.Select(attrs={'class': 'form-control'}))
+
     class Meta:
         model = Property
-        fields = ['name', 'image','county', 'town', 'property_type', 'price', 'landlord_phone', 'description', 'vacancy', 'video']
+        fields = ['name', 'county', 'town', 'property_type', 'price', 'landlord_phone', 'description', 'vacancy', 'image', 'video']
+        widgets = {
+            'name': forms.TextInput(attrs={'class': 'form-control'}),
+            'county': forms.TextInput(attrs={'class': 'form-control'}),
+            'town': forms.TextInput(attrs={'class': 'form-control'}),
+            'property_type': forms.Select(attrs={'class': 'form-control'}),
+            'price': forms.NumberInput(attrs={'class': 'form-control'}),
+            'landlord_phone': forms.TextInput(attrs={'class': 'form-control'}),
+            'description': forms.Textarea(attrs={'class': 'form-control'}),
+            'image': forms.ClearableFileInput(attrs={'class': 'form-control'}),
+            'video': forms.ClearableFileInput(attrs={'class': 'form-control'}),
+        }
+
 
 class LandlordProfileForm(forms.ModelForm):
     class Meta:
         model = User
         fields = ['username', 'email']
-
         widgets = {
             'username': forms.TextInput(attrs={'class': 'form-control'}),
             'email': forms.EmailInput(attrs={'class': 'form-control'}),
         }
+
 
 class TenantProfileForm(forms.ModelForm):
     class Meta:
@@ -40,15 +59,9 @@ class TenantProfileForm(forms.ModelForm):
         fields = ['username', 'email']
         widgets = {
             'username': forms.TextInput(attrs={'class': 'form-control'}),
-            'email': forms.EmailInput(attrs={'class': 'form-control'}),}
-        
+            'email': forms.EmailInput(attrs={'class': 'form-control'}),
+        }
 
-
-#property management
-from django import forms
-from .models import Tenant
-import calendar
-from datetime import datetime
 
 class TenantForm(forms.ModelForm):
     current_year = datetime.now().year
@@ -61,4 +74,4 @@ class TenantForm(forms.ModelForm):
 
     class Meta:
         model = Tenant
-        fields = ['name', 'phone','property_name', 'unit', 'date_occupied', 'rent_paid', 'date_paid', 'month_paid_for', 'monthly_rent']
+        fields = ['name', 'phone', 'property_name', 'unit', 'date_occupied', 'rent_paid', 'date_paid', 'month_paid_for', 'monthly_rent']

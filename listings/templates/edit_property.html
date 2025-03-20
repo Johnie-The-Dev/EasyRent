@@ -50,12 +50,9 @@
                             {{ form.image }}
                         </div>
                         <div class="mb-3">
-                            <label class="form-label
-                            ">Upload Video</label>
+                            <label class="form-label">Upload Video</label>
                             {{ form.video }}
                         </div>
-                        
-
                         <button type="submit" class="btn btn-warning w-100">Update Property</button>
                     </form>
                 </div>
@@ -75,9 +72,11 @@
     }
 
     /* Subtle Shadow on Form Fields */
-    .form-floating input,
-    .form-floating select,
-    .form-floating textarea {
+    .form-control {
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    }
+
+    .form-check-input {
         box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
     }
 
@@ -94,6 +93,19 @@
     .btn-secondary:hover {
         background-color: #6c757d;
         border-color: #6c757d;
+    }
+
+    /* Card Header Styling */
+    .card-header {
+        background: linear-gradient(135deg, #ff9800, #f57c00);
+        border-bottom: none;
+    }
+
+    /* Card Shadow */
+    .card {
+        border: none;
+        border-radius: 8px;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
     }
 </style>
 {% endblock %}
