@@ -3,61 +3,65 @@
 {% block title %}Receipt History - EasyRent{% endblock %}
 
 {% block content %}
-<div class="container py-4">
-    <h2 class="text-center mb-4 fw-bold">Receipt History for {{ tenant.name }}</h2>
-    <div class="table-responsive">
-        <table class="table table-striped table-bordered">
-            <thead class="table-dark">
-                <tr>
-                    <th>Date Generated</th>
-                    <th>Rent Paid</th>
-                    <th>Date Paid</th>
-                    <th>Month Paid For</th>
-                    <th>Monthly Rent</th>
-                    <th>Rent Balance</th>
-                    <th>Cumulative Rent Balance</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for receipt in history %}
-                <tr>
-                    <td data-label="Date Generated">{{ receipt.date_generated }}</td>
-                    <td data-label="Rent Paid">{{ receipt.rent_paid }}</td>
-                    <td data-label="Date Paid">{{ receipt.date_paid }}</td>
-                    <td data-label="Month Paid For">{{ receipt.month_paid_for }}</td>
-                    <td data-label="Monthly Rent">{{ receipt.monthly_rent }}</td>
-                    <td data-label="Rent Balance">{{ receipt.rent_balance }}</td>
-                    <td data-label="Cumulative Rent Balance">{{ receipt.cumulative_rent_balance }}</td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
+<div class="container mt-5 py-4">
+    <div class="card shadow-sm">
+        <div class="card-header bg-primary text-white">
+            <h2 class="text-center mb-0">Receipt History for {{ tenant.name }}</h2>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-striped table-hover">
+                    <thead class="table-dark">
+                        <tr>
+                            <th>Date Generated</th>
+                            <th>Rent Paid</th>
+                            <th>Date Paid</th>
+                            <th>Month Paid For</th>
+                            <th>Monthly Rent</th>
+                            <th>Rent Balance</th>
+                            <th>Cumulative Rent Balance</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for receipt in history %}
+                        <tr>
+                            <td data-label="Date Generated">{{ receipt.date_generated }}</td>
+                            <td data-label="Rent Paid">Ksh {{ receipt.rent_paid }}</td>
+                            <td data-label="Date Paid">{{ receipt.date_paid }}</td>
+                            <td data-label="Month Paid For">{{ receipt.month_paid_for }}</td>
+                            <td data-label="Monthly Rent">Ksh {{ receipt.monthly_rent }}</td>
+                            <td data-label="Rent Balance">Ksh {{ receipt.rent_balance }}</td>
+                            <td data-label="Cumulative Rent Balance">Ksh {{ receipt.cumulative_rent_balance }}</td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="7" class="text-center text-muted">No receipt history available.</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
     </div>
 </div>
 
 <style>
-    .container {
-        background: #fff;
-        border-radius: 8px;
-        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-        padding: 20px;
+    .card {
+        border-radius: 10px;
+        overflow: hidden;
+    }
+
+    .card-header {
+        text-align: center;
+        font-weight: bold;
     }
 
     .table {
         margin-bottom: 0;
     }
 
-    .table thead {
-        background: #343a40;
-        color: #fff;
-    }
-
     .table tbody tr:hover {
-        background: #f1f1f1;
-    }
-
-    .table td, .table th {
-        vertical-align: middle;
+        background: #f8f9fa;
     }
 
     @media (max-width: 576px) {
