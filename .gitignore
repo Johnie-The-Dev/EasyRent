@@ -1,7 +1,30 @@
+# Environment
 .env
+*.env
+.env/
+
+# Python
 __pycache__/
+*.py[cod]
 *.pyc
 *.log
 *.sqlite3
-# Ignore media files
-/media/
+
+# Virtualenvs
+venv/
+EasyRent-env/
+
+# Django media/static
+media/
+static/
+staticfiles/
+
+# Docker
+docker-compose.override.yml
+**/postgres_data/
+**/easyrent_postgres_data/
+
+# Editors / IDEs
+.vscode/
+.idea/
+*.swp

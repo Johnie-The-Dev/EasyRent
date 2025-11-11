@@ -18,13 +18,14 @@ class Migration(migrations.Migration):
             model_name='lease',
             name='tenant',
         ),
-        migrations.RemoveField(
-            model_name='rentpayment',
-            name='lease',
-        ),
+        # run AlterUniqueTogether before removing the 'lease' field from RentPayment
         migrations.AlterUniqueTogether(
             name='rentpayment',
             unique_together=None,
+        ),
+        migrations.RemoveField(
+            model_name='rentpayment',
+            name='lease',
         ),
         migrations.DeleteModel(
             name='Expense',
