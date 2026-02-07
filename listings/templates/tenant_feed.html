@@ -77,8 +77,6 @@
                             </button>
                         {% endif %}
                     </div>
-                {% elif property.image %}
-                    <img src="{{ property.image.url }}" class="card-img-top rounded-top" alt="{{ property.name }}" style="height: 200px; object-fit: cover;">
                 {% else %}
                     <div class="bg-light text-center" style="height: 200px; display: flex; align-items: center; justify-content: center;">
                         <span class="text-muted">No image available</span>

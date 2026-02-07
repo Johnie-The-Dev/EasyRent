@@ -15,7 +15,13 @@
         {% for property in properties %}
         <div class="col-md-4 mb-4">
             <div class="card shadow-sm property-card">
-                <img src="{{ property.image.url }}" class="card-img-top rounded-top" alt="{{ property.name }}" style="height: 200px; object-fit: cover;">
+                {% if property.images.all %}
+                    <img src="{{ property.images.first.image.url }}" class="card-img-top rounded-top" alt="{{ property.name }}" style="height: 200px; object-fit: cover;">
+                {% else %}
+                    <div class="bg-light text-center" style="height: 200px; display: flex; align-items: center; justify-content: center;">
+                        <span class="text-muted">No image available</span>
+                    </div>
+                {% endif %}
                 <div class="card-body">
                     <h5 class="card-title fw-bold">{{ property.name }}</h5>
                     <p class="card-text"><strong>County:</strong> {{ property.county }}</p>

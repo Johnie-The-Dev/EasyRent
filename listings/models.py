@@ -18,7 +18,6 @@ class User(AbstractUser):
 
 class Property(models.Model):
     name = models.CharField(max_length=255)
-    image = models.ImageField(upload_to='property_images/')
     video = models.FileField(upload_to='property_videos/', null=True, blank=True)
     county = models.CharField(max_length=255, null=True)
     town = models.CharField(max_length=255)
