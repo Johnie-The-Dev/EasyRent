@@ -26,19 +26,40 @@
                     <p class="card-text"><strong>Type:</strong> {{ item.property.property_type }}</p>
                     <p class="card-text text-muted">{{ item.property.description|truncatewords:15 }}</p>
                     <p class="card-text"><strong>Vacancy:</strong> {{ item.property.vacancy }}</p>
+                    <p class="card-text"><i class="bi bi-phone"></i> <strong>Contact:</strong> {{ item.property.landlord_phone }}
+                        {% if item.property.whatsapp_link %}
+                            <a href="{{ item.property.whatsapp_link }}" target="_blank" rel="noopener" class="btn btn-success btn-sm ms-2">
+                                <i class="bi bi-whatsapp"></i> WhatsApp
+                            </a>
+                        {% endif %}
+                    </p>
 
-                    <div class="d-flex justify-content-between">
+                    <!-- Buttons Row -->
+                    <div class="d-flex justify-content-between mb-2">
                         <!-- Remove Button -->
-                        <a href="{% url 'remove_from_collection' item.property.id %}" class="btn btn-danger w-50">
+                        <a href="{% url 'remove_from_collection' item.property.id %}" class="btn btn-danger w-50 me-1">
                             <i class="bi bi-trash"></i> Remove
                         </a>
                         <!-- Video Button (If Exists) -->
                         {% if item.property.video %}
-                        <button type="button" class="btn btn-primary w-50 ms-2" data-bs-toggle="modal" data-bs-target="#videoModal{{ item.property.id }}">
+                        <button type="button" class="btn btn-primary w-50 ms-1" data-bs-toggle="modal" data-bs-target="#videoModal{{ item.property.id }}">
                             🎥 Watch Video
                         </button>
                         {% endif %}
                     </div>
+                    
+                    <!-- Book Unit / Unbook Button -->
+                    {% if user.is_authenticated and user.is_tenant %}
+                        {% if item.property.id in user_bookings %}
+                            <a href="#" class="btn btn-warning w-100" disabled title="You have booked this property. Go to 'My Bookings' to unbook.">
+                                <i class="bi bi-check-circle"></i> Booked (View My Bookings)
+                            </a>
+                        {% else %}
+                            <a href="{% url 'book_property' item.property.id %}" class="btn btn-info w-100">
+                                <i class="bi bi-calendar-check"></i> Book Unit
+                            </a>
+                        {% endif %}
+                    {% endif %}
                 </div>
             </div>
         </div>
@@ -70,6 +91,7 @@
 
     <div class="text-center mt-4">
         <a href="{% url 'tenant_feed' %}" class="btn btn-light">🔙 Back to Feed</a>
+        <a href="{% url 'tenant_bookings' %}" class="btn btn-info">📅 My Bookings</a>
     </div>
 </div>
 

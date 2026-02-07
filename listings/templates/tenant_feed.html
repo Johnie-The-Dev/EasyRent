@@ -5,6 +5,14 @@
 {% block content %}
 <div class="container py-4">
     <h2 class="mb-4 text-center text-white fw-bold">🏡 Available Properties</h2>
+    
+    {% if user.is_authenticated %}
+    <div class="text-end mb-3">
+        <a href="{% url 'tenant_bookings' %}" class="btn btn-info">
+            <i class="bi bi-calendar-check"></i> My Bookings
+        </a>
+    </div>
+    {% endif %}
 
     <!-- Filter Form -->
     <form method="GET" class="mb-4 p-4 bg-white rounded shadow-sm">
@@ -117,11 +125,17 @@
                         {% endif %}
                     </div>
                     
-                    <!-- Book Button -->
+                    <!-- Book Unit / Unbook Button -->
                     {% if user.is_authenticated and user.is_tenant %}
-                        <a href="{% url 'book_property' property.id %}" class="btn btn-info w-100">
-                            <i class="bi bi-calendar-check"></i> Book Unit
-                        </a>
+                        {% if property.id in user_bookings %}
+                            <a href="#" class="btn btn-warning w-100" disabled title="You have booked this property. Go to 'My Bookings' to unbook.">
+                                <i class="bi bi-check-circle"></i> Booked (View My Bookings)
+                            </a>
+                        {% else %}
+                            <a href="{% url 'book_property' property.id %}" class="btn btn-info w-100">
+                                <i class="bi bi-calendar-check"></i> Book Unit
+                            </a>
+                        {% endif %}
                     {% endif %}
                 </div>
             </div>

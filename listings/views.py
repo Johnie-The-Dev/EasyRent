@@ -74,6 +74,11 @@ def tenant_feed(request):
         "selected_min_price": min_price,
         "selected_max_price": max_price,
     }
+    
+    # Add user's bookings if authenticated
+    if request.user.is_authenticated:
+        user_bookings = Booking.objects.filter(tenant=request.user, status__in=['pending', 'confirmed']).values_list('property_id', flat=True)
+        context['user_bookings'] = list(user_bookings)
 
     return render(request, "tenant_feed.html", context)
 
@@ -165,6 +170,21 @@ def landlord_bookings(request):
     return render(request, 'landlord_bookings.html', {'bookings': bookings})
 
 @login_required
+def tenant_bookings(request):
+    """Display all bookings made by a tenant."""
+    bookings = Booking.objects.filter(tenant=request.user).select_related('property', 'property__landlord')
+    return render(request, 'tenant_bookings.html', {'bookings': bookings})
+
+@login_required
+def unbook_property(request, booking_id):
+    """Allow a tenant to cancel/unbook a property."""
+    booking = get_object_or_404(Booking, id=booking_id, tenant=request.user)
+    property_name = booking.property.name
+    booking.delete()
+    messages.success(request, f"Successfully unbooked {property_name}.")
+    return redirect('tenant_bookings')
+
+@login_required
 def update_booking_status(request, booking_id):
     """Update booking status (confirm/cancel)."""
     booking = get_object_or_404(Booking, id=booking_id)
@@ -204,9 +224,15 @@ def remove_from_collection(request, property_id):
     return redirect('tenant_feed')
 
 @login_required
+@login_required
 def view_collection(request):
     collection = TenantCollection.objects.filter(tenant=request.user)
-    return render(request, 'collection.html', {'collection': collection})
+    # Get user's bookings
+    user_bookings = Booking.objects.filter(tenant=request.user, status__in=['pending', 'confirmed']).values_list('property_id', flat=True)
+    return render(request, 'collection.html', {
+        'collection': collection,
+        'user_bookings': list(user_bookings)
+    })
 
 class CustomLoginView(LoginView):
     template_name = 'login.html'
