@@ -3,34 +3,34 @@
 {% block title %}Tenant Feed - EasyRent{% endblock %}
 
 {% block content %}
-<div class="container py-4">
-    <h2 class="mb-4 text-center text-white fw-bold">🏡 Available Properties</h2>
-    
-    {% if user.is_authenticated %}
-    <div class="text-end mb-3">
-        <a href="{% url 'tenant_bookings' %}" class="btn btn-info">
-            <i class="bi bi-calendar-check"></i> My Bookings
-        </a>
-    </div>
-    {% endif %}
+<div class="container py-5">
+    <!-- Page Header -->
+    <div class="mb-5">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <div>
+                <h2 class="fw-bold mb-1" style="color: var(--primary-color);">🏡 Available Properties</h2>
+                <p class="text-muted">Find your perfect rental home</p>
+            </div>
+            {% if user.is_authenticated %}
+            <a href="{% url 'tenant_bookings' %}" class="btn btn-secondary btn-lg">
+                <i class="bi bi-bookmark-fill"></i> My Bookings
+            </a>
+            {% endif %}
+        </div>
 
-    <!-- Filter Form -->
-    <form method="GET" class="mb-4 p-4 bg-white rounded shadow-sm">
-        <div class="row g-3">
-            <div class="col-md-3">
-                <div class="form-floating">
-                    <input type="text" name="county" class="form-control" id="countyInput" placeholder="Search by County" value="{{ selected_county }}">
-                    <label for="countyInput">Search by County</label>
+        <!-- Filter Form -->
+        <form method="GET" class="mb-5 p-4 bg-white rounded-3" style="box-shadow: 0 2px 12px rgba(0,0,0,0.08);">
+            <div class="row g-3">
+                <div class="col-lg-2 col-md-6">
+                    <label for="countyInput" class="form-label">County</label>
+                    <input type="text" name="county" class="form-control" id="countyInput" placeholder="e.g., Nairobi" value="{{ selected_county }}">
                 </div>
-            </div>
-            <div class="col-md-3">
-                <div class="form-floating">
-                    <input type="text" name="town" class="form-control" id="townInput" placeholder="Search by Town" value="{{ selected_town }}">
-                    <label for="townInput">Search by Town</label>
+                <div class="col-lg-2 col-md-6">
+                    <label for="townInput" class="form-label">Town</label>
+                    <input type="text" name="town" class="form-control" id="townInput" placeholder="e.g., Westlands" value="{{ selected_town }}">
                 </div>
-            </div>
-            <div class="col-md-3">
-                <div class="form-floating">
+                <div class="col-lg-2 col-md-6">
+                    <label for="propertyTypeSelect" class="form-label">Type</label>
                     <select name="property_type" class="form-select" id="propertyTypeSelect">
                         <option value="">All Types</option>
                         <option value="Single Room" {% if selected_type == 'Single Room' %}selected{% endif %}>Single Room</option>
@@ -40,39 +40,36 @@
                         <option value="Three Bedroom" {% if selected_type == 'Three Bedroom' %}selected{% endif %}>Three Bedroom</option>
                         <option value="Apartment" {% if selected_type == 'Apartment' %}selected{% endif %}>Apartment</option>
                     </select>
-                    <label for="propertyTypeSelect">Property Type</label>
+                </div>
+                <div class="col-lg-2 col-md-6">
+                    <label for="minPriceInput" class="form-label">Min Price</label>
+                    <input type="number" name="min_price" class="form-control" id="minPriceInput" placeholder="Min" value="{{ selected_min_price }}">
+                </div>
+                <div class="col-lg-2 col-md-6">
+                    <label for="maxPriceInput" class="form-label">Max Price</label>
+                    <input type="number" name="max_price" class="form-control" id="maxPriceInput" placeholder="Max" value="{{ selected_max_price }}">
+                </div>
+                <div class="col-lg-2 col-md-6 d-flex align-items-end">
+                    <button type="submit" class="btn btn-primary w-100">
+                        <i class="bi bi-search"></i> Filter
+                    </button>
                 </div>
             </div>
-            <div class="col-md-2">
-                <div class="form-floating">
-                    <input type="number" name="min_price" class="form-control" id="minPriceInput" placeholder="Min Price" value="{{ selected_min_price }}">
-                    <label for="minPriceInput">Min Price</label>
-                </div>
-            </div>
-            <div class="col-md-2">
-                <div class="form-floating">
-                    <input type="number" name="max_price" class="form-control" id="maxPriceInput" placeholder="Max Price" value="{{ selected_max_price }}">
-                    <label for="maxPriceInput">Max Price</label>
-                </div>
-            </div>
-            <div class="col-md-2 d-grid">
-                <button type="submit" class="btn btn-primary">🔍 Filter</button>
-            </div>
-        </div>
-    </form>
+        </form>
+    </div>
 
     <!-- Property Listings -->
-    <div class="row">
+    <div class="row g-4">
         {% for property in properties %}
-        <div class="col-md-4 mb-4">
-            <div class="card shadow-sm border-0 property-card">
+        <div class="col-lg-4 col-md-6">
+            <div class="card property-card h-100 border-0" style="border-radius: 12px; overflow: hidden;">
                 <!-- Image Carousel -->
                 {% if property.images.all %}
-                    <div id="carousel{{ property.id }}" class="carousel slide" data-bs-ride="carousel">
+                    <div id="carousel{{ property.id }}" class="carousel slide carousel-dark" data-bs-ride="carousel">
                         <div class="carousel-inner">
                             {% for img in property.images.all %}
                                 <div class="carousel-item {% if forloop.first %}active{% endif %}">
-                                    <img src="{{ img.image.url }}" class="d-block w-100" alt="{{ property.name }}" style="height: 200px; object-fit: cover;">
+                                    <img src="{{ img.image.url }}" class="d-block w-100" alt="{{ property.name }}" style="height: 220px; object-fit: cover;">
                                 </div>
                             {% endfor %}
                         </div>
@@ -86,57 +83,71 @@
                         {% endif %}
                     </div>
                 {% else %}
-                    <div class="bg-light text-center" style="height: 200px; display: flex; align-items: center; justify-content: center;">
-                        <span class="text-muted">No image available</span>
+                    <div class="bg-light text-center d-flex align-items-center justify-content-center" style="height: 220px;">
+                        <div>
+                            <i class="bi bi-image" style="font-size: 2.5rem; color: var(--text-muted);"></i>
+                            <p class="text-muted mt-2">No image</p>
+                        </div>
                     </div>
                 {% endif %}
-                <div class="card-body">
-                    <h5 class="card-title fw-bold">{{ property.name }}</h5>
-                    <p class="card-text text-muted">
-                        <i class="bi bi-geo-alt"></i> <strong>{{ property.county }}</strong>, {{ property.town }}
-                    </p>
-                    <p class="card-text"><strong>Type:</strong> {{ property.property_type }}</p>
-                    <p class="card-text"><strong>Price:</strong> <span class="text-success fw-bold">Ksh {{ property.price }}</span></p>
-                    <p class="card-text"><i class="bi bi-phone"></i> <strong>Contact:</strong> {{ property.landlord_phone }}
+                
+                <div class="card-body d-flex flex-column">
+                    <h5 class="card-title fw-bold mb-2" style="color: var(--primary-color);">{{ property.name }}</h5>
+                    
+                    <!-- Location -->
+                    <div class="mb-2">
+                        <i class="bi bi-geo-alt" style="color: var(--secondary-color);"></i>
+                        <span class="ms-1"><strong>{{ property.county }}</strong>, {{ property.town }}</span>
+                    </div>
+                    
+                    <!-- Property Type & Price -->
+                    <div class="mb-3">
+                        <div class="mb-1">
+                            <span class="badge" style="background: var(--secondary-color);">{{ property.property_type }}</span>
+                        </div>
+                        <p class="card-text fs-5 fw-bold" style="color: var(--success-color);">Ksh {{ property.price }}/month</p>
+                    </div>
+                    
+                    <!-- Description -->
+                    <p class="card-text text-muted small flex-grow-1">{{ property.description|truncatewords:20 }}</p>
+                    
+                    <!-- Contact Info -->
+                    <div class="mb-3 pb-3 border-bottom border-light">
+                        <p class="card-text small mb-1">
+                            <i class="bi bi-telephone" style="color: var(--accent-color);"></i> 
+                            <strong>{{ property.landlord_phone }}</strong>
+                        </p>
                         {% if property.whatsapp_link %}
-                            <a href="{{ property.whatsapp_link }}" target="_blank" rel="noopener" class="btn btn-success btn-sm ms-2">
-                                <i class="bi bi-whatsapp"></i> WhatsApp
+                            <a href="{{ property.whatsapp_link }}" target="_blank" rel="noopener" class="btn btn-success btn-sm w-100">
+                                <i class="bi bi-whatsapp"></i> WhatsApp Landlord
                             </a>
                         {% endif %}
-                    </p>
-                    <p class="text-muted">{{ property.description|truncatewords:15 }}</p>
+                    </div>
                     
-                    <!-- Buttons Row -->
-                    <div class="d-flex justify-content-between mb-2">
+                    <!-- Action Buttons -->
+                    <div class="d-grid gap-2">
                         {% if property.id in saved_properties %}
-                            <a href="{% url 'remove_from_collection' property.id %}" class="btn btn-danger w-50 me-1">
-                                <i class="bi bi-heart-fill"></i> Remove
+                            <a href="{% url 'remove_from_collection' property.id %}" class="btn btn-danger btn-sm">
+                                <i class="bi bi-heart-fill"></i> Remove from Collection
                             </a>
                         {% else %}
-                            <a href="{% url 'add_to_collection' property.id %}" class="btn btn-outline-success w-50 me-1">
+                            <a href="{% url 'add_to_collection' property.id %}" class="btn btn-outline-secondary btn-sm">
                                 <i class="bi bi-heart"></i> Save Property
                             </a>
                         {% endif %}
-
-                        {% if property.video %}
-                            <button type="button" class="btn btn-primary w-50 ms-1" data-bs-toggle="modal" data-bs-target="#videoModal{{ property.id }}">
-                                🎥 Watch Video
-                            </button>
+                        
+                        {% if user.is_authenticated and user.is_tenant %}
+                            {% if property.id in user_bookings %}
+                                <button class="btn btn-warning btn-sm" disabled title="You have booked this property">
+                                    <i class="bi bi-check-circle-fill"></i> Booked
+                                </button>
+                            {% else %}
+                                <a href="{% url 'book_property' property.id %}" class="btn btn-primary btn-sm">
+                                    <i class="bi bi-calendar-check"></i> Book Unit
+                                </a>
+                            {% endif %}
                         {% endif %}
                     </div>
-                    
-                    <!-- Book Unit / Unbook Button -->
-                    {% if user.is_authenticated and user.is_tenant %}
-                        {% if property.id in user_bookings %}
-                            <a href="#" class="btn btn-warning w-100" disabled title="You have booked this property. Go to 'My Bookings' to unbook.">
-                                <i class="bi bi-check-circle"></i> Booked (View My Bookings)
-                            </a>
-                        {% else %}
-                            <a href="{% url 'book_property' property.id %}" class="btn btn-info w-100">
-                                <i class="bi bi-calendar-check"></i> Book Unit
-                            </a>
-                        {% endif %}
-                    {% endif %}
                 </div>
             </div>
         </div>
@@ -145,13 +156,13 @@
         {% if property.video %}
         <div class="modal fade" id="videoModal{{ property.id }}" tabindex="-1" aria-labelledby="videoModalLabel{{ property.id }}" aria-hidden="true">
             <div class="modal-dialog modal-lg">
-                <div class="modal-content">
-                    <div class="modal-header">
-                        <h5 class="modal-title" id="videoModalLabel{{ property.id }}">{{ property.name }} - Video</h5>
+                <div class="modal-content border-0">
+                    <div class="modal-header border-bottom">
+                        <h5 class="modal-title" id="videoModalLabel{{ property.id }}">{{ property.name }} - Property Video</h5>
                         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                     </div>
-                    <div class="modal-body">
-                        <video width="100%" controls>
+                    <div class="modal-body p-0">
+                        <video width="100%" controls style="border-radius: 0 0 8px 8px;">
                             <source src="{{ property.video.url }}" type="video/mp4">
                             Your browser does not support the video tag.
                         </video>
@@ -161,33 +172,47 @@
         </div>
         {% endif %}
         {% empty %}
-        <p class="text-center text-muted">No properties available.</p>
+        <div class="col-12 text-center py-5">
+            <div style="background: white; padding: 3rem; border-radius: 12px;">
+                <i class="bi bi-inbox" style="font-size: 3rem; color: var(--text-muted);"></i>
+                <p class="text-muted mt-3 fs-5">No properties match your search criteria.</p>
+                <a href="{% url 'tenant_feed' %}" class="btn btn-primary btn-sm mt-2">View All Properties</a>
+            </div>
+        </div>
         {% endfor %}
     </div>
 
     <!-- Pagination -->
     {% if properties.has_other_pages %}
-    <nav aria-label="Property pagination">
-        <ul class="pagination justify-content-center mt-4">
+    <nav aria-label="Property pagination" class="mt-5">
+        <ul class="pagination justify-content-center">
             {% if properties.has_previous %}
                 <li class="page-item">
-                    <a class="page-link" href="?page=1">First</a>
+                    <a class="page-link" href="?page=1">
+                        <i class="bi bi-chevron-double-left"></i> First
+                    </a>
                 </li>
                 <li class="page-item">
-                    <a class="page-link" href="?page={{ properties.previous_page_number }}">Previous</a>
+                    <a class="page-link" href="?page={{ properties.previous_page_number }}">
+                        <i class="bi bi-chevron-left"></i> Previous
+                    </a>
                 </li>
             {% endif %}
 
-            <li class="page-item active">
+            <li class="page-item disabled">
                 <span class="page-link">Page {{ properties.number }} of {{ properties.paginator.num_pages }}</span>
             </li>
 
             {% if properties.has_next %}
                 <li class="page-item">
-                    <a class="page-link" href="?page={{ properties.next_page_number }}">Next</a>
+                    <a class="page-link" href="?page={{ properties.next_page_number }}">
+                        Next <i class="bi bi-chevron-right"></i>
+                    </a>
                 </li>
                 <li class="page-item">
-                    <a class="page-link" href="?page={{ properties.paginator.num_pages }}">Last</a>
+                    <a class="page-link" href="?page={{ properties.paginator.num_pages }}">
+                        Last <i class="bi bi-chevron-double-right"></i>
+                    </a>
                 </li>
             {% endif %}
         </ul>
@@ -198,17 +223,32 @@
 <!-- Custom Styles -->
 <style>
     .property-card {
-        transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
-        border-radius: 12px;
-        overflow: hidden;
+        transition: all 0.3s ease;
+        border: 1px solid var(--border-color);
     }
+    
     .property-card:hover {
-        transform: scale(1.03);
-        box-shadow: 0px 10px 20px rgba(0, 0, 0, 0.15);
+        transform: translateY(-8px);
+        box-shadow: 0 12px 32px rgba(0, 0, 0, 0.15);
+        border-color: var(--secondary-color);
     }
 
-    .btn {
-        border-radius: 8px;
+    .carousel-control-prev-icon,
+    .carousel-control-next-icon {
+        background-color: rgba(0, 0, 0, 0.5);
+        border-radius: 50%;
+        padding: 8px;
+    }
+
+    .pagination .page-link {
+        border-radius: 6px;
+        margin: 0 4px;
+        transition: all 0.3s ease;
+    }
+
+    .pagination .page-link:hover {
+        background-color: var(--primary-color);
+        color: white;
     }
 </style>
 {% endblock %}

@@ -3,50 +3,151 @@
 {% block title %}Landlord Dashboard - EasyRent{% endblock %}
 
 {% block content %}
-<div class="container py-4">
-    <h2 class="text-center mb-4 fw-bold">Property Management</h2>
-    <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
-        <a href="{% url 'add_property' %}" class="btn btn-success"><i class="bi bi-plus-lg"></i> Add Property</a>
-        <a href="{% url 'landlord_bookings' %}" class="btn btn-info"><i class="bi bi-calendar-check"></i> View Bookings</a>
-        <a href="{% url 'manage_tenants' %}" class="btn btn-secondary"><i class="bi bi-people-fill"></i> Manage Tenants</a>
-        <a href="{% url 'tenant_list' %}" class="btn btn-secondary">View Tenant List</a>
+<div class="container py-5">
+    <!-- Dashboard Header -->
+    <div class="mb-5">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <div>
+                <h2 class="fw-bold mb-1" style="color: var(--primary-color);">🏠 My Properties</h2>
+                <p class="text-muted">Manage and monitor your rental properties</p>
+            </div>
+            <div class="btn-group" role="group">
+                <a href="{% url 'add_property' %}" class="btn btn-success btn-lg">
+                    <i class="bi bi-plus-lg"></i> Add Property
+                </a>
+                <a href="{% url 'landlord_bookings' %}" class="btn btn-primary btn-lg">
+                    <i class="bi bi-calendar-check"></i> View Bookings
+                </a>
+            </div>
+        </div>
+
+        <!-- Quick Links -->
+        <div class="row g-3 mb-5">
+            <div class="col-md-4">
+                <a href="{% url 'manage_tenants' %}" class="card text-decoration-none border-0 shadow-sm p-3" style="transition: all 0.3s ease;">
+                    <div class="d-flex align-items-center">
+                        <div style="width: 50px; height: 50px; background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-dark) 100%); border-radius: 8px; display: flex; align-items: center; justify-content: center;">
+                            <i class="bi bi-people-fill" style="color: white; font-size: 1.5rem;"></i>
+                        </div>
+                        <div class="ms-3">
+                            <h6 class="mb-0 fw-bold" style="color: var(--text-dark);">Manage Tenants</h6>
+                            <small class="text-muted">Handle tenant information</small>
+                        </div>
+                    </div>
+                </a>
+            </div>
+            <div class="col-md-4">
+                <a href="{% url 'tenant_list' %}" class="card text-decoration-none border-0 shadow-sm p-3" style="transition: all 0.3s ease;">
+                    <div class="d-flex align-items-center">
+                        <div style="width: 50px; height: 50px; background: linear-gradient(135deg, var(--secondary-color) 0%, #3fa9a3 100%); border-radius: 8px; display: flex; align-items: center; justify-content: center;">
+                            <i class="bi bi-list-ul" style="color: white; font-size: 1.5rem;"></i>
+                        </div>
+                        <div class="ms-3">
+                            <h6 class="mb-0 fw-bold" style="color: var(--text-dark);">Tenant List</h6>
+                            <small class="text-muted">View all registered tenants</small>
+                        </div>
+                    </div>
+                </a>
+            </div>
+            <div class="col-md-4">
+                <a href="{% url 'landlord_bookings' %}" class="card text-decoration-none border-0 shadow-sm p-3" style="transition: all 0.3s ease;">
+                    <div class="d-flex align-items-center">
+                        <div style="width: 50px; height: 50px; background: linear-gradient(135deg, var(--accent-color) 0%, #3e72b2 100%); border-radius: 8px; display: flex; align-items: center; justify-content: center;">
+                            <i class="bi bi-calendar2-check" style="color: white; font-size: 1.5rem;"></i>
+                        </div>
+                        <div class="ms-3">
+                            <h6 class="mb-0 fw-bold" style="color: var(--text-dark);">Bookings</h6>
+                            <small class="text-muted">Review property bookings</small>
+                        </div>
+                    </div>
+                </a>
+            </div>
+        </div>
     </div>
-    
-    <div class="row">
+
+    <!-- Properties Grid -->
+    {% if properties %}
+    <div class="row g-4">
         {% for property in properties %}
-        <div class="col-md-4 mb-4">
-            <div class="card shadow-sm property-card">
+        <div class="col-lg-4 col-md-6">
+            <div class="card property-card h-100 border-0" style="border-radius: 12px; overflow: hidden;">
+                <!-- Property Image -->
                 {% if property.images.all %}
-                    <img src="{{ property.images.first.image.url }}" class="card-img-top rounded-top" alt="{{ property.name }}" style="height: 200px; object-fit: cover;">
+                    <img src="{{ property.images.first.image.url }}" class="card-img-top" alt="{{ property.name }}" style="height: 220px; object-fit: cover;">
                 {% else %}
-                    <div class="bg-light text-center" style="height: 200px; display: flex; align-items: center; justify-content: center;">
-                        <span class="text-muted">No image available</span>
+                    <div class="bg-light text-center d-flex align-items-center justify-content-center" style="height: 220px;">
+                        <div>
+                            <i class="bi bi-image" style="font-size: 2.5rem; color: var(--text-muted);"></i>
+                            <p class="text-muted mt-2">No image</p>
+                        </div>
                     </div>
                 {% endif %}
-                <div class="card-body">
-                    <h5 class="card-title fw-bold">{{ property.name }}</h5>
-                    <p class="card-text"><strong>County:</strong> {{ property.county }}</p>
-                    <p class="card-text"><strong>Town:</strong> {{ property.town }}</p>
-                    <p class="card-text"><strong>Type:</strong> {{ property.property_type }}</p>
-                    <p class="card-text"><strong>Price:</strong> Ksh {{ property.price }}</p>
-                    <p class="card-text text-muted">{{ property.description|truncatewords:15 }}</p>
-                    <p class="card-text"><strong>Vacancy:</strong> {{ property.vacancy }}</p>
+                
+                <div class="card-body d-flex flex-column">
+                    <h5 class="card-title fw-bold mb-2" style="color: var(--primary-color);">{{ property.name }}</h5>
+                    
+                    <!-- Location -->
+                    <div class="mb-2">
+                        <i class="bi bi-geo-alt" style="color: var(--secondary-color);"></i>
+                        <span class="ms-1"><strong>{{ property.county }}</strong>, {{ property.town }}</span>
+                    </div>
+                    
+                    <!-- Type & Price -->
+                    <div class="mb-3">
+                        <div class="mb-1">
+                            <span class="badge" style="background: var(--secondary-color);">{{ property.property_type }}</span>
+                        </div>
+                        <p class="card-text fs-5 fw-bold" style="color: var(--success-color);">Ksh {{ property.price }}/month</p>
+                    </div>
+                    
+                    <!-- Description -->
+                    <p class="card-text text-muted small flex-grow-1 mb-2">{{ property.description|truncatewords:20 }}</p>
+                    
+                    <!-- Vacancy -->
+                    <div class="small text-muted mb-3 pb-3 border-bottom border-light">
+                        <i class="bi bi-door-open"></i> 
+                        <strong>Vacancy:</strong> {{ property.vacancy }}
+                    </div>
+                    
+                    <!-- Action Buttons -->
+                    <div class="d-grid gap-2">
+                        <div class="btn-group btn-group-sm" role="group">
+                            <a href="{% url 'edit_property' property.id %}" class="btn btn-warning">
+                                <i class="bi bi-pencil"></i> Edit
+                            </a>
+                            <button type="button" class="btn btn-danger" onclick="return confirm('Delete this property?');" data-bs-toggle="modal" data-bs-target="#deleteModal{{ property.id }}">
+                                <i class="bi bi-trash"></i> Delete
+                            </button>
+                        </div>
+                        
+                        {% if property.video %}
+                        <button type="button" class="btn btn-outline-primary btn-sm" data-bs-toggle="modal" data-bs-target="#videoModal{{ property.id }}">
+                            <i class="bi bi-play-circle"></i> Preview Video
+                        </button>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
 
-                    <div class="d-flex justify-content-between">
-                        <a href="{% url 'edit_property' property.id %}" class="btn btn-warning btn-sm">
-                            <i class="bi bi-pencil"></i> Edit
-                        </a>
+        <!-- Delete Confirmation Modal -->
+        <div class="modal fade" id="deleteModal{{ property.id }}" tabindex="-1" aria-labelledby="deleteModalLabel{{ property.id }}" aria-hidden="true">
+            <div class="modal-dialog modal-sm">
+                <div class="modal-content border-0">
+                    <div class="modal-header border-bottom bg-light">
+                        <h5 class="modal-title fw-bold" id="deleteModalLabel{{ property.id }}">Delete Property?</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <p class="mb-0">Are you sure you want to delete <strong>{{ property.name }}</strong>?</p>
+                        <p class="text-muted small mt-2">This action cannot be undone.</p>
+                    </div>
+                    <div class="modal-footer border-top bg-light">
+                        <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Keep It</button>
                         <a href="{% url 'delete_property' property.id %}" class="btn btn-danger btn-sm">
-                            <i class="bi bi-trash"></i> Delete
+                            Yes, Delete
                         </a>
                     </div>
-
-                    <!-- Video Button (If Exists) -->
-                    {% if property.video %}
-                    <button type="button" class="btn btn-primary btn-sm mt-2 w-100" data-bs-toggle="modal" data-bs-target="#videoModal{{ property.id }}">
-                        🎥 Preview Video
-                    </button>
-                    {% endif %}
                 </div>
             </div>
         </div>
@@ -55,13 +156,13 @@
         {% if property.video %}
         <div class="modal fade" id="videoModal{{ property.id }}" tabindex="-1" aria-labelledby="videoModalLabel{{ property.id }}" aria-hidden="true">
             <div class="modal-dialog modal-lg">
-                <div class="modal-content">
-                    <div class="modal-header">
-                        <h5 class="modal-title" id="videoModalLabel{{ property.id }}">{{ property.name }} - Video</h5>
+                <div class="modal-content border-0">
+                    <div class="modal-header border-bottom">
+                        <h5 class="modal-title fw-bold" id="videoModalLabel{{ property.id }}">{{ property.name }} - Property Video</h5>
                         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                     </div>
-                    <div class="modal-body">
-                        <video width="100%" controls>
+                    <div class="modal-body p-0">
+                        <video width="100%" controls style="border-radius: 0 0 8px 8px;">
                             <source src="{{ property.video.url }}" type="video/mp4">
                             Your browser does not support the video tag.
                         </video>
@@ -70,29 +171,36 @@
             </div>
         </div>
         {% endif %}
-        {% empty %}
-        <div class="col-12">
-            <p class="text-center text-muted">No properties listed yet. Start by adding a new property!</p>
-        </div>
         {% endfor %}
     </div>
+    {% else %}
+    <!-- Empty State -->
+    <div class="card border-0 shadow-sm p-5 text-center" style="background: linear-gradient(135deg, rgba(106, 76, 156, 0.05) 0%, rgba(80, 201, 195, 0.05) 100%);">
+        <i class="bi bi-house" style="font-size: 3.5rem; color: var(--text-muted); margin-bottom: 1rem;"></i>
+        <h4 class="fw-bold text-muted mb-2">No Properties Listed</h4>
+        <p class="text-muted mb-4">Start by adding your first property to begin managing your rentals.</p>
+        <a href="{% url 'add_property' %}" class="btn btn-success btn-lg">
+            <i class="bi bi-plus-lg"></i> Add Your First Property
+        </a>
+    </div>
+    {% endif %}
 </div>
 
 <!-- Custom Styles -->
 <style>
     .property-card {
-        transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
-        border-radius: 12px;
-        overflow: hidden;
+        transition: all 0.3s ease;
+        border: 1px solid var(--border-color);
     }
 
     .property-card:hover {
-        transform: scale(1.03);
-        box-shadow: 0px 10px 20px rgba(0, 0, 0, 0.15);
+        transform: translateY(-8px);
+        box-shadow: 0 12px 32px rgba(0, 0, 0, 0.15);
+        border-color: var(--secondary-color);
     }
 
-    .btn {
-        border-radius: 8px;
+    .card:hover {
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12) !important;
     }
 </style>
 {% endblock %}

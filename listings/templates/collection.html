@@ -3,63 +3,146 @@
 {% block title %}My Collection - EasyRent{% endblock %}
 
 {% block content %}
-<div class="container py-4" style="background: linear-gradient(135deg, #6a11cb, #2575fc); border-radius: 8px;">
-    <h2 class="text-center mb-4 text-white fw-bold">My Saved Properties</h2>
-    
+<div class="container py-5">
+    <!-- Header -->
+    <div class="mb-5">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <div>
+                <h2 class="fw-bold mb-1" style="color: var(--primary-color);">❤️ My Saved Properties</h2>
+                <p class="text-muted">Collection of properties you're interested in</p>
+            </div>
+            <div class="btn-group">
+                <a href="{% url 'tenant_feed' %}" class="btn btn-secondary">
+                    <i class="bi bi-house-fill"></i> Browse All
+                </a>
+                <a href="{% url 'tenant_bookings' %}" class="btn btn-outline-secondary">
+                    <i class="bi bi-calendar-check"></i> My Bookings
+                </a>
+            </div>
+        </div>
+    </div>
+
     {% if collection %}
-    <div class="row">
+    <!-- Collections Grid -->
+    <div class="row g-4">
         {% for item in collection %}
-        <div class="col-md-4 mb-4">
-            <div class="card shadow-sm border-0 property-card">
+        <div class="col-lg-4 col-md-6">
+            <div class="card property-card h-100 border-0" style="border-radius: 12px; overflow: hidden;">
+                <!-- Property Image -->
                 {% if item.property.images.all %}
-                    <img src="{{ item.property.images.first.image.url }}" class="card-img-top rounded-top" alt="{{ item.property.name }}" style="height: 200px; object-fit: cover;">
+                    <img src="{{ item.property.images.first.image.url }}" class="card-img-top" alt="{{ item.property.name }}" style="height: 220px; object-fit: cover; cursor: pointer;" data-bs-toggle="modal" data-bs-target="#imageModal{{ item.property.id }}">
                 {% else %}
-                    <div class="bg-light text-center" style="height: 200px; display: flex; align-items: center; justify-content: center;">
-                        <span class="text-muted">No image available</span>
+                    <div class="bg-light text-center d-flex align-items-center justify-content-center" style="height: 220px;">
+                        <div>
+                            <i class="bi bi-image" style="font-size: 2.5rem; color: var(--text-muted);"></i>
+                            <p class="text-muted mt-2">No image</p>
+                        </div>
                     </div>
                 {% endif %}
-                <div class="card-body">
-                    <h5 class="card-title fw-bold">{{ item.property.name }}</h5>
-                    <p class="card-text text-muted"><i class="bi bi-geo-alt"></i> <strong>{{ item.property.county }}</strong>, {{ item.property.town }}</p>
-                    <p class="card-text"><strong>Price:</strong> Ksh {{ item.property.price }}</p>
-                    <p class="card-text"><strong>Contact:</strong> {{ item.property.landlord_phone }}</p>
-                    <p class="card-text"><strong>Type:</strong> {{ item.property.property_type }}</p>
-                    <p class="card-text text-muted">{{ item.property.description|truncatewords:15 }}</p>
-                    <p class="card-text"><strong>Vacancy:</strong> {{ item.property.vacancy }}</p>
-                    <p class="card-text"><i class="bi bi-phone"></i> <strong>Contact:</strong> {{ item.property.landlord_phone }}
-                        {% if item.property.whatsapp_link %}
-                            <a href="{{ item.property.whatsapp_link }}" target="_blank" rel="noopener" class="btn btn-success btn-sm ms-2">
-                                <i class="bi bi-whatsapp"></i> WhatsApp
-                            </a>
-                        {% endif %}
-                    </p>
-
-                    <!-- Buttons Row -->
-                    <div class="d-flex justify-content-between mb-2">
-                        <!-- Remove Button -->
-                        <a href="{% url 'remove_from_collection' item.property.id %}" class="btn btn-danger w-50 me-1">
-                            <i class="bi bi-trash"></i> Remove
-                        </a>
-                        <!-- Video Button (If Exists) -->
-                        {% if item.property.video %}
-                        <button type="button" class="btn btn-primary w-50 ms-1" data-bs-toggle="modal" data-bs-target="#videoModal{{ item.property.id }}">
-                            🎥 Watch Video
-                        </button>
-                        {% endif %}
+                
+                <div class="card-body d-flex flex-column">
+                    <h5 class="card-title fw-bold mb-2" style="color: var(--primary-color);">{{ item.property.name }}</h5>
+                    
+                    <!-- Location -->
+                    <div class="mb-2">
+                        <i class="bi bi-geo-alt" style="color: var(--secondary-color);"></i>
+                        <span class="ms-1"><strong>{{ item.property.county }}</strong>, {{ item.property.town }}</span>
                     </div>
                     
-                    <!-- Book Unit / Unbook Button -->
-                    {% if user.is_authenticated and user.is_tenant %}
-                        {% if item.property.id in user_bookings %}
-                            <a href="#" class="btn btn-warning w-100" disabled title="You have booked this property. Go to 'My Bookings' to unbook.">
-                                <i class="bi bi-check-circle"></i> Booked (View My Bookings)
-                            </a>
-                        {% else %}
-                            <a href="{% url 'book_property' item.property.id %}" class="btn btn-info w-100">
-                                <i class="bi bi-calendar-check"></i> Book Unit
-                            </a>
+                    <!-- Type & Price -->
+                    <div class="mb-3">
+                        <div class="mb-1">
+                            <span class="badge" style="background: var(--secondary-color);">{{ item.property.property_type }}</span>
+                        </div>
+                        <p class="card-text fs-5 fw-bold" style="color: var(--success-color);">Ksh {{ item.property.price }}/month</p>
+                    </div>
+                    
+                    <!-- Description -->
+                    <p class="card-text text-muted small flex-grow-1">{{ item.property.description|truncatewords:20 }}</p>
+                    
+                    <!-- Vacancy Info -->
+                    <div class="small text-muted mb-3">
+                        <i class="bi bi-door-open"></i> 
+                        <strong>Vacancy:</strong> {{ item.property.vacancy }}
+                    </div>
+                    
+                    <!-- Contact Info -->
+                    <div class="mb-3 pb-3 border-bottom border-light">
+                        <p class="card-text small mb-1">
+                            <i class="bi bi-telephone" style="color: var(--accent-color);"></i> 
+                            <strong>{{ item.property.landlord_phone }}</strong>
+                        </p>
+                        <div class="row g-2">
+                            {% if item.property.whatsapp_link %}
+                            <div class="col-6">
+                                <a href="{{ item.property.whatsapp_link }}" target="_blank" rel="noopener" class="btn btn-success btn-sm w-100">
+                                    <i class="bi bi-whatsapp"></i> Message
+                                </a>
+                            </div>
+                            {% endif %}
+                            {% if item.property.video %}
+                            <div class="col-6">
+                                <button type="button" class="btn btn-outline-primary btn-sm w-100" data-bs-toggle="modal" data-bs-target="#videoModal{{ item.property.id }}">
+                                    <i class="bi bi-play-circle"></i> Video
+                                </button>
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    
+                    <!-- Action Buttons -->
+                    <div class="d-grid gap-2">
+                        <!-- Book/Booked Button -->
+                        {% if user.is_authenticated and user.is_tenant %}
+                            {% if item.property.id in user_bookings %}
+                                <button class="btn btn-warning btn-sm" disabled title="You have booked this property">
+                                    <i class="bi bi-check-circle-fill"></i> Booked
+                                </button>
+                            {% else %}
+                                <a href="{% url 'book_property' item.property.id %}" class="btn btn-primary btn-sm">
+                                    <i class="bi bi-calendar-check"></i> Book Unit
+                                </a>
+                            {% endif %}
                         {% endif %}
-                    {% endif %}
+                        
+                        <!-- Remove Button -->
+                        <a href="{% url 'remove_from_collection' item.property.id %}" class="btn btn-outline-danger btn-sm">
+                            <i class="bi bi-heart-fill"></i> Remove from Collection
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Image Modal -->
+        <div class="modal fade" id="imageModal{{ item.property.id }}" tabindex="-1" aria-labelledby="imageModalLabel{{ item.property.id }}" aria-hidden="true">
+            <div class="modal-dialog modal-lg">
+                <div class="modal-content border-0">
+                    <div class="modal-header border-bottom">
+                        <h5 class="modal-title fw-bold" id="imageModalLabel{{ item.property.id }}">{{ item.property.name }}</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body p-0">
+                        {% if item.property.images.all %}
+                            <div id="imageCarousel{{ item.property.id }}" class="carousel slide" data-bs-ride="carousel">
+                                <div class="carousel-inner">
+                                    {% for img in item.property.images.all %}
+                                        <div class="carousel-item {% if forloop.first %}active{% endif %}">
+                                            <img src="{{ img.image.url }}" class="d-block w-100" alt="{{ item.property.name }}" style="max-height: 500px; object-fit: contain;">
+                                        </div>
+                                    {% endfor %}
+                                </div>
+                                {% if item.property.images.count > 1 %}
+                                    <button class="carousel-control-prev" type="button" data-bs-target="#imageCarousel{{ item.property.id }}" data-bs-slide="prev">
+                                        <span class="carousel-control-prev-icon" aria-hidden="true"></span>
+                                    </button>
+                                    <button class="carousel-control-next" type="button" data-bs-target="#imageCarousel{{ item.property.id }}" data-bs-slide="next">
+                                        <span class="carousel-control-next-icon" aria-hidden="true"></span>
+                                    </button>
+                                {% endif %}
+                            </div>
+                        {% endif %}
+                    </div>
                 </div>
             </div>
         </div>
@@ -68,13 +151,13 @@
         {% if item.property.video %}
         <div class="modal fade" id="videoModal{{ item.property.id }}" tabindex="-1" aria-labelledby="videoModalLabel{{ item.property.id }}" aria-hidden="true">
             <div class="modal-dialog modal-lg">
-                <div class="modal-content">
-                    <div class="modal-header">
-                        <h5 class="modal-title" id="videoModalLabel{{ item.property.id }}">{{ item.property.name }} - Video</h5>
+                <div class="modal-content border-0">
+                    <div class="modal-header border-bottom">
+                        <h5 class="modal-title fw-bold" id="videoModalLabel{{ item.property.id }}">{{ item.property.name }} - Property Video</h5>
                         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                     </div>
-                    <div class="modal-body">
-                        <video width="100%" controls>
+                    <div class="modal-body p-0">
+                        <video width="100%" controls style="border-radius: 0 0 8px 8px;">
                             <source src="{{ item.property.video.url }}" type="video/mp4">
                             Your browser does not support the video tag.
                         </video>
@@ -86,30 +169,36 @@
         {% endfor %}
     </div>
     {% else %}
-    <p class="text-center text-white">You have no saved properties.</p>
-    {% endif %}
-
-    <div class="text-center mt-4">
-        <a href="{% url 'tenant_feed' %}" class="btn btn-light">🔙 Back to Feed</a>
-        <a href="{% url 'tenant_bookings' %}" class="btn btn-info">📅 My Bookings</a>
+    <!-- Empty State -->
+    <div class="card border-0 shadow-sm p-5 text-center" style="background: linear-gradient(135deg, rgba(106, 76, 156, 0.05) 0%, rgba(80, 201, 195, 0.05) 100%);">
+        <i class="bi bi-heart" style="font-size: 3.5rem; color: var(--text-muted); margin-bottom: 1rem;"></i>
+        <h4 class="fw-bold text-muted mb-2">No Saved Properties</h4>
+        <p class="text-muted mb-4">Start adding properties to your collection when you find ones you like!</p>
+        <a href="{% url 'tenant_feed' %}" class="btn btn-primary btn-lg">
+            <i class="bi bi-search"></i> Browse Properties
+        </a>
     </div>
+    {% endif %}
 </div>
 
 <!-- Custom Styles -->
 <style>
     .property-card {
-        transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
-        border-radius: 12px;
-        overflow: hidden;
+        transition: all 0.3s ease;
+        border: 1px solid var(--border-color);
     }
 
     .property-card:hover {
-        transform: scale(1.03);
-        box-shadow: 0px 10px 20px rgba(0, 0, 0, 0.15);
+        transform: translateY(-8px);
+        box-shadow: 0 12px 32px rgba(0, 0, 0, 0.15);
+        border-color: var(--secondary-color);
     }
 
-    .btn {
-        border-radius: 8px;
+    .carousel-control-prev-icon,
+    .carousel-control-next-icon {
+        background-color: rgba(0, 0, 0, 0.5);
+        border-radius: 50%;
+        padding: 8px;
     }
 </style>
 {% endblock %}
