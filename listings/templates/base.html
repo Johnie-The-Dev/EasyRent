@@ -74,15 +74,16 @@
         object-fit: contain;
       }
       
-      .navbar-nav .nav-link {
-        color: #ffffff !important;
-        margin: 0 8px;
-        font-weight: 500;
-        font-size: 0.95rem;
-        transition: all 0.3s ease;
-        position: relative;
-        padding: 8px 12px !important;
-      }
+        .navbar-nav .nav-link {
+          color: #ffffff !important;
+          margin: 0 6px;
+          font-weight: 600;
+          font-size: 0.95rem;
+          transition: color 0.2s ease;
+          position: relative;
+          padding: 6px 10px !important;
+          background: transparent;
+        }
       
       .navbar-nav .nav-link:hover {
         color: var(--secondary-color) !important;
@@ -104,14 +105,17 @@
       }
 
       /* Button Styling */
-      .btn {
-        font-weight: 600;
-        border-radius: 6px;
-        transition: all 0.3s ease;
-        border: none;
-        cursor: pointer;
-        padding: 0.6rem 1.2rem;
-      }
+        .btn {
+          font-weight: 600;
+          border-radius: 6px;
+          transition: all 0.18s ease;
+          border: none;
+          cursor: pointer;
+          padding: 0.5rem 1rem;
+          display: inline-flex;
+          align-items: center;
+          gap: 0.5rem;
+        }
       
       .btn-primary {
         background: linear-gradient(135deg, var(--accent-color) 0%, #3e72b2 100%);
@@ -240,12 +244,17 @@
       }
 
       /* Container & Spacing */
-      .container {
-        max-width: 900px;
-        flex: 1;
-        margin-top: 1rem;
-        margin-bottom: 1rem;
-      }
+        .container {
+          max-width: 1000px;
+          flex: 1;
+          margin-top: 1rem;
+          margin-bottom: 1rem;
+          padding-left: 12px;
+          padding-right: 12px;
+        }
+
+        /* Utility to keep single CTA in hero sections */
+        .hero-ctas > a, .hero-ctas > button { min-width: 180px; }
 
       /* Navbar Toggler */
       .navbar-toggler {
@@ -381,11 +390,7 @@
             </li>
             {% endif %}
             <li class="nav-item">
-              <a
-                class="nav-link text-white btn btn-danger px-3 py-1"
-                href="{% url 'logout' %}"
-                >Logout</a
-              >
+              <a class="btn btn-danger logout-btn px-3 py-1" href="{% url 'logout' %}">Logout</a>
             </li>
             {% else %}
             <li class="nav-item">

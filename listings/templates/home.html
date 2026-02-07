@@ -16,16 +16,9 @@
         text-align: center;
         box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.1);
     }
-    .btn-custom {
-        padding: 12px 20px;
-        font-size: 18px;
-        border-radius: 8px;
-        margin: 8px 0;  /* Adding space between buttons */
-        transition: all 0.3s ease-in-out;  /* Smooth transition for hover effect */
-    }
-    .btn-custom:hover {
-        transform: scale(1.05);  /* Slightly enlarge the button on hover */
-    }
+    .hero-ctas { display:flex; gap:12px; justify-content:center; flex-wrap:wrap; }
+    .hero-ctas .btn { padding: 10px 18px; font-size: 16px; border-radius: 8px; }
+    .hero-ctas .btn:hover { transform: translateY(-3px); }
 </style>
 
 <div class="container d-flex justify-content-center">
@@ -34,21 +27,19 @@
         <p class="lead text-secondary">Find your perfect home with ease.</p>
 
         <!-- Navigation Links -->
-        <div class="mt-4">
+        <div class="mt-4 hero-ctas">
             {% if user.is_authenticated %}
                 {% if user.is_landlord %}
-                    <a href="{% url 'landlord_dashboard' %}" class="btn btn-primary btn-lg btn-custom">Go to Dashboard</a>
-                    <a href="{% url 'landlord_profile' %}" class="btn btn-outline-info btn-lg btn-custom">My Profile</a>
+                    <a href="{% url 'landlord_dashboard' %}" class="btn btn-primary btn-lg">Go to Dashboard</a>
                 {% else %}
-                    <a href="{% url 'tenant_feed' %}" class="btn btn-primary btn-lg btn-custom">Browse Properties</a>
-                    <a href="{% url 'view_collection' %}" class="btn btn-outline-secondary btn-lg btn-custom">My Collection</a>
-                    <a href="{% url 'tenant_profile' %}" class="btn btn-info btn-lg btn-custom">My Profile</a>
+                    <a href="{% url 'tenant_feed' %}" class="btn btn-primary btn-lg">Browse Properties</a>
+                    <a href="{% url 'view_collection' %}" class="btn btn-outline-secondary btn-lg">My Collection</a>
 
                 {% endif %}
-                <a href="{% url 'logout' %}" class="btn btn-danger btn-lg btn-custom">Logout</a>
+                <!-- logout in navbar; removed here to avoid duplicate CTA -->
             {% else %}
-                <a href="{% url 'signup' %}" class="btn btn-success btn-lg btn-custom">Sign Up</a>
-                <a href="{% url 'login' %}" class="btn btn-outline-primary btn-lg btn-custom">Login</a>
+                <a href="{% url 'signup' %}" class="btn btn-success btn-lg">Sign Up</a>
+                <a href="{% url 'login' %}" class="btn btn-outline-primary btn-lg">Login</a>
             {% endif %}
         </div>
     </div>

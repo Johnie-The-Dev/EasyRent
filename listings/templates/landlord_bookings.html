@@ -86,23 +86,27 @@
                             {% endif %}
                         </td>
                         <td style="padding: 1.2rem; vertical-align: middle; text-align: center;">
+                            {% if booking.status == 'pending' %}
                             <form method="POST" action="{% url 'update_booking_status' booking.id %}" class="d-inline">
                                 {% csrf_token %}
                                 <div class="btn-group btn-group-sm" role="group">
-                                    {% if booking.status != 'confirmed' %}
-                                    <button type="submit" name="status" value="confirmed" class="btn btn-success btn-sm" title="Confirm booking">
+                                    <button type="submit" name="status" value="confirmed" class="btn btn-success" title="Confirm booking">
                                         <i class="bi bi-check-lg"></i> Confirm
                                     </button>
-                                    {% endif %}
-                                    {% if booking.status != 'cancelled' %}
-                                    <button type="submit" name="status" value="cancelled" class="btn btn-danger btn-sm" title="Cancel booking">
-                                        <i class="bi bi-x-lg"></i> Cancel
+                                    <button type="submit" name="status" value="cancelled" class="btn btn-danger" title="Reject booking">
+                                        <i class="bi bi-x-lg"></i> Reject
                                     </button>
-                                    {% endif %}
                                 </div>
                             </form>
-                            {% if booking.status == 'confirmed' or booking.status == 'cancelled' %}
-                                <span class="text-muted small">—</span>
+                            {% elif booking.status == 'confirmed' %}
+                            <form method="POST" action="{% url 'update_booking_status' booking.id %}" class="d-inline">
+                                {% csrf_token %}
+                                <button type="submit" name="status" value="cancelled" class="btn btn-sm btn-outline-danger" title="Cancel this booking">
+                                    <i class="bi bi-x-circle"></i> Cancel
+                                </button>
+                            </form>
+                            {% else %}
+                                <span class="badge bg-secondary">No actions</span>
                             {% endif %}
                         </td>
                     </tr>

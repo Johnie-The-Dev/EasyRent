@@ -30,7 +30,7 @@
             <div class="card property-card h-100 border-0" style="border-radius: 12px; overflow: hidden;">
                 <!-- Property Image -->
                 {% if item.property.images.all %}
-                    <img src="{{ item.property.images.first.image.url }}" class="card-img-top" alt="{{ item.property.name }}" style="height: 220px; object-fit: cover; cursor: pointer;" data-bs-toggle="modal" data-bs-target="#imageModal{{ item.property.id }}">
+                    <img src="{{ item.property.images.first.image.url }}" class="card-img-top" alt="{{ item.property.name }}" style="height: 220px; object-fit: cover; cursor: pointer;" data-bs-toggle="modal" data-bs-target="#imageModal" data-images="{% for img in item.property.images.all %}{{ img.image.url }}{% if not forloop.last %}|{% endif %}{% endfor %}" data-property-name="{{ item.property.name }}">
                 {% else %}
                     <div class="bg-light text-center d-flex align-items-center justify-content-center" style="height: 220px;">
                         <div>
@@ -68,23 +68,21 @@
                     
                     <!-- Contact Info -->
                     <div class="mb-3 pb-3 border-bottom border-light">
-                        <p class="card-text small mb-1">
+                        <p class="card-text small mb-2">
                             <i class="bi bi-telephone" style="color: var(--accent-color);"></i> 
                             <strong>{{ item.property.landlord_phone }}</strong>
                         </p>
                         <div class="row g-2">
+                            <div class="col-6">
+                                <a href="tel:{{ item.property.landlord_phone }}" class="btn btn-outline-secondary btn-sm w-100">
+                                    <i class="bi bi-telephone"></i> Call
+                                </a>
+                            </div>
                             {% if item.property.whatsapp_link %}
                             <div class="col-6">
                                 <a href="{{ item.property.whatsapp_link }}" target="_blank" rel="noopener" class="btn btn-success btn-sm w-100">
                                     <i class="bi bi-whatsapp"></i> Message
                                 </a>
-                            </div>
-                            {% endif %}
-                            {% if item.property.video %}
-                            <div class="col-6">
-                                <button type="button" class="btn btn-outline-primary btn-sm w-100" data-bs-toggle="modal" data-bs-target="#videoModal{{ item.property.id }}">
-                                    <i class="bi bi-play-circle"></i> Video
-                                </button>
                             </div>
                             {% endif %}
                         </div>
@@ -114,58 +112,7 @@
             </div>
         </div>
 
-        <!-- Image Modal -->
-        <div class="modal fade" id="imageModal{{ item.property.id }}" tabindex="-1" aria-labelledby="imageModalLabel{{ item.property.id }}" aria-hidden="true">
-            <div class="modal-dialog modal-lg">
-                <div class="modal-content border-0">
-                    <div class="modal-header border-bottom">
-                        <h5 class="modal-title fw-bold" id="imageModalLabel{{ item.property.id }}">{{ item.property.name }}</h5>
-                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                    </div>
-                    <div class="modal-body p-0">
-                        {% if item.property.images.all %}
-                            <div id="imageCarousel{{ item.property.id }}" class="carousel slide" data-bs-ride="carousel">
-                                <div class="carousel-inner">
-                                    {% for img in item.property.images.all %}
-                                        <div class="carousel-item {% if forloop.first %}active{% endif %}">
-                                            <img src="{{ img.image.url }}" class="d-block w-100" alt="{{ item.property.name }}" style="max-height: 500px; object-fit: contain;">
-                                        </div>
-                                    {% endfor %}
-                                </div>
-                                {% if item.property.images.count > 1 %}
-                                    <button class="carousel-control-prev" type="button" data-bs-target="#imageCarousel{{ item.property.id }}" data-bs-slide="prev">
-                                        <span class="carousel-control-prev-icon" aria-hidden="true"></span>
-                                    </button>
-                                    <button class="carousel-control-next" type="button" data-bs-target="#imageCarousel{{ item.property.id }}" data-bs-slide="next">
-                                        <span class="carousel-control-next-icon" aria-hidden="true"></span>
-                                    </button>
-                                {% endif %}
-                            </div>
-                        {% endif %}
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Video Modal -->
-        {% if item.property.video %}
-        <div class="modal fade" id="videoModal{{ item.property.id }}" tabindex="-1" aria-labelledby="videoModalLabel{{ item.property.id }}" aria-hidden="true">
-            <div class="modal-dialog modal-lg">
-                <div class="modal-content border-0">
-                    <div class="modal-header border-bottom">
-                        <h5 class="modal-title fw-bold" id="videoModalLabel{{ item.property.id }}">{{ item.property.name }} - Property Video</h5>
-                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                    </div>
-                    <div class="modal-body p-0">
-                        <video width="100%" controls style="border-radius: 0 0 8px 8px;">
-                            <source src="{{ item.property.video.url }}" type="video/mp4">
-                            Your browser does not support the video tag.
-                        </video>
-                    </div>
-                </div>
-            </div>
-        </div>
-        {% endif %}
+        
         {% endfor %}
     </div>
     {% else %}
@@ -202,3 +149,85 @@
     }
 </style>
 {% endblock %}
+
+<!-- Shared Image Modal -->
+<div class="modal fade" id="imageModal" tabindex="-1" aria-labelledby="imageModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content border-0">
+            <div class="modal-header border-bottom">
+                <h5 class="modal-title fw-bold" id="imageModalLabel"></h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-0">
+                <div id="sharedImageCarousel" class="carousel slide" data-bs-ride="carousel">
+                    <div class="carousel-inner" id="sharedImageCarouselInner"></div>
+                    <button class="carousel-control-prev" type="button" data-bs-target="#sharedImageCarousel" data-bs-slide="prev">
+                        <span class="carousel-control-prev-icon" aria-hidden="true"></span>
+                    </button>
+                    <button class="carousel-control-next" type="button" data-bs-target="#sharedImageCarousel" data-bs-slide="next">
+                        <span class="carousel-control-next-icon" aria-hidden="true"></span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Shared Video Modal -->
+<div class="modal fade" id="videoModal" tabindex="-1" aria-labelledby="videoModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content border-0">
+            <div class="modal-header border-bottom">
+                <h5 class="modal-title fw-bold" id="videoModalLabel"></h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-0">
+                <video id="sharedVideoPlayer" width="100%" controls style="border-radius: 0 0 8px 8px;">
+                    <source id="sharedVideoSource" src="" type="video/mp4">
+                    Your browser does not support the video tag.
+                </video>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function(){
+    var imageModal = document.getElementById('imageModal');
+    if (imageModal) {
+        imageModal.addEventListener('show.bs.modal', function(event){
+            var btn = event.relatedTarget;
+            var images = btn.getAttribute('data-images') || '';
+            var propName = btn.getAttribute('data-property-name') || '';
+            document.getElementById('imageModalLabel').textContent = propName;
+            var inner = document.getElementById('sharedImageCarouselInner');
+            inner.innerHTML = '';
+            if (images) {
+                images.split('|').forEach(function(url, idx){
+                    var div = document.createElement('div');
+                    div.className = 'carousel-item' + (idx===0 ? ' active' : '');
+                    div.innerHTML = '<img src="'+url+'" class="d-block w-100" style="max-height:500px; object-fit:contain;">';
+                    inner.appendChild(div);
+                });
+            }
+        });
+    }
+
+    var videoModal = document.getElementById('videoModal');
+    if (videoModal) {
+        videoModal.addEventListener('show.bs.modal', function(event){
+            var btn = event.relatedTarget;
+            var videoUrl = btn.getAttribute('data-video-url') || '';
+            var propName = btn.getAttribute('data-property-name') || '';
+            document.getElementById('videoModalLabel').textContent = propName ? (propName + ' - Property Video') : 'Property Video';
+            var src = document.getElementById('sharedVideoSource');
+            src.setAttribute('src', videoUrl);
+            document.getElementById('sharedVideoPlayer').load();
+        });
+        videoModal.addEventListener('hidden.bs.modal', function(){
+            var player = document.getElementById('sharedVideoPlayer');
+            player.pause();
+        });
+    }
+});
+</script>

@@ -111,66 +111,23 @@
                     
                     <!-- Action Buttons -->
                     <div class="d-grid gap-2">
-                        <div class="btn-group btn-group-sm" role="group">
-                            <a href="{% url 'edit_property' property.id %}" class="btn btn-warning">
-                                <i class="bi bi-pencil"></i> Edit
+                            <a href="{% url 'edit_property' property.id %}" class="btn btn-primary btn-sm">
+                                <i class="bi bi-pencil"></i> Edit Property
                             </a>
-                            <button type="button" class="btn btn-danger" onclick="return confirm('Delete this property?');" data-bs-toggle="modal" data-bs-target="#deleteModal{{ property.id }}">
+                            <button type="button" class="btn btn-outline-danger btn-sm" data-bs-toggle="modal" data-bs-target="#deleteModal" data-delete-url="{% url 'delete_property' property.id %}" data-property-name="{{ property.name }}">
                                 <i class="bi bi-trash"></i> Delete
                             </button>
-                        </div>
-                        
-                        {% if property.video %}
-                        <button type="button" class="btn btn-outline-primary btn-sm" data-bs-toggle="modal" data-bs-target="#videoModal{{ property.id }}">
-                            <i class="bi bi-play-circle"></i> Preview Video
-                        </button>
-                        {% endif %}
+                            {% if property.video %}
+                            <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-toggle="modal" data-bs-target="#videoModal" data-video-url="{{ property.video.url }}" data-property-name="{{ property.name }}">
+                                <i class="bi bi-play-circle"></i> Video
+                            </button>
+                            {% endif %}
                     </div>
                 </div>
             </div>
         </div>
 
-        <!-- Delete Confirmation Modal -->
-        <div class="modal fade" id="deleteModal{{ property.id }}" tabindex="-1" aria-labelledby="deleteModalLabel{{ property.id }}" aria-hidden="true">
-            <div class="modal-dialog modal-sm">
-                <div class="modal-content border-0">
-                    <div class="modal-header border-bottom bg-light">
-                        <h5 class="modal-title fw-bold" id="deleteModalLabel{{ property.id }}">Delete Property?</h5>
-                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                    </div>
-                    <div class="modal-body">
-                        <p class="mb-0">Are you sure you want to delete <strong>{{ property.name }}</strong>?</p>
-                        <p class="text-muted small mt-2">This action cannot be undone.</p>
-                    </div>
-                    <div class="modal-footer border-top bg-light">
-                        <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Keep It</button>
-                        <a href="{% url 'delete_property' property.id %}" class="btn btn-danger btn-sm">
-                            Yes, Delete
-                        </a>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Video Modal -->
-        {% if property.video %}
-        <div class="modal fade" id="videoModal{{ property.id }}" tabindex="-1" aria-labelledby="videoModalLabel{{ property.id }}" aria-hidden="true">
-            <div class="modal-dialog modal-lg">
-                <div class="modal-content border-0">
-                    <div class="modal-header border-bottom">
-                        <h5 class="modal-title fw-bold" id="videoModalLabel{{ property.id }}">{{ property.name }} - Property Video</h5>
-                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                    </div>
-                    <div class="modal-body p-0">
-                        <video width="100%" controls style="border-radius: 0 0 8px 8px;">
-                            <source src="{{ property.video.url }}" type="video/mp4">
-                            Your browser does not support the video tag.
-                        </video>
-                    </div>
-                </div>
-            </div>
-        </div>
-        {% endif %}
+        
         {% endfor %}
     </div>
     {% else %}
@@ -186,6 +143,76 @@
     {% endif %}
 </div>
 
+<!-- Shared Delete Modal -->
+<div class="modal fade" id="deleteModal" tabindex="-1" aria-labelledby="deleteModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-sm">
+        <div class="modal-content border-0">
+            <div class="modal-header border-bottom bg-light">
+                <h5 class="modal-title fw-bold" id="deleteModalLabel">Delete Property?</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p class="mb-0">Are you sure you want to delete <strong id="deleteModalPropName"></strong>?</p>
+                <p class="text-muted small mt-2">This action cannot be undone.</p>
+            </div>
+            <div class="modal-footer border-top bg-light">
+                <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Keep It</button>
+                <a href="#" id="confirmDeleteBtn" class="btn btn-danger btn-sm">Yes, Delete</a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Shared Video Modal -->
+<div class="modal fade" id="videoModal" tabindex="-1" aria-labelledby="videoModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content border-0">
+            <div class="modal-header border-bottom">
+                <h5 class="modal-title fw-bold" id="videoModalLabel"></h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-0">
+                <video id="sharedVideoPlayer" width="100%" controls style="border-radius: 0 0 8px 8px;">
+                    <source id="sharedVideoSource" src="" type="video/mp4">
+                    Your browser does not support the video tag.
+                </video>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function(){
+    var deleteModal = document.getElementById('deleteModal');
+    if (deleteModal) {
+        deleteModal.addEventListener('show.bs.modal', function (event) {
+            var button = event.relatedTarget;
+            var propName = button.getAttribute('data-property-name');
+            var deleteUrl = button.getAttribute('data-delete-url');
+            document.getElementById('deleteModalPropName').textContent = propName || '';
+            document.getElementById('confirmDeleteBtn').setAttribute('href', deleteUrl || '#');
+        });
+    }
+
+    var videoModal = document.getElementById('videoModal');
+    if (videoModal) {
+        videoModal.addEventListener('show.bs.modal', function (event) {
+            var button = event.relatedTarget;
+            var videoUrl = button.getAttribute('data-video-url');
+            var propName = button.getAttribute('data-property-name');
+            document.getElementById('videoModalLabel').textContent = propName ? (propName + ' - Property Video') : 'Property Video';
+            var source = document.getElementById('sharedVideoSource');
+            source.setAttribute('src', videoUrl || '');
+            var player = document.getElementById('sharedVideoPlayer');
+            player.load();
+        });
+        videoModal.addEventListener('hidden.bs.modal', function(){
+            var player = document.getElementById('sharedVideoPlayer');
+            player.pause();
+        });
+    }
+});
+</script>
 <!-- Custom Styles -->
 <style>
     .property-card {
