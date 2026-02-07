@@ -36,6 +36,10 @@
                         <div class="mb-3">
                             <label class="form-label">Landlord Phone</label>
                             {{ form.landlord_phone }}
+                            <div class="form-text small text-muted">Enter a Kenyan mobile number (examples: 07XXXXXXXX, 7XXXXXXXX, +2547XXXXXXXX). This will be normalized for WhatsApp links.</div>
+                            {% if form.landlord_phone.errors %}
+                                <div class="text-danger small">{{ form.landlord_phone.errors }}</div>
+                            {% endif %}
                         </div>
                         <div class="mb-3">
                             <label class="form-label">Description</label>

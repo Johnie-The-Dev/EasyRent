@@ -36,7 +36,12 @@ class PropertyForm(forms.ModelForm):
             'town': forms.TextInput(attrs={'class': 'form-control'}),
             'property_type': forms.Select(attrs={'class': 'form-control'}),
             'price': forms.NumberInput(attrs={'class': 'form-control'}),
-            'landlord_phone': forms.TextInput(attrs={'class': 'form-control'}),
+            'landlord_phone': forms.TextInput(attrs={
+                'class': 'form-control',
+                'placeholder': '07XXXXXXXX or +2547XXXXXXXX or 7XXXXXXXX',
+                'pattern': '^(\\+?254|0)?7\\d{8}$',
+                'title': 'Kenyan mobile formats accepted: 07XXXXXXXX, 7XXXXXXXX, or +2547XXXXXXXX'
+            }),
             'description': forms.Textarea(attrs={'class': 'form-control'}),
             'image': forms.ClearableFileInput(attrs={'class': 'form-control'}),
             'video': forms.ClearableFileInput(attrs={'class': 'form-control'}),
@@ -51,6 +56,37 @@ class LandlordProfileForm(forms.ModelForm):
             'username': forms.TextInput(attrs={'class': 'form-control'}),
             'email': forms.EmailInput(attrs={'class': 'form-control'}),
         }
+
+    def clean(self):
+        # No phone on the user model; keep for future extension.
+        return super().clean()
+
+
+    
+def _normalize_kenyan_phone(phone_raw: str) -> str:
+    """Normalize various Kenyan phone inputs into +2547XXXXXXXX format."""
+    import re
+    if not phone_raw:
+        return ''
+    digits = re.sub(r'\D', '', phone_raw)
+    if not digits:
+        return ''
+    if digits.startswith('254'):
+        return '+' + digits
+    if digits.startswith('0'):
+        return '+254' + digits[1:]
+    if len(digits) == 9 and digits.startswith('7'):
+        return '+254' + digits
+    return '+' + digits
+
+
+class PropertyForm(PropertyForm):
+    def clean_landlord_phone(self):
+        phone = self.cleaned_data.get('landlord_phone', '')
+        normalized = _normalize_kenyan_phone(phone)
+        if not normalized or len(re.sub(r'\D', '', normalized)) < 9:
+            raise forms.ValidationError('Enter a valid Kenyan mobile number (e.g. 07XXXXXXXX).')
+        return normalized
 
 
 class TenantProfileForm(forms.ModelForm):
