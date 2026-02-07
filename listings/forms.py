@@ -3,6 +3,7 @@ from django.contrib.auth.forms import UserCreationForm
 from .models import User, Property, Tenant
 import calendar
 from datetime import datetime
+import re
 
 
 class SignUpForm(UserCreationForm):
