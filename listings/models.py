@@ -137,3 +137,25 @@ class ReceiptHistory(models.Model):
 
     def __str__(self):
         return f"Receipt for {self.tenant.name} on {self.date_generated}"
+
+
+class Booking(models.Model):
+    """Store property bookings made by tenants."""
+    STATUS_CHOICES = [
+        ('pending', 'Pending'),
+        ('confirmed', 'Confirmed'),
+        ('cancelled', 'Cancelled'),
+    ]
+    
+    property = models.ForeignKey(Property, on_delete=models.CASCADE, related_name='bookings')
+    tenant = models.ForeignKey(User, on_delete=models.CASCADE, related_name='bookings')
+    move_in_date = models.DateField(null=True, blank=True)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"Booking: {self.tenant.username} -> {self.property.name} ({self.status})"

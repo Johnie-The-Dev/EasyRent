@@ -5,7 +5,8 @@ from .views import (
     signup_view, landlord_dashboard, tenant_feed, add_property, edit_property, delete_property,
     CustomLoginView, home, add_to_collection, remove_from_collection, view_collection, custom_logout,
     RequestPasswordResetCodeView, VerifyResetCodeView, SetNewPasswordView, landlord_profile, tenant_profile,
-    manage_tenants, tenant_list, edit_tenant, delete_tenant, generate_receipt, receipt_history, delete_property_image
+    manage_tenants, tenant_list, edit_tenant, delete_tenant, generate_receipt, receipt_history, delete_property_image,
+    book_property, landlord_bookings, update_booking_status
 )
 
 urlpatterns = [
@@ -34,4 +35,7 @@ urlpatterns = [
     path('delete_tenant/<int:tenant_id>/', delete_tenant, name='delete_tenant'),
     path('generate_receipt/<int:tenant_id>/', generate_receipt, name='generate_receipt'),
     path('receipt_history/<int:tenant_id>/', receipt_history, name='receipt_history'),
+    path('property/book/<int:property_id>/', book_property, name='book_property'),
+    path('landlord/bookings/', landlord_bookings, name='landlord_bookings'),
+    path('booking/update/<int:booking_id>/', update_booking_status, name='update_booking_status'),
 ]

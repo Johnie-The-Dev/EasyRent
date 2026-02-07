@@ -17,7 +17,7 @@ from reportlab.pdfgen import canvas
 from reportlab.lib.colors import HexColor
 
 from .forms import SignUpForm, PropertyForm, LandlordProfileForm, TenantProfileForm, TenantForm
-from .models import Property, TenantCollection, Tenant, ReceiptHistory, PropertyImage
+from .models import Property, TenantCollection, Tenant, ReceiptHistory, PropertyImage, Booking
 
 User = get_user_model()
 
@@ -141,6 +141,46 @@ def delete_property_image(request, image_id):
     image.delete()
     messages.success(request, "Image deleted successfully.")
     return redirect('edit_property', property_id=property_id)
+
+@login_required
+def book_property(request, property_id):
+    """Allow a tenant to book a property."""
+    property = get_object_or_404(Property, id=property_id)
+    
+    # Create booking
+    booking = Booking.objects.create(
+        property=property,
+        tenant=request.user,
+        status='pending'
+    )
+    
+    messages.success(request, f"Booking request sent! Landlord: {property.landlord.get_full_name() or property.landlord.username}")
+    return redirect('tenant_feed')
+
+@login_required
+def landlord_bookings(request):
+    """Display all bookings for a landlord's properties."""
+    properties = Property.objects.filter(landlord=request.user)
+    bookings = Booking.objects.filter(property__in=properties).select_related('tenant', 'property')
+    return render(request, 'landlord_bookings.html', {'bookings': bookings})
+
+@login_required
+def update_booking_status(request, booking_id):
+    """Update booking status (confirm/cancel)."""
+    booking = get_object_or_404(Booking, id=booking_id)
+    
+    # Verify landlord owns the property being booked
+    if booking.property.landlord != request.user:
+        return redirect('landlord_bookings')
+    
+    if request.method == 'POST':
+        new_status = request.POST.get('status')
+        if new_status in ['confirmed', 'cancelled', 'pending']:
+            booking.status = new_status
+            booking.save()
+            messages.success(request, f"Booking status updated to {new_status}.")
+    
+    return redirect('landlord_bookings')
 
 def home(request):
     return render(request, 'home.html')
