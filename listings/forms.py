@@ -37,7 +37,7 @@ class PropertyForm(forms.ModelForm):
 
     class Meta:
         model = Property
-        fields = ['name', 'county', 'town', 'property_type', 'price', 'landlord_phone', 'description', 'vacancy', 'image', 'video']
+        fields = ['name', 'county', 'town', 'property_type', 'price', 'landlord_phone', 'description', 'vacancy', 'video']
         widgets = {
             'name': forms.TextInput(attrs={'class': 'form-control'}),
             'county': forms.TextInput(attrs={'class': 'form-control'}),
@@ -51,7 +51,6 @@ class PropertyForm(forms.ModelForm):
                 'title': 'Kenyan mobile formats accepted: 07XXXXXXXX, 7XXXXXXXX, or +2547XXXXXXXX'
             }),
             'description': forms.Textarea(attrs={'class': 'form-control'}),
-            'image': forms.ClearableFileInput(attrs={'class': 'form-control'}),
             'video': forms.ClearableFileInput(attrs={'class': 'form-control'}),
         }
 
