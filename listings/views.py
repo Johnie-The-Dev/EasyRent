@@ -17,7 +17,7 @@ from reportlab.pdfgen import canvas
 from reportlab.lib.colors import HexColor
 
 from .forms import SignUpForm, PropertyForm, LandlordProfileForm, TenantProfileForm, TenantForm
-from .models import Property, TenantCollection, Tenant, ReceiptHistory
+from .models import Property, TenantCollection, Tenant, ReceiptHistory, PropertyImage
 
 User = get_user_model()
 
@@ -85,6 +85,16 @@ def add_property(request):
             property = form.save(commit=False)
             property.landlord = request.user
             property.save()
+            
+            # Handle multiple image uploads
+            images = request.FILES.getlist('property_images')
+            for idx, image_file in enumerate(images):
+                PropertyImage.objects.create(
+                    property=property,
+                    image=image_file,
+                    is_primary=(idx == 0)  # First image is primary
+                )
+            
             return redirect('landlord_dashboard')
     else:
         form = PropertyForm()
@@ -97,6 +107,16 @@ def edit_property(request, property_id):
         form = PropertyForm(request.POST, request.FILES, instance=property)
         if form.is_valid():
             form.save()
+            
+            # Handle multiple image uploads (add to existing images)
+            images = request.FILES.getlist('property_images')
+            for image_file in images:
+                PropertyImage.objects.create(
+                    property=property,
+                    image=image_file,
+                    is_primary=False
+                )
+            
             return redirect('landlord_dashboard')
     else:
         form = PropertyForm(instance=property)
@@ -109,6 +129,18 @@ def delete_property(request, property_id):
         property.delete()
         return redirect('landlord_dashboard')
     return render(request, 'delete_property.html', {'property': property})
+
+@login_required
+def delete_property_image(request, image_id):
+    """Delete a single property image."""
+    image = get_object_or_404(PropertyImage, id=image_id)
+    property_id = image.property.id
+    # Verify landlord owns the property
+    if image.property.landlord != request.user:
+        return redirect('landlord_dashboard')
+    image.delete()
+    messages.success(request, "Image deleted successfully.")
+    return redirect('edit_property', property_id=property_id)
 
 def home(request):
     return render(request, 'home.html')

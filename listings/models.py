@@ -81,6 +81,21 @@ class Property(models.Model):
         message = f"Hi {landlord_name}, I'm interested in your listing \"{self.name}\" (ID {self.id})."
         return f"https://wa.me/{number}?text={quote(message)}"
 
+
+class PropertyImage(models.Model):
+    """Store multiple images per property."""
+    property = models.ForeignKey(Property, on_delete=models.CASCADE, related_name='images')
+    image = models.ImageField(upload_to='property_images/')
+    uploaded_at = models.DateTimeField(auto_now_add=True)
+    is_primary = models.BooleanField(default=False)  # Mark primary image for thumbnail
+
+    class Meta:
+        ordering = ['-is_primary', 'uploaded_at']
+
+    def __str__(self):
+        return f"Image for {self.property.name}"
+
+
 class TenantCollection(models.Model):
     tenant = models.ForeignKey(User, on_delete=models.CASCADE)
     property = models.ForeignKey(Property, on_delete=models.CASCADE)

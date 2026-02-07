@@ -50,6 +50,31 @@
                             {{ form.image }}
                         </div>
                         <div class="mb-3">
+                            <label class="form-label">Property Images (Multiple)</label>
+                            <input type="file" name="property_images" multiple accept="image/*" class="form-control">
+                            <div class="form-text small text-muted">Add more photos to your property listing. Use Ctrl+Click (or Cmd+Click on Mac) to select multiple files.</div>
+                        </div>
+                        
+                        <!-- Existing Images -->
+                        {% if property.images.all %}
+                        <div class="mb-3">
+                            <label class="form-label">Current Property Images</label>
+                            <div class="row">
+                                {% for img in property.images.all %}
+                                <div class="col-md-6 mb-2">
+                                    <div class="card">
+                                        <img src="{{ img.image.url }}" class="card-img-top" alt="Property image" style="height: 150px; object-fit: cover;">
+                                        <div class="card-body p-2">
+                                            <a href="{% url 'delete_property_image' img.id %}" class="btn btn-danger btn-sm w-100">Delete</a>
+                                        </div>
+                                    </div>
+                                </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                        {% endif %}
+                        
+                        <div class="mb-3">
                             <label class="form-label">Upload Video</label>
                             {{ form.video }}
                         </div>

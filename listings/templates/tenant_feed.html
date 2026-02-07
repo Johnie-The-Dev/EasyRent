@@ -58,7 +58,32 @@
         {% for property in properties %}
         <div class="col-md-4 mb-4">
             <div class="card shadow-sm border-0 property-card">
-                <img src="{{ property.image.url }}" class="card-img-top rounded-top" alt="{{ property.name }}" style="height: 200px; object-fit: cover;">
+                <!-- Image Carousel -->
+                {% if property.images.all %}
+                    <div id="carousel{{ property.id }}" class="carousel slide" data-bs-ride="carousel">
+                        <div class="carousel-inner">
+                            {% for img in property.images.all %}
+                                <div class="carousel-item {% if forloop.first %}active{% endif %}">
+                                    <img src="{{ img.image.url }}" class="d-block w-100" alt="{{ property.name }}" style="height: 200px; object-fit: cover;">
+                                </div>
+                            {% endfor %}
+                        </div>
+                        {% if property.images.count > 1 %}
+                            <button class="carousel-control-prev" type="button" data-bs-target="#carousel{{ property.id }}" data-bs-slide="prev">
+                                <span class="carousel-control-prev-icon" aria-hidden="true"></span>
+                            </button>
+                            <button class="carousel-control-next" type="button" data-bs-target="#carousel{{ property.id }}" data-bs-slide="next">
+                                <span class="carousel-control-next-icon" aria-hidden="true"></span>
+                            </button>
+                        {% endif %}
+                    </div>
+                {% elif property.image %}
+                    <img src="{{ property.image.url }}" class="card-img-top rounded-top" alt="{{ property.name }}" style="height: 200px; object-fit: cover;">
+                {% else %}
+                    <div class="bg-light text-center" style="height: 200px; display: flex; align-items: center; justify-content: center;">
+                        <span class="text-muted">No image available</span>
+                    </div>
+                {% endif %}
                 <div class="card-body">
                     <h5 class="card-title fw-bold">{{ property.name }}</h5>
                     <p class="card-text text-muted">

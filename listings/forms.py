@@ -27,6 +27,13 @@ class PropertyForm(forms.ModelForm):
     ]
 
     vacancy = forms.ChoiceField(choices=VACANCY_CHOICES, widget=forms.Select(attrs={'class': 'form-control'}))
+    
+    # Handle multiple images (limit to 5+ in the view)
+    property_images = forms.FileField(
+        required=False,
+        label='Property Images (5+ recommended)',
+        help_text='You can select multiple images at once'
+    )
 
     class Meta:
         model = Property
@@ -47,6 +54,13 @@ class PropertyForm(forms.ModelForm):
             'image': forms.ClearableFileInput(attrs={'class': 'form-control'}),
             'video': forms.ClearableFileInput(attrs={'class': 'form-control'}),
         }
+
+    def clean_landlord_phone(self):
+        phone = self.cleaned_data.get('landlord_phone', '')
+        normalized = _normalize_kenyan_phone(phone)
+        if not normalized or len(re.sub(r'\D', '', normalized)) < 9:
+            raise forms.ValidationError('Enter a valid Kenyan mobile number (e.g. 07XXXXXXXX).')
+        return normalized
 
 
 class LandlordProfileForm(forms.ModelForm):
@@ -79,15 +93,6 @@ def _normalize_kenyan_phone(phone_raw: str) -> str:
     if len(digits) == 9 and digits.startswith('7'):
         return '+254' + digits
     return '+' + digits
-
-
-class PropertyForm(PropertyForm):
-    def clean_landlord_phone(self):
-        phone = self.cleaned_data.get('landlord_phone', '')
-        normalized = _normalize_kenyan_phone(phone)
-        if not normalized or len(re.sub(r'\D', '', normalized)) < 9:
-            raise forms.ValidationError('Enter a valid Kenyan mobile number (e.g. 07XXXXXXXX).')
-        return normalized
 
 
 class TenantProfileForm(forms.ModelForm):

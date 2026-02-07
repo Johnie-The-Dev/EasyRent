@@ -54,6 +54,11 @@
                             {{ form.image }}
                         </div>
                         <div class="mb-3">
+                            <label class="form-label">Property Images (Multiple)</label>
+                            <input type="file" name="property_images" multiple accept="image/*" class="form-control">
+                            <div class="form-text small text-muted">Upload 5 or more photos to showcase your property. Use Ctrl+Click (or Cmd+Click on Mac) to select multiple files.</div>
+                        </div>
+                        <div class="mb-3">
                             <label class="form-label">Upload Video</label>
                             {{ form.video }}
                         </div>
