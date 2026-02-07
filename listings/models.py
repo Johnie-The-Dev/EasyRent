@@ -43,6 +43,44 @@ class Property(models.Model):
     def __str__(self):
         return self.name
 
+    @property
+    def whatsapp_number(self):
+        """Return a cleaned phone number suitable for wa.me links.
+
+        Normalizes common Kenyan formats into international format without '+' (e.g. 2547XXXXXXXX).
+        Rules:
+        - If number starts with '254' => keep as-is
+        - If number starts with '0' => replace leading '0' with '254'
+        - If number is 9 digits (e.g. '7XXXXXXXX') => prefix with '254'
+        - Otherwise strip non-digits and return what remains
+        """
+        import re
+        digits = re.sub(r"\D", "", self.landlord_phone or "")
+        if not digits:
+            return ""
+        # already in international format (no plus)
+        if digits.startswith('254'):
+            return digits
+        # local Kenyan format starting with 0 -> replace with 254
+        if digits.startswith('0'):
+            return '254' + digits[1:]
+        # local without leading zero (9 digits) -> assume Kenyan mobile and prefix 254
+        if len(digits) == 9:
+            return '254' + digits
+        # fallback: return digits as-is
+        return digits
+
+    @property
+    def whatsapp_link(self):
+        """Return a prefilled WhatsApp deep-link for this property."""
+        from urllib.parse import quote
+        number = self.whatsapp_number
+        if not number:
+            return ""
+        landlord_name = (self.landlord.get_full_name() or self.landlord.username) if self.landlord else ""
+        message = f"Hi {landlord_name}, I'm interested in your listing \"{self.name}\" (ID {self.id})."
+        return f"https://wa.me/{number}?text={quote(message)}"
+
 class TenantCollection(models.Model):
     tenant = models.ForeignKey(User, on_delete=models.CASCADE)
     property = models.ForeignKey(Property, on_delete=models.CASCADE)
