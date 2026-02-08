@@ -11,6 +11,9 @@ from django.conf import settings
 from django.core.paginator import Paginator
 from django.urls import reverse
 from django.http import HttpResponse
+from django.db.models import Sum, DecimalField, Q
+from django.utils import timezone
+from datetime import datetime, timedelta
 from reportlab.lib.pagesizes import A6
 from reportlab.lib.units import mm
 from reportlab.pdfgen import canvas
@@ -38,7 +41,73 @@ def signup_view(request):
 @login_required
 def landlord_dashboard(request):
     properties = Property.objects.filter(landlord=request.user)
-    return render(request, 'landlord_dashboard.html', {'properties': properties})
+    
+    # Financial metrics
+    total_monthly_rent = properties.aggregate(
+        total=Sum('price', output_field=DecimalField())
+    )['total'] or 0
+    
+    # Current month rent collected - using Property FK relationship
+    current_month = datetime.now().strftime("%Y-%m")
+    rent_collected_month = ReceiptHistory.objects.filter(
+        tenant__property__landlord=request.user,
+        month_paid_for=current_month
+    ).aggregate(total=Sum('rent_paid', output_field=DecimalField()))['total'] or 0
+    
+    # Total outstanding rent balance - using Property FK relationship
+    outstanding_balance = Tenant.objects.filter(
+        property__landlord=request.user
+    ).aggregate(total=Sum('rent_balance', output_field=DecimalField()))['total'] or 0
+    
+    # Occupancy stats
+    total_properties = properties.count()
+    occupied_properties = properties.filter(vacancy='occupied').count()
+    vacant_properties = properties.filter(vacancy='vacant').count()
+    occupancy_rate = (occupied_properties / total_properties * 100) if total_properties > 0 else 0
+    
+    # Pending bookings
+    pending_bookings = Booking.objects.filter(
+        property__landlord=request.user,
+        status='pending'
+    ).select_related('property', 'tenant').order_by('-created_at')[:5]
+    pending_count = pending_bookings.count()
+    
+    # Recent rent payments - using Property FK relationship
+    recent_payments = ReceiptHistory.objects.filter(
+        tenant__property__landlord=request.user
+    ).select_related('tenant').order_by('-date_paid')[:8]
+    
+    # Property performance data - using Property FK relationship
+    property_performance = []
+    for prop in properties:
+        current_tenants = Tenant.objects.filter(property=prop)
+        total_balance = current_tenants.aggregate(
+            total=Sum('rent_balance', output_field=DecimalField())
+        )['total'] or 0
+        
+        property_performance.append({
+            'property': prop,
+            'occupancy_status': prop.vacancy or 'unknown',
+            'tenant_count': current_tenants.count(),
+            'outstanding_balance': total_balance,
+        })
+    
+    context = {
+        'properties': properties,
+        'total_monthly_rent': total_monthly_rent,
+        'rent_collected_month': rent_collected_month,
+        'outstanding_balance': outstanding_balance,
+        'total_properties': total_properties,
+        'occupied_properties': occupied_properties,
+        'vacant_properties': vacant_properties,
+        'occupancy_rate': round(occupancy_rate, 1),
+        'pending_bookings': pending_bookings,
+        'pending_count': pending_count,
+        'recent_payments': recent_payments,
+        'property_performance': property_performance,
+    }
+    
+    return render(request, 'landlord_dashboard.html', context)
 
 def tenant_feed(request):
     properties_list = Property.objects.all()
@@ -57,14 +126,53 @@ def tenant_feed(request):
     if property_type:
         properties_list = properties_list.filter(property_type=property_type)
     if min_price:
-        properties_list = properties_list.filter(price__gte=min_price)
+        try:
+            min_price_val = float(min_price)
+            properties_list = properties_list.filter(price__gte=min_price_val)
+        except (ValueError, TypeError):
+            pass
     if max_price:
-        properties_list = properties_list.filter(price__lte=max_price)
+        try:
+            max_price_val = float(max_price)
+            properties_list = properties_list.filter(price__lte=max_price_val)
+        except (ValueError, TypeError):
+            pass
 
     # Pagination setup (10 properties per page)
     paginator = Paginator(properties_list, 10)
     page_number = request.GET.get("page")
     properties = paginator.get_page(page_number)
+
+    # Lightweight amenity extraction from free-text description (MVP)
+    AMENITY_KEYWORDS = {
+        'WiFi': ['wifi', 'wi-fi', 'internet'],
+        'Water (included)': ['water included', 'water'],
+        'Electricity (included)': ['electricity included', 'electricity', 'power'],
+        'Furnished': ['furnished', 'furniture'],
+        'Parking': ['parking', 'garage'],
+        'Balcony': ['balcony'],
+        'Hot Water': ['hot water', 'geyser', 'water heater'],
+        'Security': ['security', 'guard', 'gated'],
+    }
+
+    def extract_amenities(text):
+        if not text:
+            return []
+        found = []
+        lower = text.lower()
+        for label, keys in AMENITY_KEYWORDS.items():
+            for k in keys:
+                if k in lower:
+                    found.append(label)
+                    break
+        return found
+
+    # Attach amenities list to each property on the current page
+    for prop in properties:
+        try:
+            prop.amenities = extract_amenities(prop.description)
+        except Exception:
+            prop.amenities = []
 
     context = {
         "properties": properties,
@@ -75,10 +183,14 @@ def tenant_feed(request):
         "selected_max_price": max_price,
     }
     
-    # Add user's bookings if authenticated
+    # Add user's bookings and saved properties if authenticated
     if request.user.is_authenticated:
         user_bookings = Booking.objects.filter(tenant=request.user, status__in=['pending', 'confirmed']).values_list('property_id', flat=True)
+        saved_properties = TenantCollection.objects.filter(tenant=request.user).values_list('property_id', flat=True)
         context['user_bookings'] = list(user_bookings)
+        context['saved_properties'] = list(saved_properties)
+    else:
+        context['saved_properties'] = []
 
     return render(request, "tenant_feed.html", context)
 
@@ -331,47 +443,74 @@ def tenant_profile(request):
 
 @login_required
 def manage_tenants(request):
+    landlord_properties = Property.objects.filter(landlord=request.user)
+    
     if request.method == 'POST':
         form = TenantForm(request.POST)
         if form.is_valid():
             tenant = form.save(commit=False)
+            # Verify property belongs to current landlord
+            if tenant.property.landlord != request.user:
+                messages.error(request, "You can only add tenants to your own properties.")
+                return redirect(reverse('manage_tenants'))
             tenant.rent_balance = tenant.monthly_rent - tenant.rent_paid
             tenant.cumulative_rent_balance += tenant.rent_balance
             tenant.save()
+            messages.success(request, f"Tenant {tenant.name} added successfully.")
             return redirect(reverse('tenant_list'))
     else:
         form = TenantForm()
+        # Filter property field to show only current landlord's properties
+        form.fields['property'].queryset = landlord_properties
     return render(request, 'manage_tenants.html', {'form': form})
 
 @login_required
 def edit_tenant(request, tenant_id):
     tenant = get_object_or_404(Tenant, id=tenant_id)
+    landlord_properties = Property.objects.filter(landlord=request.user)
+    
+    # Verify tenant belongs to current landlord's property
+    if tenant.property and tenant.property.landlord != request.user:
+        messages.error(request, "You don't have permission to edit this tenant.")
+        return redirect(reverse('tenant_list'))
+    
     if request.method == 'POST':
         form = TenantForm(request.POST, instance=tenant)
         if form.is_valid():
             tenant = form.save(commit=False)
+            # Verify property still belongs to landlord
+            if tenant.property.landlord != request.user:
+                messages.error(request, "You can only edit tenants in your own properties.")
+                return redirect(reverse('tenant_list'))
             tenant.rent_balance = tenant.monthly_rent - tenant.rent_paid
             tenant.cumulative_rent_balance += tenant.rent_balance
             tenant.save()
+            messages.success(request, f"Tenant {tenant.name} updated successfully.")
             return redirect(reverse('tenant_list'))
     else:
         form = TenantForm(instance=tenant)
+        # Filter property field to show only current landlord's properties
+        form.fields['property'].queryset = landlord_properties
     return render(request, 'edit_tenant.html', {'form': form, 'tenant': tenant})
 
 @login_required
 def delete_tenant(request, tenant_id):
     tenant = get_object_or_404(Tenant, id=tenant_id)
+    # Verify tenant belongs to current landlord's property
+    if tenant.property and tenant.property.landlord != request.user:
+        messages.error(request, "You don't have permission to delete this tenant.")
+        return redirect(reverse('tenant_list'))
+    
+    tenant_name = tenant.name
     tenant.delete()
+    messages.success(request, f"Tenant {tenant_name} deleted successfully.")
     return redirect(reverse('tenant_list'))
 
 @login_required
 def tenant_list(request):
-    tenant_list = Tenant.objects.all()
-    return render(request, 'tenant_list.html', {'tenant_list': tenant_list})
-
-@login_required
-def tenant_list(request):
-    tenant_list = Tenant.objects.all()
+    # Only show tenants for current landlord's properties
+    landlord_properties = Property.objects.filter(landlord=request.user)
+    tenant_list = Tenant.objects.filter(property__in=landlord_properties)
     return render(request, 'tenant_list.html', {'tenant_list': tenant_list})
 
 @login_required
@@ -431,7 +570,7 @@ def generate_receipt(request, tenant_id):
     y -= line_height
     p.drawString(10 * mm, y, f"Phone: {tenant.phone}")
     y -= line_height
-    p.drawString(10 * mm, y, f"Property: {tenant.property_name}")
+    p.drawString(10 * mm, y, f"Property: {tenant.property.name if tenant.property else 'N/A'}")
     y -= line_height
     p.drawString(10 * mm, y, f"Unit: {tenant.unit}")
     y -= line_height

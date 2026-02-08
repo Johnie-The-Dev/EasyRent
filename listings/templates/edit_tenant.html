@@ -16,9 +16,8 @@
             <input type="text" id="tenant_phone" name="phone" class="form-control" value="{{ tenant.phone }}" required>
         </div>
         <div class="mb-3">
-            <label for="property_name" class="form-label">Property Name:</label>
-            <input type="text" id="property_name" name="property_name" class="form-control" value="{{ tenant.property_name }}" required>
-        </div>
+            <label for="property" class="form-label">Property:</label>
+            {{ form.property }}
         <div class="mb-3">
             <label for="unit_occupied" class="form-label">Unit Occupied:</label>
             <input type="text" id="unit_occupied" name="unit" class="form-control" value="{{ tenant.unit }}" required>

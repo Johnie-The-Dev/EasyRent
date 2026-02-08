@@ -111,8 +111,18 @@ class TenantForm(forms.ModelForm):
 
     MONTH_CHOICES = [(f"{year}-{month:02}", f"{calendar.month_name[month]} {year}") for year in range(2020, 2031) for month in range(1, 13)]
 
-    month_paid_for = forms.ChoiceField(choices=MONTH_CHOICES, label="Month Paid For", initial=current_month_str)
+    month_paid_for = forms.ChoiceField(choices=MONTH_CHOICES, label="Month Paid For", initial=current_month_str, widget=forms.Select(attrs={'class': 'form-control'}))
 
     class Meta:
         model = Tenant
-        fields = ['name', 'phone', 'property_name', 'unit', 'date_occupied', 'rent_paid', 'date_paid', 'month_paid_for', 'monthly_rent']
+        fields = ['name', 'phone', 'property', 'unit', 'date_occupied', 'rent_paid', 'date_paid', 'month_paid_for', 'monthly_rent']
+        widgets = {
+            'name': forms.TextInput(attrs={'class': 'form-control'}),
+            'phone': forms.TextInput(attrs={'class': 'form-control'}),
+            'property': forms.Select(attrs={'class': 'form-control'}),
+            'unit': forms.TextInput(attrs={'class': 'form-control'}),
+            'date_occupied': forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}),
+            'rent_paid': forms.NumberInput(attrs={'class': 'form-control'}),
+            'date_paid': forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}),
+            'monthly_rent': forms.NumberInput(attrs={'class': 'form-control'}),
+        }

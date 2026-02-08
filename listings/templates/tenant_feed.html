@@ -3,23 +3,79 @@
 {% block title %}Tenant Feed - EasyRent{% endblock %}
 
 {% block content %}
-<div class="container py-5">
-    <!-- Page Header -->
-    <div class="mb-5">
-        <div class="d-flex justify-content-between align-items-center mb-4">
-            <div>
-                <h2 class="fw-bold mb-1" style="color: var(--primary-color);">🏡 Available Properties</h2>
-                <p class="text-muted">Find your perfect rental home</p>
-            </div>
-            {% if user.is_authenticated %}
-            <a href="{% url 'tenant_bookings' %}" class="btn btn-secondary btn-lg">
-                <i class="bi bi-bookmark-fill"></i> My Bookings
-            </a>
-            {% endif %}
-        </div>
+<style>
+    .page-header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 40px 20px;
+        margin: -1rem -12px 2rem;
+        border-radius: 0;
+    }
 
-        <!-- Filter Form -->
-        <form method="GET" class="mb-5 p-4 bg-white rounded-3" style="box-shadow: 0 2px 12px rgba(0,0,0,0.08);">
+    .page-header h1 {
+        font-size: 2.5rem;
+        font-weight: 700;
+        margin-bottom: 10px;
+    }
+
+    .page-header p {
+        font-size: 1.1rem;
+        opacity: 0.95;
+    }
+
+    .property-card {
+        transition: all 0.3s ease;
+        border: 1px solid var(--border-color);
+    }
+    
+    .property-card:hover {
+        transform: translateY(-8px);
+        box-shadow: 0 12px 32px rgba(0, 0, 0, 0.15);
+        border-color: var(--secondary-color);
+    }
+
+    .carousel-control-prev-icon,
+    .carousel-control-next-icon {
+        background-color: rgba(0, 0, 0, 0.5);
+        border-radius: 50%;
+        padding: 8px;
+    }
+
+    .pagination .page-link {
+        border-radius: 6px;
+        margin: 0 4px;
+        transition: all 0.3s ease;
+    }
+
+    .pagination .page-link:hover {
+        background-color: var(--primary-color);
+        color: white;
+    }
+
+    .filter-form {
+        background: white;
+        border-radius: 12px;
+        box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+    }
+</style>
+
+<div class="page-header">
+    <h1>🏡 Available Properties — Tafuta</h1>
+    <p>Find your next room or small flat. Filter, call, and arrange viewings quickly.</p>
+</div>
+
+<div class="container py-4">
+    <!-- My Bookings Button -->
+    {% if user.is_authenticated %}
+    <div class="mb-4 text-end">
+        <a href="{% url 'tenant_bookings' %}" class="btn btn-secondary btn-lg">
+            <i class="bi bi-bookmark-fill"></i> My Bookings / Orodha
+        </a>
+    </div>
+    {% endif %}
+
+    <!-- Filter Form -->
+    <form method="GET" class="filter-form p-4 mb-5">
             <div class="row g-3">
                 <div class="col-lg-2 col-md-6">
                     <label for="countyInput" class="form-label">County</label>
@@ -56,9 +112,8 @@
                 </div>
             </div>
         </form>
-    </div>
 
-    <!-- Property Listings -->
+        <!-- Property Listings -->
     <div class="row g-4">
         {% for property in properties %}
         <div class="col-lg-4 col-md-6">
@@ -108,6 +163,15 @@
                         <p class="card-text fs-5 fw-bold" style="color: var(--success-color);">Ksh {{ property.price }}/month</p>
                     </div>
                     
+                    <!-- Amenity Badges (extracted from description) -->
+                    {% if property.amenities %}
+                    <div class="mb-2">
+                        {% for amen in property.amenities %}
+                            <span class="badge bg-light text-dark me-1" style="border:1px solid rgba(0,0,0,0.06);">{{ amen }}</span>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+                    
                     <!-- Description -->
                     <p class="card-text text-muted small flex-grow-1">{{ property.description|truncatewords:20 }}</p>
                     
@@ -120,13 +184,13 @@
                         <div class="row g-2">
                             <div class="col-6">
                                 <a href="tel:{{ property.landlord_phone }}" class="btn btn-outline-secondary btn-sm w-100">
-                                    <i class="bi bi-telephone"></i> Call
+                                    <i class="bi bi-telephone"></i> Call / Piga
                                 </a>
                             </div>
                             {% if property.whatsapp_link %}
                             <div class="col-6">
                                 <a href="{{ property.whatsapp_link }}" target="_blank" rel="noopener" class="btn btn-success btn-sm w-100">
-                                    <i class="bi bi-whatsapp"></i> Message
+                                    <i class="bi bi-whatsapp"></i> Message / Tuma
                                 </a>
                             </div>
                             {% endif %}
@@ -141,7 +205,7 @@
                             </a>
                         {% else %}
                             <a href="{% url 'add_to_collection' property.id %}" class="btn btn-outline-secondary btn-sm">
-                                <i class="bi bi-heart"></i> Save Property
+                                <i class="bi bi-heart"></i> Save / Hifadhi
                             </a>
                         {% endif %}
                         
@@ -152,7 +216,7 @@
                                 </button>
                             {% else %}
                                 <a href="{% url 'book_property' property.id %}" class="btn btn-primary btn-sm">
-                                    <i class="bi bi-calendar-check"></i> Book Unit
+                                    <i class="bi bi-calendar-check"></i> Book Unit / Book
                                 </a>
                             {% endif %}
                         {% endif %}
@@ -171,8 +235,8 @@
         <div class="col-12 text-center py-5">
             <div style="background: white; padding: 3rem; border-radius: 12px;">
                 <i class="bi bi-inbox" style="font-size: 3rem; color: var(--text-muted);"></i>
-                <p class="text-muted mt-3 fs-5">No properties match your search criteria.</p>
-                <a href="{% url 'tenant_feed' %}" class="btn btn-primary btn-sm mt-2">View All Properties</a>
+                <p class="text-muted mt-3 fs-5">Hakuna nyumba zinazokidhi vigezo vyako. Try clearing filters or search elsewhere.</p>
+                <a href="{% url 'tenant_feed' %}" class="btn btn-primary btn-sm mt-2">View All Properties / Ona Zote</a>
             </div>
         </div>
         {% endfor %}
@@ -184,12 +248,12 @@
         <ul class="pagination justify-content-center">
             {% if properties.has_previous %}
                 <li class="page-item">
-                    <a class="page-link" href="?page=1">
+                    <a class="page-link" href="?county={{ selected_county }}&town={{ selected_town }}&property_type={{ selected_type }}&min_price={{ selected_min_price }}&max_price={{ selected_max_price }}&page=1">
                         <i class="bi bi-chevron-double-left"></i> First
                     </a>
                 </li>
                 <li class="page-item">
-                    <a class="page-link" href="?page={{ properties.previous_page_number }}">
+                    <a class="page-link" href="?county={{ selected_county }}&town={{ selected_town }}&property_type={{ selected_type }}&min_price={{ selected_min_price }}&max_price={{ selected_max_price }}&page={{ properties.previous_page_number }}">
                         <i class="bi bi-chevron-left"></i> Previous
                     </a>
                 </li>
@@ -201,12 +265,12 @@
 
             {% if properties.has_next %}
                 <li class="page-item">
-                    <a class="page-link" href="?page={{ properties.next_page_number }}">
+                    <a class="page-link" href="?county={{ selected_county }}&town={{ selected_town }}&property_type={{ selected_type }}&min_price={{ selected_min_price }}&max_price={{ selected_max_price }}&page={{ properties.next_page_number }}">
                         Next <i class="bi bi-chevron-right"></i>
                     </a>
                 </li>
                 <li class="page-item">
-                    <a class="page-link" href="?page={{ properties.paginator.num_pages }}">
+                    <a class="page-link" href="?county={{ selected_county }}&town={{ selected_town }}&property_type={{ selected_type }}&min_price={{ selected_min_price }}&max_price={{ selected_max_price }}&page={{ properties.paginator.num_pages }}">
                         Last <i class="bi bi-chevron-double-right"></i>
                     </a>
                 </li>
@@ -215,39 +279,6 @@
     </nav>
     {% endif %}
 </div>
-
-<!-- Custom Styles -->
-<style>
-    .property-card {
-        transition: all 0.3s ease;
-        border: 1px solid var(--border-color);
-    }
-    
-    .property-card:hover {
-        transform: translateY(-8px);
-        box-shadow: 0 12px 32px rgba(0, 0, 0, 0.15);
-        border-color: var(--secondary-color);
-    }
-
-    .carousel-control-prev-icon,
-    .carousel-control-next-icon {
-        background-color: rgba(0, 0, 0, 0.5);
-        border-radius: 50%;
-        padding: 8px;
-    }
-
-    .pagination .page-link {
-        border-radius: 6px;
-        margin: 0 4px;
-        transition: all 0.3s ease;
-    }
-
-    .pagination .page-link:hover {
-        background-color: var(--primary-color);
-        color: white;
-    }
-</style>
-{% endblock %}
 
 <!-- Shared Video Modal -->
 <div class="modal fade" id="videoModal" tabindex="-1" aria-labelledby="videoModalLabel" aria-hidden="true">
@@ -288,3 +319,4 @@ document.addEventListener('DOMContentLoaded', function(){
     }
 });
 </script>
+{% endblock %}
