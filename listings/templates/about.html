@@ -1,149 +1,522 @@
 {% extends 'base.html' %}
 
-{% block title %}About Us - EasyRent{% endblock %}
+{% block title %}About EasyRent - Find Affordable Housing in Kenya{% endblock %}
 
 {% block content %}
 <style>
-    /* Custom Styles for About Page */
+    /* ===== Hero Section ===== */
     .hero-section {
-        background: url('https://www.example.com/your-hero-image.jpg') no-repeat center center/cover;
-        height: 60vh;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        min-height: 70vh;
         display: flex;
-        justify-content: center;
         align-items: center;
-        text-align: center;
+        justify-content: center;
         color: white;
-        padding: 20px;
+        padding: 60px 20px;
+        position: relative;
+        overflow: hidden;
+    }
+
+    .hero-section::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.3);
+        z-index: 0;
+    }
+
+    .hero-content {
+        position: relative;
+        z-index: 1;
+        text-align: center;
+        max-width: 800px;
     }
 
     .hero-section h1 {
-        font-size: 3rem;
-        font-weight: bold;
-        margin-bottom: 15px;
-    }
-
-    .hero-section p {
-        font-size: 1.5rem;
-        margin-bottom: 40px;
-    }
-
-    .card-custom {
-        border-radius: 12px;
-        box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.1);
-        margin-bottom: 30px;
-    }
-
-    .card-custom .card-body {
-        background-color: #f8f9fa;
-    }
-
-    .btn-custom {
-        padding: 12px 20px;
-        font-size: 18px;
-        border-radius: 8px;
-        transition: all 0.3s ease-in-out;
-    }
-
-    .btn-custom:hover {
-        transform: scale(1.1);
-    }
-
-    .card-title {
-        font-size: 1.5rem;
-        font-weight: bold;
+        font-size: 3.5rem;
+        font-weight: 700;
         margin-bottom: 20px;
+        line-height: 1.2;
     }
 
-    .card-text {
-        font-size: 1.1rem;
-        line-height: 1.6;
+    .hero-section .subtitle {
+        font-size: 1.4rem;
+        margin-bottom: 30px;
+        font-weight: 300;
+        color: rgba(255, 255, 255, 0.95);
+    }
+
+    .hero-cta {
+        display: flex;
+        gap: 15px;
+        justify-content: center;
+        flex-wrap: wrap;
+    }
+
+    /* ===== General Styles ===== */
+    body {
+        background-color: #f8f9fa;
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    }
+
+    .container-wide {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 0 20px;
+    }
+
+    .section {
+        padding: 80px 20px;
     }
 
     .section-title {
+        font-size: 2.5rem;
+        font-weight: 700;
+        margin-bottom: 50px;
+        text-align: center;
+        color: #333;
+    }
+
+    .section-subtitle {
+        font-size: 1.1rem;
+        color: #666;
+        text-align: center;
+        margin-bottom: 50px;
+        max-width: 700px;
+        margin-left: auto;
+        margin-right: auto;
+    }
+
+    /* ===== Mission Section ===== */
+    .mission-section {
+        background: white;
+    }
+
+    .mission-card {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 50px 40px;
+        border-radius: 15px;
+        text-align: center;
+    }
+
+    .mission-card h2 {
         font-size: 2rem;
-        font-weight: bold;
-        margin-bottom: 30px;
+        margin-bottom: 20px;
+        font-weight: 700;
     }
 
-    .row {
-        margin-top: 30px;
+    .mission-card p {
+        font-size: 1.1rem;
+        line-height: 1.8;
     }
 
-    .col-md-4 {
-        margin-bottom: 30px;
+    /* ===== Target Audience Section ===== */
+    .audience-section {
+        background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
     }
 
-    .text-muted {
+    .audience-card {
+        background: white;
+        padding: 40px;
+        border-radius: 12px;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
+        text-align: center;
+        transition: transform 0.3s ease, box-shadow 0.3s ease;
+        height: 100%;
+    }
+
+    .audience-card:hover {
+        transform: translateY(-10px);
+        box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+    }
+
+    .audience-icon {
+        font-size: 3rem;
+        margin-bottom: 20px;
+    }
+
+    .audience-card h3 {
+        font-size: 1.5rem;
+        font-weight: 700;
+        margin-bottom: 15px;
+        color: #667eea;
+    }
+
+    .audience-card p {
+        font-size: 1rem;
+        color: #555;
+        line-height: 1.7;
+    }
+
+    /* ===== Features Section ===== */
+    .features-section {
+        background: white;
+    }
+
+    .features-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+        gap: 30px;
+        margin-top: 40px;
+    }
+
+    .feature-item {
+        padding: 30px;
+        background: #f8f9fa;
+        border-left: 4px solid #667eea;
+        border-radius: 8px;
+        transition: all 0.3s ease;
+    }
+
+    .feature-item:hover {
+        background: #f0f3ff;
+        box-shadow: 0 4px 12px rgba(102, 126, 234, 0.1);
+    }
+
+    .feature-icon {
+        font-size: 2.5rem;
+        margin-bottom: 15px;
+    }
+
+    .feature-item h4 {
         font-size: 1.2rem;
+        font-weight: 700;
+        margin-bottom: 10px;
+        color: #333;
+    }
+
+    .feature-item p {
+        font-size: 0.95rem;
+        color: #666;
+        line-height: 1.6;
+    }
+
+    /* ===== Why Choose Us Section ===== */
+    .why-choose-section {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+    }
+
+    .why-choose-section .section-title,
+    .why-choose-section .section-subtitle {
+        color: white;
+    }
+
+    .why-choose-list {
+        max-width: 700px;
+        margin: 0 auto;
+    }
+
+    .why-choose-item {
+        display: flex;
+        gap: 20px;
+        margin-bottom: 25px;
+        align-items: flex-start;
+    }
+
+    .why-choose-check {
+        font-size: 1.8rem;
+        color: #4eca6e;
+        font-weight: bold;
+        min-width: 30px;
+    }
+
+    .why-choose-text {
+        font-size: 1.05rem;
+        line-height: 1.6;
+    }
+
+    /* ===== Values Section ===== */
+    .values-section {
+        background: white;
+    }
+
+    .value-card {
+        text-align: center;
+        padding: 40px 30px;
+        background: white;
+        border-radius: 12px;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
+        transition: all 0.3s ease;
+    }
+
+    .value-card:hover {
+        box-shadow: 0 8px 25px rgba(0, 0, 0, 0.12);
+        transform: translateY(-5px);
+    }
+
+    .value-icon {
+        font-size: 3rem;
+        margin-bottom: 20px;
+    }
+
+    .value-card h4 {
+        font-size: 1.4rem;
+        font-weight: 700;
+        margin-bottom: 15px;
+        color: #667eea;
+    }
+
+    .value-card p {
+        font-size: 1rem;
+        color: #666;
+        line-height: 1.7;
+    }
+
+    /* ===== CTA Section ===== */
+    .cta-section {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        text-align: center;
+        padding: 60px 20px;
+    }
+
+    .cta-section h2 {
+        font-size: 2.3rem;
+        font-weight: 700;
+        margin-bottom: 20px;
+    }
+
+    .cta-section p {
+        font-size: 1.1rem;
         margin-bottom: 30px;
+        opacity: 0.95;
+    }
+
+    .btn-custom {
+        padding: 14px 35px;
+        font-size: 1.05rem;
+        border-radius: 8px;
+        font-weight: 600;
+        transition: all 0.3s ease;
+        border: none;
+        cursor: pointer;
+        text-decoration: none;
+        display: inline-block;
+    }
+
+    .btn-primary-custom {
+        background-color: white;
+        color: #667eea;
+    }
+
+    .btn-primary-custom:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2);
+    }
+
+    .btn-secondary-custom {
+        background-color: transparent;
+        color: white;
+        border: 2px solid white;
+    }
+
+    .btn-secondary-custom:hover {
+        background-color: rgba(255, 255, 255, 0.1);
+        transform: translateY(-2px);
+    }
+
+    /* ===== Responsive ===== */
+    @media (max-width: 768px) {
+        .hero-section h1 {
+            font-size: 2.2rem;
+        }
+
+        .hero-section .subtitle {
+            font-size: 1.1rem;
+        }
+
+        .section-title {
+            font-size: 2rem;
+        }
+
+        .hero-cta {
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .btn-custom {
+            width: 100%;
+            max-width: 300px;
+        }
     }
 </style>
 
 <!-- Hero Section -->
 <div class="hero-section">
     <div class="hero-content">
-        <h1>About EasyRent</h1>
-        <p>Your trusted platform for seamless property rentals.</p>
+        <h1>Find Your Perfect Home in Kenya</h1>
+        <p class="subtitle">The easiest way for students, young professionals, and landlords to connect. No unnecessary hassle, just real homes at real prices.</p>
+        <div class="hero-cta">
+            <a href="{% url 'home' %}" class="btn btn-primary-custom btn-custom">Browse Properties</a>
+            <a href="#about" class="btn btn-secondary-custom btn-custom">Learn More</a>
+        </div>
     </div>
 </div>
 
-<!-- About Us Section -->
-<div class="container mt-5">
-    <div class="card p-4 text-center card-custom">
-        <h1 class="mb-3 text-primary">Welcome to EasyRent</h1>
-        <p class="lead">At EasyRent, we're revolutionizing the way you find and manage rental properties. Our mission is to make the rental process easy, transparent, and efficient for everyone involved.</p>
-    </div>
-    
-    <div class="row mt-5">
-        <div class="col-md-6">
-            <div class="card p-4 card-custom">
-                <h3 class="text-secondary">Our Mission</h3>
-                <p>At EasyRent, we believe in connecting people with homes. Our goal is to eliminate the stress and complexity of finding the right property or tenant by providing a seamless and user-friendly platform. We ensure all properties are verified and that the process remains transparent and straightforward for both landlords and tenants.</p>
-            </div>
-        </div>
-        <div class="col-md-6">
-            <div class="card p-4 card-custom">
-                <h3 class="text-secondary">Why Choose Us?</h3>
-                <ul class="list-unstyled">
-                    <li>✔️ Easy property listings & searches</li>
-                    <li>✔️ Secure and verified landlords & tenants</li>
-                    <li>✔️ Intuitive, user-friendly interface</li>
-                    <li>✔️ Personalized dashboards for tenants & landlords</li>
-                    <li>✔️ 24/7 customer support for all your needs</li>
-                    <li>✔️ High-quality images and detailed property descriptions</li>
-                </ul>
-            </div>
+<!-- Mission Section -->
+<div class="section mission-section">
+    <div class="container-wide">
+        <div class="mission-card">
+            <h2>Our Mission</h2>
+            <p>EasyRent exists to make finding affordable housing simple and transparent for every Kenyan. We believe students, young professionals, and working families deserve easy access to quality rental homes without middlemen or hidden costs. Similarly, landlords deserve a platform that connects them with serious, verified tenants.</p>
         </div>
     </div>
+</div>
 
-    <!-- Our Values Section -->
-    <div class="text-center mt-5">
-        <h3 class="text-primary section-title">Our Core Values</h3>
-        <p class="lead text-muted">We believe in providing our users with more than just a platform – we offer a community built on trust, transparency, and efficiency.</p>
+<!-- Target Audience Section -->
+<div class="section audience-section">
+    <div class="container-wide">
+        <h2 class="section-title">Built for Kenyans Like You</h2>
+        <p class="section-subtitle">Whether you're a student, young professional, or property owner, EasyRent is designed for the real Kenya rental market.</p>
+        
         <div class="row">
-            <div class="col-md-4">
-                <div class="card p-4 card-custom">
-                    <h4 class="text-success">Trust</h4>
-                    <p>We ensure that all landlords and tenants are verified, fostering a sense of security and trust within our community.</p>
+            <div class="col-md-6 col-lg-4 mb-4">
+                <div class="audience-card">
+                    <div class="audience-icon">👨‍🎓</div>
+                    <h3>College & University Students</h3>
+                    <p>Looking for affordable bedsits and shared apartments near your campus? Filter by location, price, and amenities. Find your next place in minutes, not weeks.</p>
                 </div>
             </div>
-            <div class="col-md-4">
-                <div class="card p-4 card-custom">
-                    <h4 class="text-warning">Transparency</h4>
-                    <p>Our platform is designed to provide all relevant property information up front so you can make informed decisions.</p>
+            <div class="col-md-6 col-lg-4 mb-4">
+                <div class="audience-card">
+                    <div class="audience-icon">💼</div>
+                    <h3>Young Professionals</h3>
+                    <p>Remote workers, salarymen, and hustlers—find flexible accommodation that fits your budget and lifestyle. From city centers to suburbs.</p>
                 </div>
             </div>
-            <div class="col-md-4">
-                <div class="card p-4 card-custom">
-                    <h4 class="text-info">Efficiency</h4>
-                    <p>We prioritize ease of use and speed to ensure that you can find the perfect property or tenant in no time.</p>
+            <div class="col-md-6 col-lg-4 mb-4">
+                <div class="audience-card">
+                    <div class="audience-icon">🏠</div>
+                    <h3>Landlords & Property Managers</h3>
+                    <p>List your properties for free. Reach thousands of vetted tenants, manage payments, and track properties—all in one place. Easy money, the right way.</p>
                 </div>
             </div>
         </div>
     </div>
+</div>
 
-    <div class="text-center mt-5">
-        <a href="{% url 'home' %}" class="btn btn-primary px-4 btn-custom">Get Started</a>
+<!-- Why Choose EasyRent Section -->
+<div class="section why-choose-section">
+    <div class="container-wide">
+        <h2 class="section-title">Why Choose EasyRent?</h2>
+        <p class="section-subtitle">We understand the Kenyan rental market. Here's what makes us different.</p>
+        
+        <div class="why-choose-list">
+            <div class="why-choose-item">
+                <div class="why-choose-check">✓</div>
+                <div class="why-choose-text"><strong>Affordable & Transparent Pricing</strong> – No hidden fees. You see exactly what you pay.</div>
+            </div>
+            <div class="why-choose-item">
+                <div class="why-choose-check">✓</div>
+                <div class="why-choose-text"><strong>Verified Tenants & Landlords</strong> – Safety first. We verify all users to protect everyone.</div>
+            </div>
+            <div class="why-choose-item">
+                <div class="why-choose-check">✓</div>
+                <div class="why-choose-text"><strong>Fast & Easy Search</strong> – Find properties by price, location, and type. Filter what matters to you.</div>
+            </div>
+            <div class="why-choose-item">
+                <div class="why-choose-check">✓</div>
+                <div class="why-choose-text"><strong>Designed for Mobile</strong> – Browse and manage your rentals from your phone anytime, anywhere.</div>
+            </div>
+            <div class="why-choose-item">
+                <div class="why-choose-check">✓</div>
+                <div class="why-choose-text"><strong>Local Support in Swahili & English</strong> – Get help when you need it, in the language you prefer.</div>
+            </div>
+            <div class="why-choose-item">
+                <div class="why-choose-check">✓</div>
+                <div class="why-choose-text"><strong>Property Management Tools</strong> – Landlords can track expenses, payments, and maintenance—stress-free.</div>
+            </div>
+        </div>
     </div>
 </div>
+
+<!-- Features Section -->
+<div class="section features-section">
+    <div class="container-wide">
+        <h2 class="section-title">What You Can Do on EasyRent</h2>
+        <p class="section-subtitle">Everything you need, nothing you don't.</p>
+        
+        <div class="features-grid">
+            <div class="feature-item">
+                <div class="feature-icon">🔍</div>
+                <h4>Smart Search</h4>
+                <p>Filter properties by price range, bedrooms, location, and amenities. Find your perfect match quickly.</p>
+            </div>
+            <div class="feature-item">
+                <div class="feature-icon">📸</div>
+                <h4>Real Photos & Videos</h4>
+                <p>See actual photos and videos of properties. No surprises when you arrive.</p>
+            </div>
+            <div class="feature-item">
+                <div class="feature-icon">💬</div>
+                <h4>Chat Directly</h4>
+                <p>Message landlords and tenants directly. No middlemen, no confusion.</p>
+            </div>
+            <div class="feature-item">
+                <div class="feature-icon">💰</div>
+                <h4>Payment Tracking</h4>
+                <p>Keep records of rent payments and expenses. Financial transparency for everyone.</p>
+            </div>
+            <div class="feature-item">
+                <div class="feature-icon">📊</div>
+                <h4>Management Dashboard</h4>
+                <p>Landlords can manage multiple properties, track tenants, and view finances in one place.</p>
+            </div>
+            <div class="feature-item">
+                <div class="feature-icon">🔒</div>
+                <h4>Secure & Verified</h4>
+                <p>All users are verified. Your trust and security matter to us.</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Core Values Section -->
+<div class="section values-section">
+    <div class="container-wide">
+        <h2 class="section-title">Our Core Values</h2>
+        <p class="section-subtitle">These principles guide everything we do.</p>
+        
+        <div class="row">
+            <div class="col-md-6 col-lg-4 mb-4">
+                <div class="value-card">
+                    <div class="value-icon">🤝</div>
+                    <h4>Trust</h4>
+                    <p>We verify all users and ensure a safe community. You can trust who you're dealing with.</p>
+                </div>
+            </div>
+            <div class="col-md-6 col-lg-4 mb-4">
+                <div class="value-card">
+                    <div class="value-icon">💡</div>
+                    <h4>Transparency</h4>
+                    <p>No hidden costs, no surprises. Everything is clear from the start—that's the EasyRent way.</p>
+                </div>
+            </div>
+            <div class="col-md-6 col-lg-4 mb-4">
+                <div class="value-card">
+                    <div class="value-icon">⚡</div>
+                    <h4>Efficiency</h4>
+                    <p>Simple, fast, and straightforward. Your time is valuable—we keep it simple.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- CTA Section -->
+<div class="cta-section">
+    <div class="container-wide">
+        <h2>Ready to Find Your Home?</h2>
+        <p>Join thousands of Kenyans finding better housing the easy way.</p>
+        <div>
+            <a href="{% url 'home' %}" class="btn btn-primary-custom btn-custom">Start Browsing Now</a>
+        </div>
+    </div>
+</div>
+
 {% endblock %}
