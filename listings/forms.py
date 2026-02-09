@@ -1,128 +1,203 @@
+# listings/forms.py (UNIT-FIRST / DJANGO 5.1 SAFE)
+
+import calendar
+import re
+from datetime import datetime
+
 from django import forms
 from django.contrib.auth.forms import UserCreationForm
-from .models import User, Property, Tenant
-import calendar
-from datetime import datetime
-import re
+from django.db.models import Q
 
+from .models import Property, Tenant, Unit, User
+
+
+# ---------- Auth ----------
 
 class SignUpForm(UserCreationForm):
-    role = forms.ChoiceField(choices=User.ROLE_CHOICES, widget=forms.Select(attrs={'class': 'form-control'}))
+    role = forms.ChoiceField(
+        choices=User.ROLE_CHOICES,
+        widget=forms.Select(attrs={"class": "form-control"}),
+    )
 
     class Meta:
         model = User
-        fields = ('username', 'email', 'role', 'password1', 'password2')
+        fields = ("username", "email", "role", "password1", "password2")
         widgets = {
-            'username': forms.TextInput(attrs={'class': 'form-control'}),
-            'email': forms.EmailInput(attrs={'class': 'form-control'}),
-            'password1': forms.PasswordInput(attrs={'class': 'form-control'}),
-            'password2': forms.PasswordInput(attrs={'class': 'form-control'}),
+            "username": forms.TextInput(attrs={"class": "form-control"}),
+            "email": forms.EmailInput(attrs={"class": "form-control"}),
+            "password1": forms.PasswordInput(attrs={"class": "form-control"}),
+            "password2": forms.PasswordInput(attrs={"class": "form-control"}),
         }
 
 
-class PropertyForm(forms.ModelForm):
-    VACANCY_CHOICES = [
-        ('vacant', 'Vacant'),
-        ('occupied', 'Occupied'),
-    ]
+# ---------- Helpers ----------
 
-    vacancy = forms.ChoiceField(choices=VACANCY_CHOICES, widget=forms.Select(attrs={'class': 'form-control'}))
-    
-    # Handle multiple images (limit to 5+ in the view)
+def _normalize_kenyan_phone(phone_raw: str) -> str:
+    """Normalize various Kenyan phone inputs into +2547XXXXXXXX format."""
+    if not phone_raw:
+        return ""
+    digits = re.sub(r"\D", "", phone_raw)
+    if not digits:
+        return ""
+    if digits.startswith("254"):
+        return "+" + digits
+    if digits.startswith("0"):
+        return "+254" + digits[1:]
+    if len(digits) == 9 and digits.startswith("7"):
+        return "+254" + digits
+    return "+" + digits
+
+
+# ✅ Django 5.1: allow multiple file selection by overriding allow_multiple_selected
+class MultiFileInput(forms.ClearableFileInput):
+    allow_multiple_selected = True
+
+
+# ---------- Property ----------
+
+class PropertyForm(forms.ModelForm):
+    # Multiple images uploaded in the view via request.FILES.getlist("property_images")
     property_images = forms.FileField(
         required=False,
-        label='Property Images (5+ recommended)',
-        help_text='You can select multiple images at once'
+        label="Property Images (5+ recommended)",
+        help_text="You can select multiple images at once",
+        widget=MultiFileInput(attrs={"multiple": True}),
     )
 
     class Meta:
         model = Property
-        fields = ['name', 'county', 'town', 'property_type', 'price', 'landlord_phone', 'description', 'vacancy', 'video']
+        fields = [
+            "name",
+            "county",
+            "town",
+            "property_type",
+            "price",
+            "landlord_phone",
+            "description",
+            "video",
+        ]
         widgets = {
-            'name': forms.TextInput(attrs={'class': 'form-control'}),
-            'county': forms.TextInput(attrs={'class': 'form-control'}),
-            'town': forms.TextInput(attrs={'class': 'form-control'}),
-            'property_type': forms.Select(attrs={'class': 'form-control'}),
-            'price': forms.NumberInput(attrs={'class': 'form-control'}),
-            'landlord_phone': forms.TextInput(attrs={
-                'class': 'form-control',
-                'placeholder': '07XXXXXXXX or +2547XXXXXXXX or 7XXXXXXXX',
-                'pattern': '^(\\+?254|0)?7\\d{8}$',
-                'title': 'Kenyan mobile formats accepted: 07XXXXXXXX, 7XXXXXXXX, or +2547XXXXXXXX'
-            }),
-            'description': forms.Textarea(attrs={'class': 'form-control'}),
-            'video': forms.ClearableFileInput(attrs={'class': 'form-control'}),
+            "name": forms.TextInput(attrs={"class": "form-control"}),
+            "county": forms.TextInput(attrs={"class": "form-control"}),
+            "town": forms.TextInput(attrs={"class": "form-control"}),
+            "property_type": forms.Select(attrs={"class": "form-control"}),
+            "price": forms.NumberInput(attrs={"class": "form-control"}),
+            "landlord_phone": forms.TextInput(
+                attrs={
+                    "class": "form-control",
+                    "placeholder": "07XXXXXXXX or +2547XXXXXXXX or 7XXXXXXXX",
+                    "pattern": r"^(\+?254|0)?7\d{8}$",
+                    "title": "Kenyan mobile formats accepted: 07XXXXXXXX, 7XXXXXXXX, or +2547XXXXXXXX",
+                }
+            ),
+            "description": forms.Textarea(attrs={"class": "form-control"}),
+            "video": forms.ClearableFileInput(attrs={"class": "form-control"}),
         }
 
     def clean_landlord_phone(self):
-        phone = self.cleaned_data.get('landlord_phone', '')
+        phone = self.cleaned_data.get("landlord_phone", "")
         normalized = _normalize_kenyan_phone(phone)
-        if not normalized or len(re.sub(r'\D', '', normalized)) < 9:
-            raise forms.ValidationError('Enter a valid Kenyan mobile number (e.g. 07XXXXXXXX).')
+        digits = re.sub(r"\D", "", normalized)
+        if not digits or len(digits) < 12:  # +2547XXXXXXXX -> 12 digits without '+'
+            raise forms.ValidationError("Enter a valid Kenyan mobile number (e.g. 07XXXXXXXX).")
         return normalized
 
+
+# ---------- Profiles ----------
 
 class LandlordProfileForm(forms.ModelForm):
     class Meta:
         model = User
-        fields = ['username', 'email']
+        fields = ["username", "email"]
         widgets = {
-            'username': forms.TextInput(attrs={'class': 'form-control'}),
-            'email': forms.EmailInput(attrs={'class': 'form-control'}),
+            "username": forms.TextInput(attrs={"class": "form-control"}),
+            "email": forms.EmailInput(attrs={"class": "form-control"}),
         }
-
-    def clean(self):
-        # No phone on the user model; keep for future extension.
-        return super().clean()
-
-
-    
-def _normalize_kenyan_phone(phone_raw: str) -> str:
-    """Normalize various Kenyan phone inputs into +2547XXXXXXXX format."""
-    import re
-    if not phone_raw:
-        return ''
-    digits = re.sub(r'\D', '', phone_raw)
-    if not digits:
-        return ''
-    if digits.startswith('254'):
-        return '+' + digits
-    if digits.startswith('0'):
-        return '+254' + digits[1:]
-    if len(digits) == 9 and digits.startswith('7'):
-        return '+254' + digits
-    return '+' + digits
 
 
 class TenantProfileForm(forms.ModelForm):
     class Meta:
         model = User
-        fields = ['username', 'email']
+        fields = ["username", "email"]
         widgets = {
-            'username': forms.TextInput(attrs={'class': 'form-control'}),
-            'email': forms.EmailInput(attrs={'class': 'form-control'}),
+            "username": forms.TextInput(attrs={"class": "form-control"}),
+            "email": forms.EmailInput(attrs={"class": "form-control"}),
         }
 
 
+# ---------- Tenancy / Payments ----------
+
 class TenantForm(forms.ModelForm):
+    """
+    Unit-first tenant/occupancy record.
+
+    IMPORTANT: In views, instantiate with:
+        form = TenantForm(request.POST or None, user=request.user, instance=...)
+    so we filter units by landlord.
+    """
+
     current_year = datetime.now().year
     current_month = datetime.now().month
     current_month_str = f"{current_year}-{current_month:02}"
 
-    MONTH_CHOICES = [(f"{year}-{month:02}", f"{calendar.month_name[month]} {year}") for year in range(2020, 2031) for month in range(1, 13)]
+    MONTH_CHOICES = [
+        (f"{year}-{month:02}", f"{calendar.month_name[month]} {year}")
+        for year in range(2020, 2031)
+        for month in range(1, 13)
+    ]
 
-    month_paid_for = forms.ChoiceField(choices=MONTH_CHOICES, label="Month Paid For", initial=current_month_str, widget=forms.Select(attrs={'class': 'form-control'}))
+    month_paid_for = forms.ChoiceField(
+        choices=MONTH_CHOICES,
+        label="Month Paid For",
+        initial=current_month_str,
+        widget=forms.Select(attrs={"class": "form-control"}),
+    )
+
+    unit_fk = forms.ModelChoiceField(
+        queryset=Unit.objects.none(),
+        label="Unit",
+        widget=forms.Select(attrs={"class": "form-control"}),
+        help_text="Select the specific unit the tenant occupies.",
+    )
 
     class Meta:
         model = Tenant
-        fields = ['name', 'phone', 'property', 'unit', 'date_occupied', 'rent_paid', 'date_paid', 'month_paid_for', 'monthly_rent']
+        fields = [
+            "name",
+            "phone",
+            "unit_fk",
+            "date_occupied",
+            "rent_paid",
+            "date_paid",
+            "month_paid_for",
+            "monthly_rent",
+        ]
         widgets = {
-            'name': forms.TextInput(attrs={'class': 'form-control'}),
-            'phone': forms.TextInput(attrs={'class': 'form-control'}),
-            'property': forms.Select(attrs={'class': 'form-control'}),
-            'unit': forms.TextInput(attrs={'class': 'form-control'}),
-            'date_occupied': forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}),
-            'rent_paid': forms.NumberInput(attrs={'class': 'form-control'}),
-            'date_paid': forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}),
-            'monthly_rent': forms.NumberInput(attrs={'class': 'form-control'}),
+            "name": forms.TextInput(attrs={"class": "form-control"}),
+            "phone": forms.TextInput(attrs={"class": "form-control"}),
+            "date_occupied": forms.DateInput(attrs={"class": "form-control", "type": "date"}),
+            "rent_paid": forms.NumberInput(attrs={"class": "form-control"}),
+            "date_paid": forms.DateInput(attrs={"class": "form-control", "type": "date"}),
+            "monthly_rent": forms.NumberInput(attrs={"class": "form-control"}),
         }
+
+    def __init__(self, *args, **kwargs):
+        user = kwargs.pop("user", None)
+        super().__init__(*args, **kwargs)
+
+        qs = Unit.objects.filter(is_active=True).select_related("property")
+
+        # If landlord, show only their units
+        if user and getattr(user, "is_authenticated", False) and hasattr(user, "is_landlord") and user.is_landlord():
+            qs = qs.filter(property__landlord=user)
+
+        # Hide occupied units by default; keep current unit visible when editing
+        if self.instance and self.instance.pk and getattr(self.instance, "unit_fk_id", None):
+            qs = qs.filter(Q(vacancy__in=["vacant", "booked", "maintenance"]) | Q(pk=self.instance.unit_fk_id))
+        else:
+            qs = qs.filter(vacancy__in=["vacant", "booked", "maintenance"])
+
+        self.fields["unit_fk"].queryset = qs
+        self.fields["unit_fk"].label_from_instance = (
+            lambda u: f"{u.property.name} — {u.unit_code} ({u.unit_type}) | KES {u.price}"
+        )
