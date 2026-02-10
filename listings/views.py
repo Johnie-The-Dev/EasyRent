@@ -302,27 +302,75 @@ def _formset_has_any_unit(formset) -> bool:
     return False
 
 
+# views.py — replace these two views
+
+import os
+from django.core.exceptions import ValidationError
+from django.core.validators import FileExtensionValidator
+
+VIDEO_VALIDATOR = FileExtensionValidator(["mp4", "mov", "m4v", "webm"])
+
+def _validate_images(files):
+    max_file_size_mb = 8
+    for f in files:
+        ctype = getattr(f, "content_type", "") or ""
+        if ctype and not ctype.startswith("image/"):
+            raise ValidationError("Only image files are allowed for property images.")
+        if f.size and f.size > max_file_size_mb * 1024 * 1024:
+            raise ValidationError(f"Each image must be under {max_file_size_mb}MB.")
+
+def _validate_video(file_obj):
+    if not file_obj:
+        return
+    VIDEO_VALIDATOR(file_obj)
+    max_video_size_mb = 50
+    if file_obj.size and file_obj.size > max_video_size_mb * 1024 * 1024:
+        raise ValidationError(f"Video must be under {max_video_size_mb}MB.")
+
+
 @login_required
 def add_property(request):
     if request.method == "POST":
-        _debug_files(request, "add_property")
-
         form = PropertyForm(request.POST, request.FILES)
         formset = UnitFormSet(request.POST)
 
+        # NOTE: files are validated from request.FILES directly (not via form binding)
+        images = request.FILES.getlist("property_images")
+        video = request.FILES.get("video_file")
+
         if form.is_valid() and formset.is_valid():
-            if not _formset_has_any_unit(formset):
+            # Ensure at least one unit has a code (unit-first rule)
+            has_unit = any(
+                (f.cleaned_data.get("unit_code") or "").strip()
+                and not f.cleaned_data.get("DELETE", False)
+                for f in formset
+                if hasattr(f, "cleaned_data")
+            )
+            if not has_unit:
                 messages.error(request, "Please add at least one unit (Unit Code is required).")
+                return render(request, "add_property.html", {"form": form, "formset": formset})
+
+            # Validate uploads (optional)
+            try:
+                _validate_images(images)
+                _validate_video(video)
+            except ValidationError as e:
+                messages.error(request, "; ".join(e.messages))
                 return render(request, "add_property.html", {"form": form, "formset": formset})
 
             with transaction.atomic():
                 prop = form.save(commit=False)
                 prop.landlord = request.user
+
+                # Assign model file field manually
+                if video:
+                    prop.video = video
+
                 prop.save()
 
+                # Save units
                 formset.instance = prop
                 units = formset.save(commit=False)
-
                 for u in units:
                     u.unit_code = (u.unit_code or "").strip().upper()
                     if not u.unit_code:
@@ -332,26 +380,18 @@ def add_property(request):
                         u.unit_type = prop.property_type
                     if u.price in [None, ""]:
                         u.price = prop.price
-                    if u.vacancy in [None, ""]:
+                    if not u.vacancy:
                         u.vacancy = "vacant"
                     if u.is_active is None:
                         u.is_active = True
-
                     u.save()
 
-                # deletions (rare on add)
                 for obj in formset.deleted_objects:
                     obj.delete()
 
-                # ✅ Save images/videos already handled by PropertyForm.save()
-                # But property_images is custom field, so handle here:
-                images = request.FILES.getlist("property_images")
-                for idx, image_file in enumerate(images):
-                    PropertyImage.objects.create(
-                        property=prop,
-                        image=image_file,
-                        is_primary=(idx == 0),
-                    )
+                # Save images manually (first is primary)
+                for idx, img in enumerate(images):
+                    PropertyImage.objects.create(property=prop, image=img, is_primary=(idx == 0))
 
             messages.success(request, "Property created successfully with your defined units.")
             return redirect("landlord_dashboard")
@@ -369,38 +409,49 @@ def edit_property(request, property_id):
     prop = get_object_or_404(Property, id=property_id, landlord=request.user)
 
     if request.method == "POST":
-        _debug_files(request, "edit_property")
-
         form = PropertyForm(request.POST, request.FILES, instance=prop)
         unit_formset = UnitFormSet(request.POST, instance=prop)
 
+        images = request.FILES.getlist("property_images")
+        video = request.FILES.get("video_file")
+
         if form.is_valid() and unit_formset.is_valid():
+            try:
+                _validate_images(images)
+                _validate_video(video)
+            except ValidationError as e:
+                messages.error(request, "; ".join(e.messages))
+                return render(
+                    request,
+                    "edit_property.html",
+                    {"form": form, "unit_formset": unit_formset, "property": prop},
+                )
+
             with transaction.atomic():
-                form.save()
+                prop = form.save(commit=False)
+
+                # Replace video if new one uploaded
+                if video:
+                    prop.video = video
+
+                prop.save()
 
                 units = unit_formset.save(commit=False)
                 for u in units:
                     u.unit_code = (u.unit_code or "").strip().upper()
-                    if not u.unit_code:
-                        continue
-                    u.save()
+                    if u.unit_code:
+                        u.save()
 
+                # Safe deletes
                 for obj in unit_formset.deleted_objects:
                     if obj.vacancy == "occupied":
-                        # enforce "no delete occupied"
-                        obj.is_active = False
-                        obj.save(update_fields=["is_active"])
-                        messages.warning(
-                            request,
-                            f"Unit {obj.unit_code} is occupied — it was set inactive instead of being deleted."
-                        )
-                    else:
-                        obj.delete()
+                        messages.error(request, f"Cannot delete occupied unit {obj.unit_code}. Mark it inactive instead.")
+                        continue
+                    obj.delete()
 
-                # Add more images (custom multi-file field)
-                images = request.FILES.getlist("property_images")
-                for image_file in images:
-                    PropertyImage.objects.create(property=prop, image=image_file, is_primary=False)
+                # Add new images
+                for img in images:
+                    PropertyImage.objects.create(property=prop, image=img, is_primary=False)
 
             messages.success(request, "Property and units updated successfully.")
             return redirect("edit_property", property_id=prop.id)
@@ -410,8 +461,11 @@ def edit_property(request, property_id):
         form = PropertyForm(instance=prop)
         unit_formset = UnitFormSet(instance=prop)
 
-    return render(request, "edit_property.html", {"form": form, "unit_formset": unit_formset, "property": prop})
-
+    return render(
+        request,
+        "edit_property.html",
+        {"form": form, "unit_formset": unit_formset, "property": prop},
+    )
 
 @login_required
 def delete_property(request, property_id):

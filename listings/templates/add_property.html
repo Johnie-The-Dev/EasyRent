@@ -20,17 +20,12 @@
           <form method="post" enctype="multipart/form-data">
             {% csrf_token %}
 
-            {# -------- Global errors -------- #}
             {% if form.non_field_errors %}
-              <div class="alert alert-danger">
-                {{ form.non_field_errors }}
-              </div>
+              <div class="alert alert-danger">{{ form.non_field_errors }}</div>
             {% endif %}
 
             {% if formset.non_form_errors %}
-              <div class="alert alert-danger">
-                {{ formset.non_form_errors }}
-              </div>
+              <div class="alert alert-danger">{{ formset.non_form_errors }}</div>
             {% endif %}
 
             <div class="row g-3">
@@ -64,18 +59,12 @@
               <div class="col-md-6">
                 <label class="form-label">Default Unit Type</label>
                 {{ form.property_type }}
-                <div class="form-text small text-muted">
-                  Used as a default when you don’t specify a unit type below.
-                </div>
                 {% if form.property_type.errors %}<div class="text-danger small">{{ form.property_type.errors }}</div>{% endif %}
               </div>
 
               <div class="col-md-6">
                 <label class="form-label">Default Unit Price (Ksh)</label>
                 {{ form.price }}
-                <div class="form-text small text-muted">
-                  Used as a default when you don’t specify a unit price below.
-                </div>
                 {% if form.price.errors %}<div class="text-danger small">{{ form.price.errors }}</div>{% endif %}
               </div>
 
@@ -88,16 +77,12 @@
 
             <hr class="my-4">
 
-            {# -------- Units formset (explicit unit codes) -------- #}
             <div class="d-flex justify-content-between align-items-center mb-2">
               <h5 class="mb-0 fw-bold">Units</h5>
               <span class="badge bg-light text-dark" style="border:1px solid rgba(0,0,0,0.08);">
                 Add unit codes like A1, B3, 101, Shop-02
               </span>
             </div>
-            <p class="text-muted small mb-3">
-              Fill at least one unit. You can add more later in “Edit Property”.
-            </p>
 
             {{ formset.management_form }}
 
@@ -113,19 +98,16 @@
                     {{ uf.unit_code }}
                     {% if uf.unit_code.errors %}<div class="text-danger small">{{ uf.unit_code.errors }}</div>{% endif %}
                   </div>
-
                   <div class="col-md-3">
                     <label class="form-label">Unit Type</label>
                     {{ uf.unit_type }}
                     {% if uf.unit_type.errors %}<div class="text-danger small">{{ uf.unit_type.errors }}</div>{% endif %}
                   </div>
-
                   <div class="col-md-3">
                     <label class="form-label">Price</label>
                     {{ uf.price }}
                     {% if uf.price.errors %}<div class="text-danger small">{{ uf.price.errors }}</div>{% endif %}
                   </div>
-
                   <div class="col-md-3">
                     <label class="form-label">Deposit</label>
                     {{ uf.deposit }}
@@ -139,17 +121,11 @@
                     {{ uf.vacancy }}
                     {% if uf.vacancy.errors %}<div class="text-danger small">{{ uf.vacancy.errors }}</div>{% endif %}
                   </div>
-
                   <div class="col-md-4">
                     <div class="form-check mt-4">
                       {{ uf.is_active }}
                       <label class="form-check-label ms-1">Active</label>
                     </div>
-                    {% if uf.is_active.errors %}<div class="text-danger small">{{ uf.is_active.errors }}</div>{% endif %}
-                  </div>
-
-                  <div class="col-md-4 text-muted small">
-                    Leave fields empty if you want defaults from the property.
                   </div>
                 </div>
               </div>
@@ -157,25 +133,18 @@
 
             <hr class="my-4">
 
-            {# -------- Media uploads -------- #}
             <div class="mb-3">
               <label class="form-label">{{ form.property_images.label }}</label>
               {{ form.property_images }}
-              {% if form.property_images.errors %}
-                <div class="text-danger small">{{ form.property_images.errors }}</div>
-              {% endif %}
-              <div class="form-text small text-muted">
-                Upload 5+ photos. You can select multiple images at once.
-              </div>
+              {% if form.property_images.errors %}<div class="text-danger small">{{ form.property_images.errors }}</div>{% endif %}
+              <div class="form-text small text-muted">Select multiple images.</div>
             </div>
 
             <div class="mb-3">
-              <label class="form-label">Upload Video (optional)</label>
-              {{ form.video }}
-              {% if form.video.errors %}<div class="text-danger small">{{ form.video.errors }}</div>{% endif %}
-              <div class="form-text small text-muted">
-                Allowed: mp4, mov, m4v, webm.
-              </div>
+              <label class="form-label">{{ form.video_file.label }}</label>
+              {{ form.video_file }}
+              {% if form.video_file.errors %}<div class="text-danger small">{{ form.video_file.errors }}</div>{% endif %}
+              <div class="form-text small text-muted">Allowed: mp4, mov, m4v, webm.</div>
             </div>
 
             <button type="submit" class="btn btn-success w-100">
@@ -191,10 +160,4 @@
     </div>
   </div>
 </div>
-
-<style>
-  body { background: linear-gradient(135deg, #6a11cb, #2575fc); }
-  .form-control { box-shadow: 0 2px 10px rgba(0,0,0,0.08); }
-  .card { border: none; border-radius: 10px; }
-</style>
 {% endblock %}
