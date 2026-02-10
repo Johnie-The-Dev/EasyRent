@@ -1,3 +1,4 @@
+{# tenant_feed.html (UNIT-FIRST / NO FALLBACK) — UPDATED #}
 {% extends 'base.html' %}
 
 {% block title %}Tenant Feed - EasyRent{% endblock %}
@@ -11,23 +12,10 @@
         margin: -1rem -12px 2rem;
         border-radius: 0;
     }
+    .page-header h1 { font-size: 2.5rem; font-weight: 700; margin-bottom: 10px; }
+    .page-header p { font-size: 1.1rem; opacity: 0.95; }
 
-    .page-header h1 {
-        font-size: 2.5rem;
-        font-weight: 700;
-        margin-bottom: 10px;
-    }
-
-    .page-header p {
-        font-size: 1.1rem;
-        opacity: 0.95;
-    }
-
-    .property-card {
-        transition: all 0.3s ease;
-        border: 1px solid var(--border-color);
-    }
-    
+    .property-card { transition: all 0.3s ease; border: 1px solid var(--border-color); }
     .property-card:hover {
         transform: translateY(-8px);
         box-shadow: 0 12px 32px rgba(0, 0, 0, 0.15);
@@ -41,16 +29,8 @@
         padding: 8px;
     }
 
-    .pagination .page-link {
-        border-radius: 6px;
-        margin: 0 4px;
-        transition: all 0.3s ease;
-    }
-
-    .pagination .page-link:hover {
-        background-color: var(--primary-color);
-        color: white;
-    }
+    .pagination .page-link { border-radius: 6px; margin: 0 4px; transition: all 0.3s ease; }
+    .pagination .page-link:hover { background-color: var(--primary-color); color: white; }
 
     .filter-form {
         background: white;
@@ -60,12 +40,11 @@
 </style>
 
 <div class="page-header">
-    <h1>🏡 Available Properties — Tafuta</h1>
+    <h1>🏡 Available Units — Tafuta</h1>
     <p>Find your next room or small flat. Filter, call, and arrange viewings quickly.</p>
 </div>
 
 <div class="container py-4">
-    <!-- My Bookings Button -->
     {% if user.is_authenticated %}
     <div class="mb-4 text-end">
         <a href="{% url 'tenant_bookings' %}" class="btn btn-secondary btn-lg">
@@ -74,65 +53,71 @@
     </div>
     {% endif %}
 
-    <!-- Filter Form -->
     <form method="GET" class="filter-form p-4 mb-5">
-            <div class="row g-3">
-                <div class="col-lg-2 col-md-6">
-                    <label for="countyInput" class="form-label">County</label>
-                    <input type="text" name="county" class="form-control" id="countyInput" placeholder="e.g., Nairobi" value="{{ selected_county }}">
-                </div>
-                <div class="col-lg-2 col-md-6">
-                    <label for="townInput" class="form-label">Town</label>
-                    <input type="text" name="town" class="form-control" id="townInput" placeholder="e.g., Westlands" value="{{ selected_town }}">
-                </div>
-                <div class="col-lg-2 col-md-6">
-                    <label for="propertyTypeSelect" class="form-label">Type</label>
-                    <select name="property_type" class="form-select" id="propertyTypeSelect">
-                        <option value="">All Types</option>
-                        <option value="Single Room" {% if selected_type == 'Single Room' %}selected{% endif %}>Single Room</option>
-                        <option value="Bed Sitter" {% if selected_type == 'Bed Sitter' %}selected{% endif %}>Bed Sitter</option>
-                        <option value="One Bedroom" {% if selected_type == 'One Bedroom' %}selected{% endif %}>One Bedroom</option>
-                        <option value="Two Bedroom" {% if selected_type == 'Two Bedroom' %}selected{% endif %}>Two Bedroom</option>
-                        <option value="Three Bedroom" {% if selected_type == 'Three Bedroom' %}selected{% endif %}>Three Bedroom</option>
-                        <option value="Apartment" {% if selected_type == 'Apartment' %}selected{% endif %}>Apartment</option>
-                    </select>
-                </div>
-                <div class="col-lg-2 col-md-6">
-                    <label for="minPriceInput" class="form-label">Min Price</label>
-                    <input type="number" name="min_price" class="form-control" id="minPriceInput" placeholder="Min" value="{{ selected_min_price }}">
-                </div>
-                <div class="col-lg-2 col-md-6">
-                    <label for="maxPriceInput" class="form-label">Max Price</label>
-                    <input type="number" name="max_price" class="form-control" id="maxPriceInput" placeholder="Max" value="{{ selected_max_price }}">
-                </div>
-                <div class="col-lg-2 col-md-6 d-flex align-items-end">
-                    <button type="submit" class="btn btn-primary w-100">
-                        <i class="bi bi-search"></i> Filter
-                    </button>
-                </div>
+        <div class="row g-3">
+            <div class="col-lg-2 col-md-6">
+                <label for="countyInput" class="form-label">County</label>
+                <input type="text" name="county" class="form-control" id="countyInput"
+                       placeholder="e.g., Nairobi" value="{{ selected_county }}">
             </div>
-        </form>
+            <div class="col-lg-2 col-md-6">
+                <label for="townInput" class="form-label">Town</label>
+                <input type="text" name="town" class="form-control" id="townInput"
+                       placeholder="e.g., Westlands" value="{{ selected_town }}">
+            </div>
+            <div class="col-lg-2 col-md-6">
+                <label for="propertyTypeSelect" class="form-label">Type</label>
+                <select name="property_type" class="form-select" id="propertyTypeSelect">
+                    <option value="">All Types</option>
+                    <option value="Single Room" {% if selected_type == 'Single Room' %}selected{% endif %}>Single Room</option>
+                    <option value="Bed Sitter" {% if selected_type == 'Bed Sitter' %}selected{% endif %}>Bed Sitter</option>
+                    <option value="One Bedroom" {% if selected_type == 'One Bedroom' %}selected{% endif %}>One Bedroom</option>
+                    <option value="Two Bedroom" {% if selected_type == 'Two Bedroom' %}selected{% endif %}>Two Bedroom</option>
+                    <option value="Three Bedroom" {% if selected_type == 'Three Bedroom' %}selected{% endif %}>Three Bedroom</option>
+                    <option value="Apartment" {% if selected_type == 'Apartment' %}selected{% endif %}>Apartment</option>
+                </select>
+            </div>
+            <div class="col-lg-2 col-md-6">
+                <label for="minPriceInput" class="form-label">Min Price</label>
+                <input type="number" name="min_price" class="form-control" id="minPriceInput"
+                       placeholder="Min" value="{{ selected_min_price }}">
+            </div>
+            <div class="col-lg-2 col-md-6">
+                <label for="maxPriceInput" class="form-label">Max Price</label>
+                <input type="number" name="max_price" class="form-control" id="maxPriceInput"
+                       placeholder="Max" value="{{ selected_max_price }}">
+            </div>
+            <div class="col-lg-2 col-md-6 d-flex align-items-end">
+                <button type="submit" class="btn btn-primary w-100">
+                    <i class="bi bi-search"></i> Filter
+                </button>
+            </div>
+        </div>
+    </form>
 
-        <!-- Property Listings -->
     <div class="row g-4">
         {% for property in properties %}
         <div class="col-lg-4 col-md-6">
             <div class="card property-card h-100 border-0" style="border-radius: 12px; overflow: hidden;">
-                <!-- Image Carousel -->
+
+                {# Images #}
                 {% if property.images.all %}
                     <div id="carousel{{ property.id }}" class="carousel slide carousel-dark" data-bs-ride="carousel">
                         <div class="carousel-inner">
                             {% for img in property.images.all %}
                                 <div class="carousel-item {% if forloop.first %}active{% endif %}">
-                                    <img src="{{ img.image.url }}" class="d-block w-100" alt="{{ property.name }}" style="height: 220px; object-fit: cover;">
+                                    <img src="{{ img.image.url }}" class="d-block w-100"
+                                         alt="{{ property.name }}" style="height: 220px; object-fit: cover;">
                                 </div>
                             {% endfor %}
                         </div>
-                        {% if property.images.count > 1 %}
-                            <button class="carousel-control-prev" type="button" data-bs-target="#carousel{{ property.id }}" data-bs-slide="prev">
+                        {% if property.images.all|length > 1 %}
+                            <button class="carousel-control-prev" type="button"
+                                    data-bs-target="#carousel{{ property.id }}" data-bs-slide="prev">
                                 <span class="carousel-control-prev-icon" aria-hidden="true"></span>
                             </button>
-                            <button class="carousel-control-next" type="button" data-bs-target="#carousel{{ property.id }}" data-bs-slide="next">
+                            <button class="carousel-control-next" type="button"
+                                    data-bs-target="#carousel{{ property.id }}" data-bs-slide="next">
                                 <span class="carousel-control-next-icon" aria-hidden="true"></span>
                             </button>
                         {% endif %}
@@ -145,40 +130,71 @@
                         </div>
                     </div>
                 {% endif %}
-                
+
                 <div class="card-body d-flex flex-column">
-                    <h5 class="card-title fw-bold mb-2" style="color: var(--primary-color);">{{ property.name }}</h5>
-                    
-                    <!-- Location -->
+                    <h5 class="card-title fw-bold mb-2" style="color: var(--primary-color);">
+                        {{ property.name }}
+                    </h5>
+
+                    {# Location #}
                     <div class="mb-2">
                         <i class="bi bi-geo-alt" style="color: var(--secondary-color);"></i>
-                        <span class="ms-1"><strong>{{ property.county }}</strong>, {{ property.town }}</span>
+                        <span class="ms-1">
+                            {% if property.county %}<strong>{{ property.county }}</strong>{% endif %}
+                            {% if property.county and property.town %},{% endif %}
+                            {{ property.town }}
+                        </span>
                     </div>
-                    
-                    <!-- Property Type & Price -->
+
+                    {# Unit-first summary #}
                     <div class="mb-3">
                         <div class="mb-1">
-                            <span class="badge" style="background: var(--secondary-color);">{{ property.property_type }}</span>
+                            {% if selected_type %}
+                                <span class="badge" style="background: var(--secondary-color);">{{ selected_type }}</span>
+                            {% else %}
+                                <span class="badge" style="background: var(--secondary-color);">{{ property.property_type }}</span>
+                                <span class="badge bg-light text-dark ms-1" style="border:1px solid rgba(0,0,0,0.06);">
+                                    Multiple units
+                                </span>
+                            {% endif %}
                         </div>
-                        <p class="card-text fs-5 fw-bold" style="color: var(--success-color);">Ksh {{ property.price }}/month</p>
+
+                        {% if property.min_vacant_price %}
+                            <p class="card-text fs-5 fw-bold mb-1" style="color: var(--success-color);">
+                                From Ksh {{ property.min_vacant_price|floatformat:0 }}/month
+                            </p>
+                        {% else %}
+                            <p class="card-text fs-5 fw-bold mb-1" style="color: var(--success-color);">
+                                From Ksh {{ property.price|floatformat:0 }}/month
+                            </p>
+                        {% endif %}
+
+                        {# IMPORTANT: use view-provided display fields (avoid mutating @property fields) #}
+                        <div class="small text-muted">
+                            Vacant:
+                            <strong>{{ property.vacant_units_display|default:0 }}</strong>
+                            /
+                            {{ property.total_units_active|default:"—" }}
+                        </div>
                     </div>
-                    
-                    <!-- Amenity Badges (extracted from description) -->
+
                     {% if property.amenities %}
                     <div class="mb-2">
                         {% for amen in property.amenities %}
-                            <span class="badge bg-light text-dark me-1" style="border:1px solid rgba(0,0,0,0.06);">{{ amen }}</span>
+                            <span class="badge bg-light text-dark me-1" style="border:1px solid rgba(0,0,0,0.06);">
+                                {{ amen }}
+                            </span>
                         {% endfor %}
                     </div>
                     {% endif %}
-                    
-                    <!-- Description -->
-                    <p class="card-text text-muted small flex-grow-1">{{ property.description|truncatewords:20 }}</p>
-                    
-                    <!-- Contact Info -->
+
+                    <p class="card-text text-muted small flex-grow-1">
+                        {{ property.description|default:""|truncatewords:20 }}
+                    </p>
+
                     <div class="mb-3 pb-3 border-bottom border-light">
                         <p class="card-text small mb-2">
-                            <i class="bi bi-telephone" style="color: var(--accent-color);"></i> 
+                            <i class="bi bi-telephone" style="color: var(--accent-color);"></i>
                             <strong>{{ property.landlord_phone }}</strong>
                         </p>
                         <div class="row g-2">
@@ -189,15 +205,15 @@
                             </div>
                             {% if property.whatsapp_link %}
                             <div class="col-6">
-                                <a href="{{ property.whatsapp_link }}" target="_blank" rel="noopener" class="btn btn-success btn-sm w-100">
+                                <a href="{{ property.whatsapp_link }}" target="_blank" rel="noopener"
+                                   class="btn btn-success btn-sm w-100">
                                     <i class="bi bi-whatsapp"></i> Message / Tuma
                                 </a>
                             </div>
                             {% endif %}
                         </div>
                     </div>
-                    
-                    <!-- Action Buttons -->
+
                     <div class="d-grid gap-2">
                         {% if property.id in saved_properties %}
                             <a href="{% url 'remove_from_collection' property.id %}" class="btn btn-danger btn-sm">
@@ -208,10 +224,10 @@
                                 <i class="bi bi-heart"></i> Save / Hifadhi
                             </a>
                         {% endif %}
-                        
+
                         {% if user.is_authenticated and user.is_tenant %}
                             {% if property.id in user_bookings %}
-                                <button class="btn btn-warning btn-sm" disabled title="You have booked this property">
+                                <button class="btn btn-warning btn-sm" disabled title="You have an active booking in this property">
                                     <i class="bi bi-check-circle-fill"></i> Booked
                                 </button>
                             {% else %}
@@ -220,40 +236,49 @@
                                 </a>
                             {% endif %}
                         {% endif %}
+
                         {% if property.video %}
-                            <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-toggle="modal" data-bs-target="#videoModal" data-video-url="{{ property.video.url }}" data-property-name="{{ property.name }}">
+                            <button type="button"
+                                    class="btn btn-outline-secondary btn-sm"
+                                    data-bs-toggle="modal"
+                                    data-bs-target="#videoModal"
+                                    data-video-url="{{ property.video.url }}"
+                                    data-property-name="{{ property.name }}">
                                 <i class="bi bi-play-circle"></i> Video
                             </button>
                         {% endif %}
                     </div>
+
                 </div>
             </div>
         </div>
 
-        
         {% empty %}
         <div class="col-12 text-center py-5">
             <div style="background: white; padding: 3rem; border-radius: 12px;">
                 <i class="bi bi-inbox" style="font-size: 3rem; color: var(--text-muted);"></i>
-                <p class="text-muted mt-3 fs-5">Hakuna nyumba zinazokidhi vigezo vyako. Try clearing filters or search elsewhere.</p>
+                <p class="text-muted mt-3 fs-5">
+                    Hakuna nyumba zinazokidhi vigezo vyako. Try clearing filters or search elsewhere.
+                </p>
                 <a href="{% url 'tenant_feed' %}" class="btn btn-primary btn-sm mt-2">View All Properties / Ona Zote</a>
             </div>
         </div>
         {% endfor %}
     </div>
 
-    <!-- Pagination -->
     {% if properties.has_other_pages %}
     <nav aria-label="Property pagination" class="mt-5">
         <ul class="pagination justify-content-center">
             {% if properties.has_previous %}
                 <li class="page-item">
-                    <a class="page-link" href="?county={{ selected_county }}&town={{ selected_town }}&property_type={{ selected_type }}&min_price={{ selected_min_price }}&max_price={{ selected_max_price }}&page=1">
+                    <a class="page-link"
+                       href="?county={{ selected_county }}&town={{ selected_town }}&property_type={{ selected_type }}&min_price={{ selected_min_price }}&max_price={{ selected_max_price }}&page=1">
                         <i class="bi bi-chevron-double-left"></i> First
                     </a>
                 </li>
                 <li class="page-item">
-                    <a class="page-link" href="?county={{ selected_county }}&town={{ selected_town }}&property_type={{ selected_type }}&min_price={{ selected_min_price }}&max_price={{ selected_max_price }}&page={{ properties.previous_page_number }}">
+                    <a class="page-link"
+                       href="?county={{ selected_county }}&town={{ selected_town }}&property_type={{ selected_type }}&min_price={{ selected_min_price }}&max_price={{ selected_max_price }}&page={{ properties.previous_page_number }}">
                         <i class="bi bi-chevron-left"></i> Previous
                     </a>
                 </li>
@@ -265,12 +290,14 @@
 
             {% if properties.has_next %}
                 <li class="page-item">
-                    <a class="page-link" href="?county={{ selected_county }}&town={{ selected_town }}&property_type={{ selected_type }}&min_price={{ selected_min_price }}&max_price={{ selected_max_price }}&page={{ properties.next_page_number }}">
+                    <a class="page-link"
+                       href="?county={{ selected_county }}&town={{ selected_town }}&property_type={{ selected_type }}&min_price={{ selected_min_price }}&max_price={{ selected_max_price }}&page={{ properties.next_page_number }}">
                         Next <i class="bi bi-chevron-right"></i>
                     </a>
                 </li>
                 <li class="page-item">
-                    <a class="page-link" href="?county={{ selected_county }}&town={{ selected_town }}&property_type={{ selected_type }}&min_price={{ selected_min_price }}&max_price={{ selected_max_price }}&page={{ properties.paginator.num_pages }}">
+                    <a class="page-link"
+                       href="?county={{ selected_county }}&town={{ selected_town }}&property_type={{ selected_type }}&min_price={{ selected_min_price }}&max_price={{ selected_max_price }}&page={{ properties.paginator.num_pages }}">
                         Last <i class="bi bi-chevron-double-right"></i>
                     </a>
                 </li>
@@ -280,7 +307,6 @@
     {% endif %}
 </div>
 
-<!-- Shared Video Modal -->
 <div class="modal fade" id="videoModal" tabindex="-1" aria-labelledby="videoModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-lg">
         <div class="modal-content border-0">
@@ -306,12 +332,15 @@ document.addEventListener('DOMContentLoaded', function(){
             var button = event.relatedTarget;
             var videoUrl = button.getAttribute('data-video-url') || '';
             var propName = button.getAttribute('data-property-name') || '';
-            document.getElementById('videoModalLabel').textContent = propName ? (propName + ' - Property Video') : 'Property Video';
+            document.getElementById('videoModalLabel').textContent =
+                propName ? (propName + ' - Property Video') : 'Property Video';
+
             var source = document.getElementById('sharedVideoSource');
             source.setAttribute('src', videoUrl || '');
             var player = document.getElementById('sharedVideoPlayer');
             player.load();
         });
+
         videoModal.addEventListener('hidden.bs.modal', function(){
             var player = document.getElementById('sharedVideoPlayer');
             player.pause();

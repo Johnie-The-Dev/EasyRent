@@ -4,113 +4,197 @@
 
 {% block content %}
 <div class="container py-4" style="background: linear-gradient(135deg, #6a11cb, #2575fc); border-radius: 8px;">
-    <div class="row justify-content-center">
-        <div class="col-md-6">
-            <div class="card shadow-sm mt-4">
-                <div class="card-header bg-primary text-white">
-                    <h4 class="mb-0">Add a New Property</h4>
-                </div>
-                <div class="card-body">
-                    <form method="post" enctype="multipart/form-data">
-                        {% csrf_token %}
-                        <div class="mb-3">
-                            <label class="form-label">Property Name</label>
-                            {{ form.name }}
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label">County</label>
-                            {{ form.county }}
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label">Town</label>
-                            {{ form.town }}
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label">Property Type</label>
-                            {{ form.property_type }}
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label">Price (Ksh)</label>
-                            {{ form.price }}
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label">Landlord Phone</label>
-                            {{ form.landlord_phone }}
-                            <div class="form-text small text-muted">Enter a Kenyan mobile number (examples: 07XXXXXXXX, 7XXXXXXXX, +2547XXXXXXXX). This will be normalized for WhatsApp links.</div>
-                            {% if form.landlord_phone.errors %}
-                                <div class="text-danger small">{{ form.landlord_phone.errors }}</div>
-                            {% endif %}
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label">Description</label>
-                            {{ form.description }}
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label">Vacancy</label>
-                            {{ form.vacancy }}
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label">Property Images (Multiple)</label>
-                            <input type="file" name="property_images" multiple accept="image/*" class="form-control">
-                            <div class="form-text small text-muted">Upload 5 or more photos to showcase your property. Use Ctrl+Click (or Cmd+Click on Mac) to select multiple files.</div>
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label">Upload Video</label>
-                            {{ form.video }}
-                        </div>
-                        <button type="submit" class="btn btn-success w-100">Add Property</button>
-                    </form>
-                </div>
-            </div>
-            <div class="text-center mt-3">
-                <a href="{% url 'landlord_dashboard' %}" class="btn btn-secondary">Back to Dashboard</a>
-            </div>
+  <div class="row justify-content-center">
+    <div class="col-lg-8 col-xl-7">
+      <div class="card shadow-sm mt-4">
+        <div class="card-header text-white" style="background: linear-gradient(135deg, #6a11cb, #2575fc); border-bottom: none;">
+          <div class="d-flex justify-content-between align-items-center">
+            <h4 class="mb-0">Add a New Property</h4>
+            <a href="{% url 'landlord_dashboard' %}" class="btn btn-sm btn-light">
+              <i class="bi bi-arrow-left"></i> Back
+            </a>
+          </div>
         </div>
+
+        <div class="card-body">
+          <form method="post" enctype="multipart/form-data">
+            {% csrf_token %}
+
+            {# -------- Global errors -------- #}
+            {% if form.non_field_errors %}
+              <div class="alert alert-danger">
+                {{ form.non_field_errors }}
+              </div>
+            {% endif %}
+
+            {% if formset.non_form_errors %}
+              <div class="alert alert-danger">
+                {{ formset.non_form_errors }}
+              </div>
+            {% endif %}
+
+            <div class="row g-3">
+              <div class="col-md-6">
+                <label class="form-label">Property Name</label>
+                {{ form.name }}
+                {% if form.name.errors %}<div class="text-danger small">{{ form.name.errors }}</div>{% endif %}
+              </div>
+
+              <div class="col-md-6">
+                <label class="form-label">Landlord Phone</label>
+                {{ form.landlord_phone }}
+                <div class="form-text small text-muted">
+                  Kenyan mobile formats accepted: 07XXXXXXXX, 7XXXXXXXX, or +2547XXXXXXXX.
+                </div>
+                {% if form.landlord_phone.errors %}<div class="text-danger small">{{ form.landlord_phone.errors }}</div>{% endif %}
+              </div>
+
+              <div class="col-md-6">
+                <label class="form-label">County</label>
+                {{ form.county }}
+                {% if form.county.errors %}<div class="text-danger small">{{ form.county.errors }}</div>{% endif %}
+              </div>
+
+              <div class="col-md-6">
+                <label class="form-label">Town</label>
+                {{ form.town }}
+                {% if form.town.errors %}<div class="text-danger small">{{ form.town.errors }}</div>{% endif %}
+              </div>
+
+              <div class="col-md-6">
+                <label class="form-label">Default Unit Type</label>
+                {{ form.property_type }}
+                <div class="form-text small text-muted">
+                  Used as a default when you don’t specify a unit type below.
+                </div>
+                {% if form.property_type.errors %}<div class="text-danger small">{{ form.property_type.errors }}</div>{% endif %}
+              </div>
+
+              <div class="col-md-6">
+                <label class="form-label">Default Unit Price (Ksh)</label>
+                {{ form.price }}
+                <div class="form-text small text-muted">
+                  Used as a default when you don’t specify a unit price below.
+                </div>
+                {% if form.price.errors %}<div class="text-danger small">{{ form.price.errors }}</div>{% endif %}
+              </div>
+
+              <div class="col-12">
+                <label class="form-label">Description</label>
+                {{ form.description }}
+                {% if form.description.errors %}<div class="text-danger small">{{ form.description.errors }}</div>{% endif %}
+              </div>
+            </div>
+
+            <hr class="my-4">
+
+            {# -------- Units formset (explicit unit codes) -------- #}
+            <div class="d-flex justify-content-between align-items-center mb-2">
+              <h5 class="mb-0 fw-bold">Units</h5>
+              <span class="badge bg-light text-dark" style="border:1px solid rgba(0,0,0,0.08);">
+                Add unit codes like A1, B3, 101, Shop-02
+              </span>
+            </div>
+            <p class="text-muted small mb-3">
+              Fill at least one unit. You can add more later in “Edit Property”.
+            </p>
+
+            {{ formset.management_form }}
+
+            {% for uf in formset %}
+              <div class="border rounded p-3 mb-3" style="background: rgba(255,255,255,0.9);">
+                {% if uf.non_field_errors %}
+                  <div class="alert alert-danger mb-2">{{ uf.non_field_errors }}</div>
+                {% endif %}
+
+                <div class="row g-2">
+                  <div class="col-md-3">
+                    <label class="form-label">Unit Code</label>
+                    {{ uf.unit_code }}
+                    {% if uf.unit_code.errors %}<div class="text-danger small">{{ uf.unit_code.errors }}</div>{% endif %}
+                  </div>
+
+                  <div class="col-md-3">
+                    <label class="form-label">Unit Type</label>
+                    {{ uf.unit_type }}
+                    {% if uf.unit_type.errors %}<div class="text-danger small">{{ uf.unit_type.errors }}</div>{% endif %}
+                  </div>
+
+                  <div class="col-md-3">
+                    <label class="form-label">Price</label>
+                    {{ uf.price }}
+                    {% if uf.price.errors %}<div class="text-danger small">{{ uf.price.errors }}</div>{% endif %}
+                  </div>
+
+                  <div class="col-md-3">
+                    <label class="form-label">Deposit</label>
+                    {{ uf.deposit }}
+                    {% if uf.deposit.errors %}<div class="text-danger small">{{ uf.deposit.errors }}</div>{% endif %}
+                  </div>
+                </div>
+
+                <div class="row g-2 mt-2 align-items-end">
+                  <div class="col-md-4">
+                    <label class="form-label">Vacancy</label>
+                    {{ uf.vacancy }}
+                    {% if uf.vacancy.errors %}<div class="text-danger small">{{ uf.vacancy.errors }}</div>{% endif %}
+                  </div>
+
+                  <div class="col-md-4">
+                    <div class="form-check mt-4">
+                      {{ uf.is_active }}
+                      <label class="form-check-label ms-1">Active</label>
+                    </div>
+                    {% if uf.is_active.errors %}<div class="text-danger small">{{ uf.is_active.errors }}</div>{% endif %}
+                  </div>
+
+                  <div class="col-md-4 text-muted small">
+                    Leave fields empty if you want defaults from the property.
+                  </div>
+                </div>
+              </div>
+            {% endfor %}
+
+            <hr class="my-4">
+
+            {# -------- Media uploads -------- #}
+            <div class="mb-3">
+              <label class="form-label">{{ form.property_images.label }}</label>
+              {{ form.property_images }}
+              {% if form.property_images.errors %}
+                <div class="text-danger small">{{ form.property_images.errors }}</div>
+              {% endif %}
+              <div class="form-text small text-muted">
+                Upload 5+ photos. You can select multiple images at once.
+              </div>
+            </div>
+
+            <div class="mb-3">
+              <label class="form-label">Upload Video (optional)</label>
+              {{ form.video }}
+              {% if form.video.errors %}<div class="text-danger small">{{ form.video.errors }}</div>{% endif %}
+              <div class="form-text small text-muted">
+                Allowed: mp4, mov, m4v, webm.
+              </div>
+            </div>
+
+            <button type="submit" class="btn btn-success w-100">
+              <i class="bi bi-plus-circle"></i> Add Property
+            </button>
+          </form>
+        </div>
+      </div>
+
+      <div class="text-center mt-3">
+        <a href="{% url 'landlord_dashboard' %}" class="btn btn-secondary">Back to Dashboard</a>
+      </div>
     </div>
+  </div>
 </div>
 
-<!-- Custom Styles for Form Fields and Buttons -->
 <style>
-    /* Gradient Background */
-    body {
-        background: linear-gradient(135deg, #6a11cb, #2575fc);
-    }
-
-    /* Subtle Shadow on Form Fields */
-    .form-control {
-        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-    }
-
-    .form-check-input {
-        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-    }
-
-    .form-floating label {
-        color: #5a5a5a;
-    }
-
-    /* Hover Effects for Buttons */
-    .btn-success:hover {
-        background-color: #28a745;
-        border-color: #28a745;
-    }
-
-    .btn-secondary:hover {
-        background-color: #6c757d;
-        border-color: #6c757d;
-    }
-
-    /* Card Header Styling */
-    .card-header {
-        background: linear-gradient(135deg, #6a11cb, #2575fc);
-        border-bottom: none;
-    }
-
-    /* Card Shadow */
-    .card {
-        border: none;
-        border-radius: 8px;
-        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-    }
+  body { background: linear-gradient(135deg, #6a11cb, #2575fc); }
+  .form-control { box-shadow: 0 2px 10px rgba(0,0,0,0.08); }
+  .card { border: none; border-radius: 10px; }
 </style>
 {% endblock %}

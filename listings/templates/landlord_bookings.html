@@ -1,177 +1,212 @@
 {% extends 'base.html' %}
 
-{% block title %}Property Bookings - EasyRent{% endblock %}
+{% block title %}Unit Bookings - EasyRent{% endblock %}
 
 {% block content %}
 <div class="container py-5">
-    <!-- Header -->
-    <div class="mb-5">
-        <div class="d-flex justify-content-between align-items-center mb-4">
-            <div>
-                <h2 class="fw-bold mb-1" style="color: var(--primary-color);">📋 Property Bookings</h2>
-                <p class="text-muted">Manage tenant booking requests</p>
-            </div>
-            <a href="{% url 'landlord_dashboard' %}" class="btn btn-secondary">
-                <i class="bi bi-arrow-left"></i> Dashboard
-            </a>
-        </div>
 
-        <!-- Messages/Alerts -->
-        {% if messages %}
-        <div class="alert alert-success alert-dismissible fade show border-0" role="alert" style="background: #d4edda; border-left: 4px solid var(--success-color);">
-            {% for message in messages %}
-            <i class="bi bi-check-circle-fill"></i> {{ message }}
-            {% endfor %}
-            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-        </div>
-        {% endif %}
-    </div>
-
-    {% if bookings %}
-    <!-- Bookings Table -->
-    <div class="card border-0 shadow-sm">
-        <div class="table-responsive">
-            <table class="table table-hover mb-0">
-                <thead style="background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-dark) 100%); color: white;">
-                    <tr>
-                        <th style="border: none; padding: 1rem;">Property</th>
-                        <th style="border: none; padding: 1rem;">Tenant</th>
-                        <th style="border: none; padding: 1rem;">Email</th>
-                        <th style="border: none; padding: 1rem;">Status</th>
-                        <th style="border: none; padding: 1rem;">Booked</th>
-                        <th style="border: none; padding: 1rem;">Move-In</th>
-                        <th style="border: none; padding: 1rem; text-align: center;">Actions</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for booking in bookings %}
-                    <tr style="border-bottom: 1px solid var(--border-color); transition: all 0.3s ease;">
-                        <td style="padding: 1.2rem; vertical-align: middle;">
-                            <div>
-                                <a href="{% url 'edit_property' booking.property.id %}" class="text-decoration-none fw-500" style="color: var(--primary-color);">
-                                    {{ booking.property.name }}
-                                </a>
-                                <div class="small text-muted">{{ booking.property.property_type }}</div>
-                            </div>
-                        </td>
-                        <td style="padding: 1.2rem; vertical-align: middle;">
-                            <strong>{{ booking.tenant.get_full_name|default:booking.tenant.username }}</strong>
-                        </td>
-                        <td style="padding: 1.2rem; vertical-align: middle;">
-                            <small class="text-muted">{{ booking.tenant.email }}</small>
-                        </td>
-                        <td style="padding: 1.2rem; vertical-align: middle;">
-                            {% if booking.status == 'pending' %}
-                                <span class="badge" style="background: var(--warning-color); color: white;">
-                                    <i class="bi bi-hourglass-split"></i> Pending
-                                </span>
-                            {% elif booking.status == 'confirmed' %}
-                                <span class="badge" style="background: var(--success-color);">
-                                    <i class="bi bi-check-circle-fill"></i> Confirmed
-                                </span>
-                            {% elif booking.status == 'cancelled' %}
-                                <span class="badge" style="background: var(--danger-color);">
-                                    <i class="bi bi-x-circle-fill"></i> Cancelled
-                                </span>
-                            {% endif %}
-                        </td>
-                        <td style="padding: 1.2rem; vertical-align: middle;">
-                            <small class="text-muted">{{ booking.created_at|date:"M d, Y" }}</small>
-                        </td>
-                        <td style="padding: 1.2rem; vertical-align: middle;">
-                            {% if booking.move_in_date %}
-                                <small class="fw-500">{{ booking.move_in_date|date:"M d, Y" }}</small>
-                            {% else %}
-                                <small class="text-muted">—</small>
-                            {% endif %}
-                        </td>
-                        <td style="padding: 1.2rem; vertical-align: middle; text-align: center;">
-                            {% if booking.status == 'pending' %}
-                            <form method="POST" action="{% url 'update_booking_status' booking.id %}" class="d-inline">
-                                {% csrf_token %}
-                                <div class="btn-group btn-group-sm" role="group">
-                                    <button type="submit" name="status" value="confirmed" class="btn btn-success" title="Confirm booking">
-                                        <i class="bi bi-check-lg"></i> Confirm
-                                    </button>
-                                    <button type="submit" name="status" value="cancelled" class="btn btn-danger" title="Reject booking">
-                                        <i class="bi bi-x-lg"></i> Reject
-                                    </button>
-                                </div>
-                            </form>
-                            {% elif booking.status == 'confirmed' %}
-                            <form method="POST" action="{% url 'update_booking_status' booking.id %}" class="d-inline">
-                                {% csrf_token %}
-                                <button type="submit" name="status" value="cancelled" class="btn btn-sm btn-outline-danger" title="Cancel this booking">
-                                    <i class="bi bi-x-circle"></i> Cancel
-                                </button>
-                            </form>
-                            {% else %}
-                                <span class="badge bg-secondary">No actions</span>
-                            {% endif %}
-                        </td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
-    </div>
-
-    <!-- Summary Cards -->
-    <div class="row mt-5 g-4">
-        <div class="col-md-4">
-            <div class="card border-0 shadow-sm" style="border-left: 4px solid var(--warning-color);">
-                <div class="card-body">
-                    <h6 class="card-title text-muted mb-1">Total Bookings</h6>
-                    <h3 class="fw-bold" style="color: var(--primary-color);">{{ bookings|length }}</h3>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-4">
-            <div class="card border-0 shadow-sm" style="border-left: 4px solid var(--success-color);">
-                <div class="card-body">
-                    <h6 class="card-title text-muted mb-1">Confirmed</h6>
-                    <h3 class="fw-bold" style="color: var(--success-color);">
-                        {% with confirmed_count=bookings|dictsort:"status"|length %}
-                        {{ confirmed_count }}
-                        {% endwith %}
-                    </h3>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-4">
-            <div class="card border-0 shadow-sm" style="border-left: 4px solid var(--danger-color);">
-                <div class="card-body">
-                    <h6 class="card-title text-muted mb-1">Pending</h6>
-                    <h3 class="fw-bold" style="color: var(--danger-color);">
-                        {% with pending_count=bookings|dictsort:"status"|length %}
-                        {{ pending_count }}
-                        {% endwith %}
-                    </h3>
-                </div>
-            </div>
-        </div>
-    </div>
-    
-    {% else %}
-    <!-- Empty State -->
-    <div class="card border-0 shadow-sm p-5 text-center" style="background: linear-gradient(135deg, rgba(106, 76, 156, 0.05) 0%, rgba(80, 201, 195, 0.05) 100%);">
-        <i class="bi bi-inbox" style="font-size: 3.5rem; color: var(--text-muted); margin-bottom: 1rem;"></i>
-        <h4 class="fw-bold text-muted mb-2">No Bookings Yet</h4>
-        <p class="text-muted mb-4">When tenants book your properties, they will appear here for you to confirm or manage.</p>
-        <a href="{% url 'landlord_dashboard' %}" class="btn btn-primary">
-            <i class="bi bi-arrow-left"></i> Back to Dashboard
+  <!-- Header -->
+  <div class="mb-4">
+    <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+      <div>
+        <h2 class="fw-bold mb-1" style="color: var(--primary-color);">📋 Unit Bookings</h2>
+        <p class="text-muted mb-0">Manage tenant booking requests (unit-first)</p>
+      </div>
+      <div class="d-flex gap-2">
+        <a href="{% url 'landlord_dashboard' %}" class="btn btn-secondary">
+          <i class="bi bi-arrow-left"></i> Dashboard
         </a>
+      </div>
     </div>
+
+    <!-- Messages/Alerts -->
+    {% if messages %}
+      <div class="alert alert-success alert-dismissible fade show border-0" role="alert"
+           style="background: #d4edda; border-left: 4px solid var(--success-color);">
+        {% for message in messages %}
+          <div class="mb-1">
+            <i class="bi bi-check-circle-fill"></i> {{ message }}
+          </div>
+        {% endfor %}
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+      </div>
     {% endif %}
+  </div>
+
+  {% if bookings %}
+
+  <!-- Summary Cards -->
+  <div class="row g-3 mb-4">
+    <div class="col-md-3">
+      <div class="card border-0 shadow-sm h-100" style="border-left: 4px solid var(--primary-color);">
+        <div class="card-body">
+          <div class="text-muted small fw-bold">Total Bookings</div>
+          <div class="fw-bold" style="font-size:1.75rem; color: var(--primary-color);">
+            {{ total_bookings|default:bookings|length }}
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-3">
+      <div class="card border-0 shadow-sm h-100" style="border-left: 4px solid var(--warning-color);">
+        <div class="card-body">
+          <div class="text-muted small fw-bold">Pending</div>
+          <div class="fw-bold" style="font-size:1.75rem; color: var(--warning-color);">
+            {{ pending_count|default:0 }}
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-3">
+      <div class="card border-0 shadow-sm h-100" style="border-left: 4px solid var(--success-color);">
+        <div class="card-body">
+          <div class="text-muted small fw-bold">Confirmed</div>
+          <div class="fw-bold" style="font-size:1.75rem; color: var(--success-color);">
+            {{ confirmed_count|default:0 }}
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-3">
+      <div class="card border-0 shadow-sm h-100" style="border-left: 4px solid var(--danger-color);">
+        <div class="card-body">
+          <div class="text-muted small fw-bold">Cancelled</div>
+          <div class="fw-bold" style="font-size:1.75rem; color: var(--danger-color);">
+            {{ cancelled_count|default:0 }}
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Bookings Table -->
+  <div class="card border-0 shadow-sm">
+    <div class="table-responsive">
+      <table class="table table-hover mb-0">
+        <thead style="background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-dark) 100%); color: white;">
+          <tr>
+            <th style="border: none; padding: 1rem;">Property</th>
+            <th style="border: none; padding: 1rem;">Unit</th>
+            <th style="border: none; padding: 1rem;">Tenant</th>
+            <th style="border: none; padding: 1rem;">Email</th>
+            <th style="border: none; padding: 1rem;">Status</th>
+            <th style="border: none; padding: 1rem;">Booked</th>
+            <th style="border: none; padding: 1rem; text-align: center;">Actions</th>
+          </tr>
+        </thead>
+
+        <tbody>
+          {% for booking in bookings %}
+          <tr style="border-bottom: 1px solid var(--border-color); transition: all 0.3s ease;">
+            <td style="padding: 1.2rem; vertical-align: middle;">
+              <div>
+                {% if booking.unit and booking.unit.property %}
+                  <a href="{% url 'edit_property' booking.unit.property.id %}" class="text-decoration-none fw-500"
+                     style="color: var(--primary-color);">
+                    {{ booking.unit.property.name }}
+                  </a>
+                  <div class="small text-muted">
+                    {{ booking.unit.property.county|default:"—" }}, {{ booking.unit.property.town|default:"—" }}
+                  </div>
+                {% else %}
+                  <span class="text-muted">—</span>
+                {% endif %}
+              </div>
+            </td>
+
+            <td style="padding: 1.2rem; vertical-align: middle;">
+              {% if booking.unit %}
+                <div class="fw-600">{{ booking.unit.unit_code }}</div>
+                <div class="small text-muted">
+                  {{ booking.unit.unit_type }} • Ksh {{ booking.unit.price|floatformat:0 }}
+                </div>
+              {% else %}
+                <span class="text-muted">—</span>
+              {% endif %}
+            </td>
+
+            <td style="padding: 1.2rem; vertical-align: middle;">
+              <strong>{{ booking.tenant.get_full_name|default:booking.tenant.username }}</strong>
+            </td>
+
+            <td style="padding: 1.2rem; vertical-align: middle;">
+              <small class="text-muted">{{ booking.tenant.email|default:"—" }}</small>
+            </td>
+
+            <td style="padding: 1.2rem; vertical-align: middle;">
+              {% if booking.status == 'pending' %}
+                <span class="badge" style="background: var(--warning-color); color: white;">
+                  <i class="bi bi-hourglass-split"></i> Pending
+                </span>
+              {% elif booking.status == 'confirmed' %}
+                <span class="badge" style="background: var(--success-color);">
+                  <i class="bi bi-check-circle-fill"></i> Confirmed
+                </span>
+              {% elif booking.status == 'cancelled' %}
+                <span class="badge" style="background: var(--danger-color);">
+                  <i class="bi bi-x-circle-fill"></i> Cancelled
+                </span>
+              {% else %}
+                <span class="badge bg-secondary">Unknown</span>
+              {% endif %}
+            </td>
+
+            <td style="padding: 1.2rem; vertical-align: middle;">
+              <small class="text-muted">{{ booking.created_at|date:"M d, Y" }}</small>
+            </td>
+
+            <td style="padding: 1.2rem; vertical-align: middle; text-align: center;">
+              {% if booking.status == 'pending' %}
+                <form method="POST" action="{% url 'update_booking_status' booking.id %}" class="d-inline">
+                  {% csrf_token %}
+                  <div class="btn-group btn-group-sm" role="group">
+                    <button type="submit" name="status" value="confirmed" class="btn btn-success" title="Confirm booking">
+                      <i class="bi bi-check-lg"></i> Confirm
+                    </button>
+                    <button type="submit" name="status" value="cancelled" class="btn btn-danger" title="Reject booking">
+                      <i class="bi bi-x-lg"></i> Reject
+                    </button>
+                  </div>
+                </form>
+
+              {% elif booking.status == 'confirmed' %}
+                <form method="POST" action="{% url 'update_booking_status' booking.id %}" class="d-inline">
+                  {% csrf_token %}
+                  <button type="submit" name="status" value="cancelled" class="btn btn-sm btn-outline-danger" title="Cancel this booking">
+                    <i class="bi bi-x-circle"></i> Cancel
+                  </button>
+                </form>
+
+              {% else %}
+                <span class="badge bg-secondary">No actions</span>
+              {% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+
+      </table>
+    </div>
+  </div>
+
+  {% else %}
+
+  <!-- Empty State -->
+  <div class="card border-0 shadow-sm p-5 text-center"
+       style="background: linear-gradient(135deg, rgba(106, 76, 156, 0.05) 0%, rgba(80, 201, 195, 0.05) 100%);">
+    <i class="bi bi-inbox" style="font-size: 3.5rem; color: var(--text-muted); margin-bottom: 1rem;"></i>
+    <h4 class="fw-bold text-muted mb-2">No Bookings Yet</h4>
+    <p class="text-muted mb-4">When tenants book your units, they will appear here for you to confirm or manage.</p>
+    <a href="{% url 'landlord_dashboard' %}" class="btn btn-primary">
+      <i class="bi bi-arrow-left"></i> Back to Dashboard
+    </a>
+  </div>
+
+  {% endif %}
 </div>
 
 <style>
-    .table tbody tr:hover {
-        background-color: rgba(106, 76, 156, 0.02);
-    }
-    
-    .btn-group-sm .btn {
-        border-radius: 4px;
-    }
+  .table tbody tr:hover { background-color: rgba(106, 76, 156, 0.02); }
+  .btn-group-sm .btn { border-radius: 4px; }
 </style>
 {% endblock %}

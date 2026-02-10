@@ -4,129 +4,254 @@
 
 {% block content %}
 <div class="container py-4" style="background: linear-gradient(135deg, #ff9800, #f57c00); border-radius: 8px;">
-    <div class="row justify-content-center">
-        <div class="col-md-6">
-            <div class="card shadow-sm mt-4">
-                <div class="card-header bg-warning text-white">
-                    <h4 class="mb-0">Edit Property</h4>
-                </div>
-                <div class="card-body">
-                    <form method="post" enctype="multipart/form-data">
-                        {% csrf_token %}
-                        <div class="mb-3">
-                            <label class="form-label">Property Name</label>
-                            {{ form.name }}
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label">County</label>
-                            {{ form.county }}
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label">Town</label>
-                            {{ form.town }}
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label">Property Type</label>
-                            {{ form.property_type }}
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label">Price (Ksh)</label>
-                            {{ form.price }}
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label">Landlord Phone</label>
-                            {{ form.landlord_phone }}
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label">Description</label>
-                            {{ form.description }}
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label">Vacancy</label>
-                            {{ form.vacancy }}
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label">Property Images (Multiple)</label>
-                            <input type="file" name="property_images" multiple accept="image/*" class="form-control">
-                            <div class="form-text small text-muted">Add more photos to your property listing. Use Ctrl+Click (or Cmd+Click on Mac) to select multiple files.</div>
-                        </div>
-                        
-                        <!-- Existing Images -->
-                        {% if property.images.all %}
-                        <div class="mb-3">
-                            <label class="form-label">Current Property Images</label>
-                            <div class="row">
-                                {% for img in property.images.all %}
-                                <div class="col-md-6 mb-2">
-                                    <div class="card">
-                                        <img src="{{ img.image.url }}" class="card-img-top" alt="Property image" style="height: 150px; object-fit: cover;">
-                                        <div class="card-body p-2">
-                                            <a href="{% url 'delete_property_image' img.id %}" class="btn btn-danger btn-sm w-100">Delete</a>
-                                        </div>
-                                    </div>
-                                </div>
-                                {% endfor %}
-                            </div>
-                        </div>
-                        {% endif %}
-                        
-                        <div class="mb-3">
-                            <label class="form-label">Upload Video</label>
-                            {{ form.video }}
-                        </div>
-                        <button type="submit" class="btn btn-warning w-100">Update Property</button>
-                    </form>
-                </div>
-            </div>
-            <div class="text-center mt-3">
-                <a href="{% url 'landlord_dashboard' %}" class="btn btn-secondary">Back to Dashboard</a>
-            </div>
+  <div class="row justify-content-center">
+    <div class="col-lg-9 col-xl-8">
+      <div class="card shadow-sm mt-4">
+        <div class="card-header text-white d-flex justify-content-between align-items-center"
+             style="background: linear-gradient(135deg, #ff9800, #f57c00); border-bottom: none;">
+          <div>
+            <h4 class="mb-0">Edit Property</h4>
+            <small class="opacity-75">{{ form.instance.name }}</small>
+          </div>
+
+          <div class="d-flex gap-2">
+            {# View property (tenant-side listing view) - add this URL when you create it #}
+            {# <a href="{% url 'property_detail' form.instance.id %}" class="btn btn-light btn-sm">
+              <i class="bi bi-eye"></i> View
+            </a> #}
+
+            <a href="{% url 'landlord_dashboard' %}" class="btn btn-light btn-sm">
+              <i class="bi bi-arrow-left"></i> Back
+            </a>
+          </div>
         </div>
+
+        <div class="card-body">
+          <form method="post" enctype="multipart/form-data">
+            {% csrf_token %}
+
+            {# -------- Global errors -------- #}
+            {% if form.non_field_errors %}
+              <div class="alert alert-danger">{{ form.non_field_errors }}</div>
+            {% endif %}
+            {% if unit_formset.non_form_errors %}
+              <div class="alert alert-danger">{{ unit_formset.non_form_errors }}</div>
+            {% endif %}
+
+            <div class="row g-3">
+              <div class="col-md-6">
+                <label class="form-label">Property Name</label>
+                {{ form.name }}
+                {% if form.name.errors %}<div class="text-danger small">{{ form.name.errors }}</div>{% endif %}
+              </div>
+
+              <div class="col-md-6">
+                <label class="form-label">Landlord Phone</label>
+                {{ form.landlord_phone }}
+                {% if form.landlord_phone.errors %}<div class="text-danger small">{{ form.landlord_phone.errors }}</div>{% endif %}
+              </div>
+
+              <div class="col-md-6">
+                <label class="form-label">County</label>
+                {{ form.county }}
+                {% if form.county.errors %}<div class="text-danger small">{{ form.county.errors }}</div>{% endif %}
+              </div>
+
+              <div class="col-md-6">
+                <label class="form-label">Town</label>
+                {{ form.town }}
+                {% if form.town.errors %}<div class="text-danger small">{{ form.town.errors }}</div>{% endif %}
+              </div>
+
+              <div class="col-md-6">
+                <label class="form-label">Default Unit Type</label>
+                {{ form.property_type }}
+                <div class="form-text small text-muted">
+                  Default for new units (existing units won’t auto-change).
+                </div>
+                {% if form.property_type.errors %}<div class="text-danger small">{{ form.property_type.errors }}</div>{% endif %}
+              </div>
+
+              <div class="col-md-6">
+                <label class="form-label">Default Unit Price (Ksh)</label>
+                {{ form.price }}
+                <div class="form-text small text-muted">
+                  Default for new units (existing units won’t auto-change).
+                </div>
+                {% if form.price.errors %}<div class="text-danger small">{{ form.price.errors }}</div>{% endif %}
+              </div>
+
+              <div class="col-12">
+                <label class="form-label">Description</label>
+                {{ form.description }}
+                {% if form.description.errors %}<div class="text-danger small">{{ form.description.errors }}</div>{% endif %}
+              </div>
+            </div>
+
+            <hr class="my-4">
+
+            {# -------- Units formset -------- #}
+            <div class="d-flex justify-content-between align-items-center mb-2">
+              <h5 class="mb-0 fw-bold">Units</h5>
+              <span class="badge bg-light text-dark" style="border:1px solid rgba(0,0,0,0.08);">
+                Edit codes like A1, B3, 101, Shop-02
+              </span>
+            </div>
+            <p class="text-muted small mb-3">
+              You can edit existing units and add new ones. Use “Delete” to remove a unit.
+            </p>
+
+            {{ unit_formset.management_form }}
+
+            {% for uf in unit_formset %}
+              <div class="border rounded p-3 mb-3" style="background: rgba(255,255,255,0.92);">
+                {{ uf.id }} {# important for existing objects #}
+
+                {% if uf.non_field_errors %}
+                  <div class="alert alert-danger mb-2">{{ uf.non_field_errors }}</div>
+                {% endif %}
+
+                <div class="row g-2">
+                  <div class="col-md-3">
+                    <label class="form-label">Unit Code</label>
+                    {{ uf.unit_code }}
+                    {% if uf.unit_code.errors %}<div class="text-danger small">{{ uf.unit_code.errors }}</div>{% endif %}
+                  </div>
+
+                  <div class="col-md-3">
+                    <label class="form-label">Unit Type</label>
+                    {{ uf.unit_type }}
+                    {% if uf.unit_type.errors %}<div class="text-danger small">{{ uf.unit_type.errors }}</div>{% endif %}
+                  </div>
+
+                  <div class="col-md-3">
+                    <label class="form-label">Price</label>
+                    {{ uf.price }}
+                    {% if uf.price.errors %}<div class="text-danger small">{{ uf.price.errors }}</div>{% endif %}
+                  </div>
+
+                  <div class="col-md-3">
+                    <label class="form-label">Deposit</label>
+                    {{ uf.deposit }}
+                    {% if uf.deposit.errors %}<div class="text-danger small">{{ uf.deposit.errors }}</div>{% endif %}
+                  </div>
+                </div>
+
+                <div class="row g-2 mt-2 align-items-end">
+                  <div class="col-md-4">
+                    <label class="form-label">Vacancy</label>
+                    {{ uf.vacancy }}
+                    {% if uf.vacancy.errors %}<div class="text-danger small">{{ uf.vacancy.errors }}</div>{% endif %}
+                  </div>
+
+                  <div class="col-md-4">
+                    <div class="form-check mt-4">
+                      {{ uf.is_active }}
+                      <label class="form-check-label ms-1">Active</label>
+                    </div>
+                    {% if uf.is_active.errors %}<div class="text-danger small">{{ uf.is_active.errors }}</div>{% endif %}
+                  </div>
+
+                  <div class="col-md-4">
+                    {% if uf.DELETE %}
+                      <div class="form-check mt-4">
+                        {{ uf.DELETE }}
+                        <label class="form-check-label ms-1 text-danger">Delete this unit</label>
+                      </div>
+                      {% if uf.DELETE.errors %}<div class="text-danger small">{{ uf.DELETE.errors }}</div>{% endif %}
+                    {% endif %}
+                  </div>
+                </div>
+              </div>
+            {% endfor %}
+
+            <hr class="my-4">
+
+            {# -------- Add more images (use form field so it binds) -------- #}
+            <div class="mb-3">
+              <label class="form-label">{{ form.property_images.label|default:"Add More Property Images" }}</label>
+              {{ form.property_images }}
+              {% if form.property_images.errors %}
+                <div class="text-danger small">{{ form.property_images.errors }}</div>
+              {% endif %}
+              <div class="form-text small text-muted">
+                Add more photos. You can select multiple images at once.
+              </div>
+            </div>
+
+            {# -------- Existing images -------- #}
+            {% if form.instance.images.exists %}
+              <div class="mb-3">
+                <label class="form-label">Current Property Images</label>
+                <div class="row g-2">
+                  {% for img in form.instance.images.all %}
+                    <div class="col-sm-6 col-md-4">
+                      <div class="card">
+                        <img src="{{ img.image.url }}" class="card-img-top" alt="Property image"
+                             style="height: 140px; object-fit: cover;">
+                        <div class="card-body p-2">
+                          {% if img.is_primary %}
+                            <span class="badge bg-success mb-2">Primary</span>
+                          {% endif %}
+                          <a href="{% url 'delete_property_image' img.id %}" class="btn btn-danger btn-sm w-100">
+                            Delete
+                          </a>
+                        </div>
+                      </div>
+                    </div>
+                  {% endfor %}
+                </div>
+              </div>
+            {% endif %}
+
+            {# -------- Video -------- #}
+            <div class="mb-3">
+              <label class="form-label">Upload / Replace Video</label>
+              {{ form.video }}
+              {% if form.video.errors %}<div class="text-danger small">{{ form.video.errors }}</div>{% endif %}
+
+              {% if form.instance.video %}
+                <div class="form-text small text-muted">
+                  Current video: <strong>{{ form.instance.video.name }}</strong>
+                </div>
+              {% else %}
+                <div class="form-text small text-muted">
+                  Optional. Allowed: mp4, mov, m4v, webm.
+                </div>
+              {% endif %}
+            </div>
+
+            <button type="submit" class="btn btn-warning w-100 text-white">
+              <i class="bi bi-save"></i> Update Property
+            </button>
+          </form>
+
+          <hr class="my-4">
+
+          {# -------- Dangerous actions -------- #}
+          <div class="d-flex justify-content-between align-items-center">
+            <a href="{% url 'landlord_dashboard' %}" class="btn btn-outline-secondary">
+              Back
+            </a>
+
+            <form method="post" action="{% url 'delete_property' form.instance.id %}">
+              {% csrf_token %}
+              <button type="submit" class="btn btn-outline-danger"
+                      onclick="return confirm('Delete this property and all its units/images? This cannot be undone.')">
+                <i class="bi bi-trash"></i> Delete Property
+              </button>
+            </form>
+          </div>
+
+        </div>
+      </div>
     </div>
+  </div>
 </div>
 
-<!-- Custom Styles for Form Fields and Buttons -->
 <style>
-    /* Gradient Background */
-    body {
-        background: linear-gradient(135deg, #ff9800, #f57c00);
-    }
-
-    /* Subtle Shadow on Form Fields */
-    .form-control {
-        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-    }
-
-    .form-check-input {
-        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-    }
-
-    .form-floating label {
-        color: #5a5a5a;
-    }
-
-    /* Hover Effects for Buttons */
-    .btn-warning:hover {
-        background-color: #ff9800;
-        border-color: #ff9800;
-    }
-
-    .btn-secondary:hover {
-        background-color: #6c757d;
-        border-color: #6c757d;
-    }
-
-    /* Card Header Styling */
-    .card-header {
-        background: linear-gradient(135deg, #ff9800, #f57c00);
-        border-bottom: none;
-    }
-
-    /* Card Shadow */
-    .card {
-        border: none;
-        border-radius: 8px;
-        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-    }
+  body { background: linear-gradient(135deg, #ff9800, #f57c00); }
+  .form-control { box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08); }
+  .card { border: none; border-radius: 10px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); }
 </style>
 {% endblock %}

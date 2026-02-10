@@ -5,77 +5,143 @@
 {% block content %}
 <div class="container">
     <h2 class="text-center mb-4 fw-bold">Edit Tenant</h2>
+
     <form id="tenantForm" method="post" action="{% url 'edit_tenant' tenant.id %}">
         {% csrf_token %}
+
+        {% if form.non_field_errors %}
+          <div class="alert alert-danger">{{ form.non_field_errors }}</div>
+        {% endif %}
+
         <div class="mb-3">
-            <label for="tenant_name" class="form-label">Tenant Name:</label>
-            <input type="text" id="tenant_name" name="name" class="form-control" value="{{ tenant.name }}" required>
+            <label class="form-label">Tenant Name:</label>
+            {{ form.name }}
+            {% if form.name.errors %}<div class="text-danger small">{{ form.name.errors }}</div>{% endif %}
         </div>
+
         <div class="mb-3">
-            <label for="tenant_phone" class="form-label">Tenant Phone:</label>
-            <input type="text" id="tenant_phone" name="phone" class="form-control" value="{{ tenant.phone }}" required>
+            <label class="form-label">Tenant Phone:</label>
+            {{ form.phone }}
+            {% if form.phone.errors %}<div class="text-danger small">{{ form.phone.errors }}</div>{% endif %}
         </div>
+
         <div class="mb-3">
-            <label for="property" class="form-label">Property:</label>
-            {{ form.property }}
-        <div class="mb-3">
-            <label for="unit_occupied" class="form-label">Unit Occupied:</label>
-            <input type="text" id="unit_occupied" name="unit" class="form-control" value="{{ tenant.unit }}" required>
+            <label class="form-label">Unit Occupied:</label>
+            {{ form.unit_fk }}
+            {% if form.unit_fk.errors %}<div class="text-danger small">{{ form.unit_fk.errors }}</div>{% endif %}
+            {% if form.unit_fk.help_text %}<div class="form-text">{{ form.unit_fk.help_text }}</div>{% endif %}
+
+            {% if tenant.unit_fk %}
+            <div class="form-text text-muted mt-1">
+                Current: <strong>{{ tenant.unit_fk.property.name }}</strong> —
+                <strong>{{ tenant.unit_fk.unit_code }}</strong>
+                ({{ tenant.unit_fk.unit_type }})
+            </div>
+            {% endif %}
         </div>
+
         <div class="mb-3">
-            <label for="date_occupied" class="form-label">Date Occupied:</label>
-            <input type="date" id="date_occupied" name="date_occupied" class="form-control" value="{{ tenant.date_occupied }}" required>
+            <label class="form-label">Date Occupied:</label>
+            {{ form.date_occupied }}
+            {% if form.date_occupied.errors %}<div class="text-danger small">{{ form.date_occupied.errors }}</div>{% endif %}
         </div>
+
         <div class="mb-3">
-            <label for="rent_paid" class="form-label">Rent Paid:</label>
-            <input type="number" id="rent_paid" name="rent_paid" class="form-control" value="{{ tenant.rent_paid }}" required>
+            <label class="form-label">Rent Paid:</label>
+            {{ form.rent_paid }}
+            {% if form.rent_paid.errors %}<div class="text-danger small">{{ form.rent_paid.errors }}</div>{% endif %}
         </div>
+
         <div class="mb-3">
-            <label for="date_paid" class="form-label">Date Paid:</label>
-            <input type="date" id="date_paid" name="date_paid" class="form-control" value="{{ tenant.date_paid }}" required>
+            <label class="form-label">Date Paid:</label>
+            {{ form.date_paid }}
+            {% if form.date_paid.errors %}<div class="text-danger small">{{ form.date_paid.errors }}</div>{% endif %}
         </div>
+
         <div class="mb-3">
-            <label for="month_paid_for" class="form-label">Month Paid For:</label>
-            <select id="month_paid_for" name="month_paid_for" class="form-control" required>
-                {% for value, display in form.month_paid_for.field.choices %}
-                    <option value="{{ value }}" {% if value == tenant.month_paid_for %}selected{% endif %}>{{ display }}</option>
-                {% endfor %}
-            </select>
+            <label class="form-label">Month Paid For:</label>
+            {{ form.month_paid_for }}
+            {% if form.month_paid_for.errors %}<div class="text-danger small">{{ form.month_paid_for.errors }}</div>{% endif %}
         </div>
+
         <div class="mb-3">
-            <label for="monthly_rent" class="form-label">Monthly Rent:</label>
-            <input type="number" id="monthly_rent" name="monthly_rent" class="form-control" value="{{ tenant.monthly_rent }}" required>
+            <label class="form-label">Monthly Rent:</label>
+            {{ form.monthly_rent }}
+            {% if form.monthly_rent.errors %}<div class="text-danger small">{{ form.monthly_rent.errors }}</div>{% endif %}
         </div>
+
+        <hr>
+
+        {# Display-only computed fields (server still calculates/saves) #}
         <div class="mb-3">
-            <label for="rent_balance" class="form-label">Rent Balance:</label>
-            <input type="number" id="rent_balance" name="rent_balance" class="form-control" value="{{ tenant.rent_balance }}" readonly>
+            <label class="form-label">Rent Balance (computed):</label>
+            <input
+                type="number"
+                id="rent_balance"
+                class="form-control"
+                value="{{ tenant.rent_balance }}"
+                readonly
+            >
         </div>
+
         <div class="mb-3">
-            <label for="total_rent_balance" class="form-label">Total Rent Balance:</label>
-            <input type="number" id="total_rent_balance" name="total_rent_balance" class="form-control" value="{{ tenant.cumulative_rent_balance }}" readonly>
+            <label class="form-label">Total Rent Balance (computed):</label>
+            <input
+                type="number"
+                id="total_rent_balance"
+                class="form-control"
+                value="{{ tenant.cumulative_rent_balance }}"
+                readonly
+            >
         </div>
-        <button type="submit" class="btn btn-primary">Update Tenant</button>
+
+        <button type="submit" class="btn btn-primary w-100">Update Tenant</button>
     </form>
+
+    <div class="text-center mt-3">
+        <a href="{% url 'tenant_list' %}" class="btn btn-secondary">Back to Tenant List</a>
+    </div>
 </div>
 
 <script>
-    document.getElementById('tenantForm').addEventListener('input', function() {
-        var monthlyRent = parseFloat(document.getElementById('monthly_rent').value) || 0;
-        var rentPaid = parseFloat(document.getElementById('rent_paid').value) || 0;
-        var rentBalance = monthlyRent - rentPaid;
-        document.getElementById('rent_balance').value = rentBalance;
+(function() {
+    const form = document.getElementById('tenantForm');
 
-        // Calculate the new cumulative rent balance
-        var initialCumulativeRentBalance = parseFloat(document.getElementById('total_rent_balance').dataset.initialValue) || 0;
-        var initialRentBalance = parseFloat(document.getElementById('rent_balance').dataset.initialValue) || 0;
-        var newCumulativeRentBalance = initialCumulativeRentBalance - initialRentBalance + rentBalance;
-        document.getElementById('total_rent_balance').value = newCumulativeRentBalance;
-    });
+    const monthlyRentEl = form.querySelector('[name="monthly_rent"]');
+    const rentPaidEl = form.querySelector('[name="rent_paid"]');
 
-    // Store initial values for cumulative rent balance calculation
+    const rentBalanceEl = document.getElementById('rent_balance');
+    const totalBalanceEl = document.getElementById('total_rent_balance');
+
+    function storeInitials() {
+        totalBalanceEl.dataset.initialValue = totalBalanceEl.value || "0";
+        rentBalanceEl.dataset.initialValue = rentBalanceEl.value || "0";
+    }
+
+    function recalc() {
+        const monthlyRent = parseFloat(monthlyRentEl?.value || "0") || 0;
+        const rentPaid = parseFloat(rentPaidEl?.value || "0") || 0;
+
+        const newRentBalance = monthlyRent - rentPaid;
+        rentBalanceEl.value = newRentBalance;
+
+        const initialTotal = parseFloat(totalBalanceEl.dataset.initialValue || "0") || 0;
+        const initialRentBal = parseFloat(rentBalanceEl.dataset.initialValue || "0") || 0;
+
+        const newTotal = (initialTotal - initialRentBal) + newRentBalance;
+        totalBalanceEl.value = newTotal;
+    }
+
     document.addEventListener('DOMContentLoaded', function() {
-        document.getElementById('total_rent_balance').dataset.initialValue = document.getElementById('total_rent_balance').value;
-        document.getElementById('rent_balance').dataset.initialValue = document.getElementById('rent_balance').value;
+        storeInitials();
+        recalc();
     });
+
+    form.addEventListener('input', function(e) {
+        if (e.target && (e.target.name === "monthly_rent" || e.target.name === "rent_paid")) {
+            recalc();
+        }
+    });
+})();
 </script>
 {% endblock %}

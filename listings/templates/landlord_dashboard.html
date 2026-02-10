@@ -1,505 +1,299 @@
 {% extends 'base.html' %}
-
 {% block title %}Landlord Dashboard - EasyRent{% endblock %}
 
 {% block content %}
 <style>
-    .dashboard-header {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        color: white;
-        padding: 40px 20px;
-        margin: -1rem -12px 2rem;
-        border-radius: 0;
-    }
+  .dash-hero{
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color:#fff; padding:32px 18px; border-radius:14px;
+    box-shadow: 0 8px 24px rgba(0,0,0,.12);
+    margin-bottom: 22px;
+  }
+  .dash-hero h1{font-weight:800; font-size: 2rem; margin:0 0 6px;}
+  .dash-hero p{margin:0; opacity:.95}
 
-    .dashboard-header h1 {
-        font-size: 2.5rem;
-        font-weight: 700;
-        margin-bottom: 10px;
-    }
+  .kpi{background:#fff;border-radius:14px;padding:18px;border:1px solid rgba(0,0,0,.06);
+    box-shadow: 0 2px 14px rgba(0,0,0,.06); height:100%;}
+  .kpi .label{font-size:.82rem;color:#7a7a7a;font-weight:700;text-transform:uppercase;letter-spacing:.5px;}
+  .kpi .value{font-size:1.65rem;font-weight:800;margin-top:6px;}
+  .kpi .sub{font-size:.85rem;color:#666;margin-top:4px}
+  .kpi.expected{border-left:5px solid #667eea;}
+  .kpi.collected{border-left:5px solid #2ecc71;}
+  .kpi.remaining{border-left:5px solid #00bcd4;}
+  .kpi.outstanding{border-left:5px solid #f39c12;}
 
-    .dashboard-header p {
-        font-size: 1.1rem;
-        opacity: 0.95;
-    }
+  .quick-actions a{border-radius:12px; padding:12px 14px; font-weight:700;}
+  .cardx{background:#fff;border-radius:14px;border:1px solid rgba(0,0,0,.06);box-shadow: 0 2px 14px rgba(0,0,0,.06);}
+  .cardx .cardx-h{padding:14px 16px;border-bottom:1px solid rgba(0,0,0,.06);display:flex;align-items:center;justify-content:space-between}
+  .cardx .cardx-b{padding:16px;}
 
-    /* KPI Cards */
-    .kpi-card {
-        background: white;
-        border-radius: 12px;
-        padding: 25px;
-        box-shadow: 0 2px 12px rgba(0,0,0,0.08);
-        border-left: 4px solid var(--primary-color);
-        transition: all 0.3s ease;
-    }
+  .pill{display:inline-flex;gap:6px;align-items:center;padding:6px 10px;border-radius:999px;font-size:.82rem;font-weight:700;}
+  .pill.pending{background:#fff3cd;color:#856404;}
+  .pill.full{background:#d4edda;color:#155724;}
+  .pill.vacant{background:#f8d7da;color:#721c24;}
+  .pill.booked{background:#d1ecf1;color:#0c5460;}
 
-    .kpi-card:hover {
-        box-shadow: 0 6px 20px rgba(0,0,0,0.12);
-        transform: translateY(-2px);
-    }
+  .prop-row{display:flex;gap:12px;align-items:flex-start;padding:12px;border:1px solid rgba(0,0,0,.06);border-radius:12px;}
+  .prop-thumb{width:64px;height:64px;border-radius:12px;overflow:hidden;background:#f2f2f2;flex:0 0 64px;display:flex;align-items:center;justify-content:center}
+  .prop-thumb img{width:100%;height:100%;object-fit:cover}
+  .prop-meta{flex:1}
+  .prop-title{font-weight:800;margin:0}
+  .prop-sub{color:#666;font-size:.9rem;margin:2px 0 0}
+  .prop-actions{display:flex;gap:8px;flex-wrap:wrap}
 
-    .kpi-card.expected {
-        border-left-color: #667eea;
-    }
-
-    .kpi-card.collected {
-        border-left-color: #4eca6e;
-    }
-
-    .kpi-card.outstanding {
-        border-left-color: #f39c12;
-    }
-
-    .kpi-label {
-        font-size: 0.9rem;
-        color: #999;
-        font-weight: 600;
-        margin-bottom: 8px;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
-    }
-
-    .kpi-value {
-        font-size: 2rem;
-        font-weight: 700;
-        color: #333;
-        margin-bottom: 8px;
-    }
-
-    .kpi-subtitle {
-        font-size: 0.85rem;
-        color: #666;
-    }
-
-    /* Status Badge */
-    .status-badge {
-        display: inline-block;
-        padding: 6px 12px;
-        border-radius: 20px;
-        font-size: 0.85rem;
-        font-weight: 600;
-    }
-
-    .status-occupied {
-        background: #d4edda;
-        color: #155724;
-    }
-
-    .status-vacant {
-        background: #f8d7da;
-        color: #721c24;
-    }
-
-    /* Quick Stats */
-    .quick-stats {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-        gap: 20px;
-        margin: 30px 0;
-    }
-
-    .stat-box {
-        background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
-        padding: 20px;
-        border-radius: 10px;
-        text-align: center;
-    }
-
-    .stat-number {
-        font-size: 2.5rem;
-        font-weight: 700;
-        color: var(--primary-color);
-        margin-bottom: 5px;
-    }
-
-    .stat-label {
-        font-size: 0.9rem;
-        color: #666;
-        font-weight: 600;
-    }
-
-    /* Widget Section */
-    .widget-section {
-        margin-bottom: 40px;
-    }
-
-    .widget-title {
-        font-size: 1.4rem;
-        font-weight: 700;
-        color: #333;
-        margin-bottom: 20px;
-        padding-bottom: 12px;
-        border-bottom: 2px solid #667eea;
-    }
-
-    .widget-card {
-        background: white;
-        border-radius: 12px;
-        padding: 20px;
-        box-shadow: 0 2px 12px rgba(0,0,0,0.08);
-        margin-bottom: 15px;
-    }
-
-    /* Booking Item */
-    .booking-item {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        padding: 15px;
-        border: 1px solid #f0f0f0;
-        border-radius: 8px;
-        margin-bottom: 10px;
-    }
-
-    .booking-property {
-        flex: 1;
-    }
-
-    .booking-property-name {
-        font-weight: 700;
-        color: #333;
-        margin-bottom: 5px;
-    }
-
-    .booking-tenant-name {
-        font-size: 0.9rem;
-        color: #666;
-    }
-
-    .booking-status {
-        background: #fff3cd;
-        color: #856404;
-        padding: 6px 12px;
-        border-radius: 6px;
-        font-size: 0.85rem;
-        font-weight: 600;
-    }
-
-    /* Payment Item */
-    .payment-item {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        padding: 12px;
-        border-bottom: 1px solid #f0f0f0;
-    }
-
-    .payment-item:last-child {
-        border-bottom: none;
-    }
-
-    .payment-tenant {
-        flex: 1;
-    }
-
-    .payment-tenant-name {
-        font-weight: 600;
-        color: #333;
-        font-size: 0.95rem;
-    }
-
-    .payment-month {
-        font-size: 0.85rem;
-        color: #999;
-    }
-
-    .payment-amount {
-        color: #4eca6e;
-        font-weight: 700;
-        font-size: 1rem;
-    }
-
-    /* Performance Table */
-    .performance-table {
-        background: white;
-        border-radius: 12px;
-        overflow: hidden;
-        box-shadow: 0 2px 12px rgba(0,0,0,0.08);
-    }
-
-    .performance-table table {
-        width: 100%;
-        border-collapse: collapse;
-    }
-
-    .performance-table th {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        color: white;
-        padding: 15px;
-        text-align: left;
-        font-weight: 700;
-    }
-
-    .performance-table td {
-        padding: 15px;
-        border-bottom: 1px solid #f0f0f0;
-    }
-
-    .performance-table tr:hover {
-        background: #f9f9f9;
-    }
-
-    .table-property-name {
-        font-weight: 700;
-        color: #333;
-    }
-
-    .table-location {
-        font-size: 0.9rem;
-        color: #666;
-    }
-
-    .table-balance-positive {
-        color: #4eca6e;
-        font-weight: 600;
-    }
-
-    .table-balance-negative {
-        color: #e74c3c;
-        font-weight: 600;
-    }
-
-    /* Action Buttons */
-    .action-btn-group {
-        display: flex;
-        gap: 10px;
-        margin-top: 20px;
-    }
-
-    .quick-action-btn {
-        flex: 1;
-        padding: 15px;
-        text-align: center;
-        border-radius: 8px;
-        text-decoration: none;
-        font-weight: 600;
-        transition: all 0.3s ease;
-        cursor: pointer;
-    }
-
-    .quick-action-btn.primary {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        color: white;
-    }
-
-    .quick-action-btn.primary:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 8px 20px rgba(102, 126, 234, 0.3);
-    }
-
-    .quick-action-btn.secondary {
-        background: #f0f0f0;
-        color: #333;
-    }
-
-    .quick-action-btn.secondary:hover {
-        background: #e0e0e0;
-    }
-
-    /* Empty State */
-    .empty-state {
-        text-align: center;
-        padding: 40px;
-        color: #999;
-    }
-
-    .empty-state-icon {
-        font-size: 3rem;
-        margin-bottom: 15px;
-    }
-
-    @media (max-width: 768px) {
-        .kpi-value {
-            font-size: 1.5rem;
-        }
-
-        .quick-stats {
-            grid-template-columns: 1fr;
-        }
-
-        .booking-item, .payment-item {
-            flex-direction: column;
-            align-items: flex-start;
-            gap: 10px;
-        }
-    }
+  .table thead th{background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color:#fff; border:0;}
+  .table td{vertical-align:middle;}
 </style>
 
-<div class="dashboard-header">
-    <h1>🏠 Property Dashboard — Dash</h1>
-    <p>Manage rentals, track money, and boost income. Rahisi na haraka.</p>
+<div class="dash-hero">
+  <div class="d-flex justify-content-between align-items-start flex-wrap gap-2">
+    <div>
+      <h1>🏠 Landlord Dashboard</h1>
+      <p>Manage properties, units, tenants, bookings and collections — unit-first.</p>
+    </div>
+    <div class="quick-actions d-flex gap-2 flex-wrap">
+      <a href="{% url 'add_property' %}" class="btn btn-light">
+        <i class="bi bi-plus-lg"></i> Add Property
+      </a>
+      <a href="{% url 'manage_tenants' %}" class="btn btn-outline-light">
+        <i class="bi bi-person-plus"></i> Add Tenant
+      </a>
+      <a href="{% url 'tenant_list' %}" class="btn btn-outline-light">
+        <i class="bi bi-people-fill"></i> Tenant List
+      </a>
+      <a href="{% url 'landlord_bookings' %}" class="btn btn-outline-light">
+        <i class="bi bi-calendar2-check"></i> Bookings
+      </a>
+    </div>
+  </div>
 </div>
 
-<div class="container py-4">
-    <!-- KPI Cards -->
-    <div class="row g-3 mb-5">
-        <div class="col-md-4">
-            <div class="kpi-card expected">
-                <div class="kpi-label">Expected Monthly Rent</div>
-                <div class="kpi-value">Ksh {{ total_monthly_rent|floatformat:0 }}</div>
-                <div class="kpi-subtitle">Total rent across all properties</div>
-            </div>
-        </div>
-        <div class="col-md-4">
-            <div class="kpi-card collected">
-                <div class="kpi-label">Collected This Month</div>
-                <div class="kpi-value">Ksh {{ rent_collected_month|floatformat:0 }}</div>
-                <div class="kpi-subtitle">{{ recent_payments|length }} payment(s) logged</div>
-            </div>
-        </div>
-        <div class="col-md-4">
-            <div class="kpi-card outstanding">
-                <div class="kpi-label">Outstanding Balance</div>
-                <div class="kpi-value">Ksh {{ outstanding_balance|floatformat:0 }}</div>
-                <div class="kpi-subtitle">Action needed to collect</div>
-            </div>
-        </div>
-    </div>
+<div class="container py-2">
 
-    <!-- Quick Statistics -->
-    <div class="quick-stats">
-        <div class="stat-box">
-            <div class="stat-number">{{ occupancy_rate }}%</div>
-            <div class="stat-label">Occupancy Rate</div>
-        </div>
-        <div class="stat-box">
-            <div class="stat-number">{{ occupied_properties }}/{{ total_properties }}</div>
-            <div class="stat-label">Units Occupied</div>
-        </div>
-        <div class="stat-box">
-            <div class="stat-number">{{ vacant_properties }}</div>
-            <div class="stat-label">Vacant Units</div>
-        </div>
-        <div class="stat-box">
-            <div class="stat-number">{{ pending_count }}</div>
-            <div class="stat-label">Pending Inquiries</div>
-        </div>
+  <!-- KPI row (UNIT-FIRST) -->
+  <div class="row g-3 mb-4">
+    <div class="col-md-3">
+      <div class="kpi expected">
+        <div class="label">Expected Monthly Rent</div>
+        <div class="value">Ksh {{ expected_monthly_rent|floatformat:0 }}</div>
+        <div class="sub">Sum of active unit prices</div>
+      </div>
     </div>
-
-    <!-- Action Buttons -->
-    <div class="action-btn-group mb-5">
-        <a href="{% url 'add_property' %}" class="quick-action-btn primary">
-            <i class="bi bi-plus-lg"></i> Add Property
-        </a>
-        <a href="{% url 'landlord_bookings' %}" class="quick-action-btn secondary">
-            <i class="bi bi-calendar2-check"></i> View All Bookings
-        </a>
-        <a href="{% url 'tenant_list' %}" class="quick-action-btn secondary">
-            <i class="bi bi-people-fill"></i> Tenant Directory
-        </a>
+    <div class="col-md-3">
+      <div class="kpi collected">
+        <div class="label">Paid This Month</div>
+        <div class="value">Ksh {{ rent_paid_month|floatformat:0 }}</div>
+        <div class="sub">{{ recent_payments|length }} receipt(s) logged</div>
+      </div>
     </div>
+    <div class="col-md-3">
+      <div class="kpi remaining">
+        <div class="label">Remaining This Month</div>
+        <div class="value">Ksh {{ rent_remaining_month|floatformat:0 }}</div>
+        <div class="sub">Expected minus receipts</div>
+      </div>
+    </div>
+    <div class="col-md-3">
+      <div class="kpi outstanding">
+        <div class="label">Outstanding Balance</div>
+        <div class="value">Ksh {{ outstanding_balance_total|floatformat:0 }}</div>
+        <div class="sub">Across all tenants</div>
+      </div>
+    </div>
+  </div>
 
-    <!-- Pending Bookings Widget -->
-    {% if pending_bookings %}
-    <div class="widget-section">
-        <h3 class="widget-title">
-            <i class="bi bi-clock-history"></i> Pending Inquiries ({{ pending_count }})
-        </h3>
-        <div class="widget-card">
-            {% for booking in pending_bookings %}
-            <div class="booking-item">
-                <div class="booking-property">
-                    <div class="booking-property-name">{{ booking.property.name }}</div>
-                    <div class="booking-tenant-name">{{ booking.tenant.get_full_name|default:booking.tenant.username }}</div>
+  <!-- Unit stats -->
+  <div class="row g-3 mb-4">
+    <div class="col-md-3">
+      <div class="cardx">
+        <div class="cardx-b text-center">
+          <div class="text-muted small fw-bold">Occupancy Rate</div>
+          <div class="fw-bold" style="font-size:2rem;color:var(--primary-color);">{{ occupancy_rate }}%</div>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-3">
+      <div class="cardx">
+        <div class="cardx-b text-center">
+          <div class="text-muted small fw-bold">Occupied Units</div>
+          <div class="fw-bold" style="font-size:2rem;color:#2ecc71;">{{ occupied_units }}/{{ total_units }}</div>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-3">
+      <div class="cardx">
+        <div class="cardx-b text-center">
+          <div class="text-muted small fw-bold">Vacant Units</div>
+          <div class="fw-bold" style="font-size:2rem;color:#e74c3c;">{{ vacant_units }}</div>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-3">
+      <div class="cardx">
+        <div class="cardx-b text-center">
+          <div class="text-muted small fw-bold">Booked Units</div>
+          <div class="fw-bold" style="font-size:2rem;color:#00bcd4;">{{ booked_units }}</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Main grid -->
+  <div class="row g-4">
+
+    <!-- Properties management -->
+    <div class="col-lg-8">
+      <div class="cardx">
+        <div class="cardx-h">
+          <div class="fw-bold">
+            <i class="bi bi-buildings"></i> Properties ({{ total_properties }})
+          </div>
+          <a href="{% url 'add_property' %}" class="btn btn-sm btn-primary">
+            <i class="bi bi-plus-lg"></i> Add
+          </a>
+        </div>
+        <div class="cardx-b">
+          {% if properties %}
+            <div class="d-flex flex-column gap-3">
+              {% for prop in properties %}
+                <div class="prop-row">
+                  <div class="prop-thumb">
+                    {% with primary=prop.images.all.0 %}
+                      {% if primary %}
+                        <img src="{{ primary.image.url }}" alt="{{ prop.name }}">
+                      {% else %}
+                        <i class="bi bi-image text-muted"></i>
+                      {% endif %}
+                    {% endwith %}
+                  </div>
+
+                  <div class="prop-meta">
+                    <p class="prop-title">{{ prop.name }}</p>
+                    <p class="prop-sub">
+                      <i class="bi bi-geo-alt"></i> {{ prop.county|default:"—" }}, {{ prop.town }}
+                      • Default: {{ prop.property_type }} • Ksh {{ prop.price|floatformat:0 }}
+                    </p>
+
+                    <div class="d-flex flex-wrap gap-2 mt-2">
+                      <span class="pill pending"><i class="bi bi-house"></i> Units {{ prop.total_units_count|default:0 }}</span>
+                      <span class="pill booked"><i class="bi bi-bookmark-check"></i> Booked {{ prop.booked_units_count|default:0 }}</span>
+
+                      {% if prop.vacant_units_count|default:0 == 0 and prop.total_units_count|default:0 > 0 %}
+                        <span class="pill full"><i class="bi bi-check-circle-fill"></i> Full</span>
+                      {% else %}
+                        <span class="pill vacant"><i class="bi bi-exclamation-triangle-fill"></i> Vacant {{ prop.vacant_units_count|default:0 }}</span>
+                      {% endif %}
+                    </div>
+
+                    <div class="text-muted small mt-2">
+                      Expected: <strong>Ksh {{ prop.expected_monthly_rent|default:0|floatformat:0 }}</strong>
+                      • Occupied: <strong>{{ prop.occupied_units_count|default:0 }}</strong>
+                    </div>
+                  </div>
+
+                  <div class="prop-actions">
+                    <a href="{% url 'edit_property' prop.id %}" class="btn btn-sm btn-outline-secondary" title="View / Manage Property">
+                      <i class="bi bi-eye"></i> View
+                    </a>
+                    <a href="{% url 'edit_property' prop.id %}" class="btn btn-sm btn-primary" title="Edit Property">
+                      <i class="bi bi-pencil"></i> Edit
+                    </a>
+                    <a href="{% url 'delete_property' prop.id %}" class="btn btn-sm btn-outline-danger" title="Delete Property">
+                      <i class="bi bi-trash"></i> Delete
+                    </a>
+                  </div>
                 </div>
-                <a href="{% url 'landlord_bookings' %}" class="booking-status">
+              {% endfor %}
+            </div>
+          {% else %}
+            <div class="text-center text-muted py-4">
+              <div style="font-size:2.5rem;">🏠</div>
+              <div class="fw-bold mb-2">No properties yet</div>
+              <a href="{% url 'add_property' %}" class="btn btn-primary">
+                <i class="bi bi-plus-lg"></i> Add your first property
+              </a>
+            </div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+
+    <!-- Right column: bookings + tenants -->
+    <div class="col-lg-4">
+
+      <!-- Pending bookings -->
+      <div class="cardx mb-4">
+        <div class="cardx-h">
+          <div class="fw-bold"><i class="bi bi-clock-history"></i> Pending Bookings ({{ pending_count }})</div>
+          <a href="{% url 'landlord_bookings' %}" class="btn btn-sm btn-outline-secondary">All</a>
+        </div>
+        <div class="cardx-b">
+          {% if pending_bookings %}
+            <div class="d-flex flex-column gap-2">
+              {% for b in pending_bookings %}
+                <div class="d-flex justify-content-between align-items-start border rounded-3 p-2">
+                  <div>
+                    <div class="fw-bold">{{ b.unit.property.name }}</div>
+                    <div class="text-muted small">Unit {{ b.unit.unit_code }} • {{ b.tenant.get_full_name|default:b.tenant.username }}</div>
+                    <div class="text-muted small">{{ b.created_at|date:"M d, Y" }}</div>
+                  </div>
+                  <a href="{% url 'landlord_bookings' %}" class="btn btn-sm btn-warning">
                     Respond
-                </a>
-            </div>
-            {% endfor %}
-        </div>
-    </div>
-    {% endif %}
-
-    <!-- Recent Payments Widget -->
-    {% if recent_payments %}
-    <div class="widget-section">
-        <h3 class="widget-title">
-            <i class="bi bi-cash-coin"></i> Recent Payments
-        </h3>
-        <div class="widget-card">
-            {% for payment in recent_payments %}
-            <div class="payment-item">
-                <div class="payment-tenant">
-                    <div class="payment-tenant-name">{{ payment.tenant.name }}</div>
-                    <div class="payment-month">{{ payment.month_paid_for }} • {{ payment.date_paid|date:"d M" }}</div>
+                  </a>
                 </div>
-                <div class="payment-amount">+Ksh {{ payment.rent_paid|floatformat:0 }}</div>
+              {% endfor %}
             </div>
-            {% endfor %}
+          {% else %}
+            <div class="text-muted">No pending bookings right now.</div>
+          {% endif %}
         </div>
-    </div>
-    {% else %}
-    <div class="widget-section">
-        <h3 class="widget-title">Recent Payments</h3>
-        <div class="empty-state">
-            <div class="empty-state-icon">💰</div>
-            <p>No payments recorded yet.</p>
-        </div>
-    </div>
-    {% endif %}
+      </div>
 
-    <!-- Property Performance Table -->
-    {% if property_performance %}
-    <div class="widget-section">
-        <h3 class="widget-title">
-            <i class="bi bi-graph-up"></i> Property Performance
-        </h3>
-        <div class="performance-table">
-            <table>
-                <thead>
-                    <tr>
-                        <th>Property</th>
-                        <th>Status</th>
-                        <th>Tenants</th>
-                        <th>Monthly Rent</th>
-                        <th>Outstanding</th>
-                        <th>Action</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for perf in property_performance %}
-                    <tr>
-                        <td>
-                            <div class="table-property-name">{{ perf.property.name }}</div>
-                            <div class="table-location"><i class="bi bi-geo-alt"></i> {{ perf.property.county }}, {{ perf.property.town }}</div>
-                        </td>
-                        <td>
-                            {% if perf.occupancy_status == 'occupied' %}
-                                <span class="status-badge status-occupied">✓ Occupied</span>
-                            {% else %}
-                                <span class="status-badge status-vacant">✗ Vacant</span>
-                            {% endif %}
-                        </td>
-                        <td>{{ perf.tenant_count }}</td>
-                        <td><strong>Ksh {{ perf.property.price|floatformat:0 }}</strong></td>
-                        <td>
-                            {% if perf.outstanding_balance > 0 %}
-                                <span class="table-balance-negative">Ksh {{ perf.outstanding_balance|floatformat:0 }}</span>
-                            {% else %}
-                                <span class="table-balance-positive">Clear</span>
-                            {% endif %}
-                        </td>
-                        <td>
-                            <a href="{% url 'edit_property' perf.property.id %}" class="btn btn-sm btn-primary">
-                                <i class="bi bi-pencil"></i>
-                            </a>
-                        </td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
+      <!-- Tenants management -->
+      <div class="cardx">
+        <div class="cardx-h">
+          <div class="fw-bold"><i class="bi bi-people-fill"></i> Tenants</div>
+          <div class="d-flex gap-2">
+            <a href="{% url 'manage_tenants' %}" class="btn btn-sm btn-primary">
+              <i class="bi bi-person-plus"></i> Add
+            </a>
+            <a href="{% url 'tenant_list' %}" class="btn btn-sm btn-outline-secondary">List</a>
+          </div>
         </div>
-    </div>
-    {% else %}
-    <div class="widget-section">
-        <h3 class="widget-title">Properties</h3>
-        <div class="empty-state">
-            <div class="empty-state-icon">🏠</div>
-            <p>No properties listed yet. <a href="{% url 'add_property' %}" style="color: var(--primary-color); font-weight: 600;">Add your first property</a></p>
+        <div class="cardx-b">
+          {% if recent_tenants %}
+            <div class="d-flex flex-column gap-2">
+              {% for t in recent_tenants %}
+                <div class="border rounded-3 p-2">
+                  <div class="fw-bold">{{ t.name }}</div>
+                  <div class="text-muted small">
+                    {{ t.unit_fk.property.name }} — Unit {{ t.unit_fk.unit_code }}
+                  </div>
+                  <div class="text-muted small">
+                    Balance: <strong>Ksh {{ t.rent_balance|floatformat:0 }}</strong>
+                  </div>
+                  <div class="d-flex gap-2 mt-2 flex-wrap">
+                    <a href="{% url 'edit_tenant' t.id %}" class="btn btn-sm btn-outline-primary">
+                      <i class="bi bi-pencil"></i> Edit
+                    </a>
+                    <a href="{% url 'generate_receipt' t.id %}" class="btn btn-sm btn-outline-success">
+                      <i class="bi bi-receipt"></i> Receipt
+                    </a>
+                    <a href="{% url 'receipt_history' t.id %}" class="btn btn-sm btn-outline-secondary">
+                      <i class="bi bi-clock"></i> History
+                    </a>
+                  </div>
+                </div>
+              {% endfor %}
+            </div>
+          {% else %}
+            <div class="text-muted">No tenants added yet.</div>
+          {% endif %}
         </div>
+      </div>
+
     </div>
-    {% endif %}
+  </div>
+
 </div>
-
 {% endblock %}

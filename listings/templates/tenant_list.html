@@ -5,14 +5,17 @@
 {% block content %}
 <div class="container">
     <h2 class="text-center mb-4 fw-bold">Tenant List</h2>
+
     <div class="table-responsive">
         <table class="table table-striped table-bordered">
             <thead class="table-dark">
                 <tr>
                     <th>Name</th>
                     <th>Phone</th>
-                    <th>Property Name</th>
+                    <th>Property</th>
                     <th>Unit</th>
+                    <th>Unit Type</th>
+                    <th>Unit Status</th>
                     <th>Date Occupied</th>
                     <th>Rent Paid</th>
                     <th>Date Paid</th>
@@ -23,13 +26,45 @@
                     <th>Actions</th>
                 </tr>
             </thead>
+
             <tbody>
                 {% for tenant in tenant_list %}
                 <tr>
                     <td data-label="Name">{{ tenant.name }}</td>
                     <td data-label="Phone">{{ tenant.phone }}</td>
-                    <td data-label="Property Name">{{ tenant.property.name }}</td>
-                    <td data-label="Unit">{{ tenant.unit }}</td>
+
+                    <td data-label="Property">
+                        {% if tenant.unit_fk and tenant.unit_fk.property %}
+                            {{ tenant.unit_fk.property.name }}
+                        {% else %}
+                            —
+                        {% endif %}
+                    </td>
+
+                    <td data-label="Unit">
+                        {% if tenant.unit_fk %}
+                            {{ tenant.unit_fk.unit_code }}
+                        {% else %}
+                            —
+                        {% endif %}
+                    </td>
+
+                    <td data-label="Unit Type">
+                        {% if tenant.unit_fk %}
+                            {{ tenant.unit_fk.unit_type }}
+                        {% else %}
+                            —
+                        {% endif %}
+                    </td>
+
+                    <td data-label="Unit Status">
+                        {% if tenant.unit_fk %}
+                            {{ tenant.unit_fk.vacancy }}
+                        {% else %}
+                            —
+                        {% endif %}
+                    </td>
+
                     <td data-label="Date Occupied">{{ tenant.date_occupied }}</td>
                     <td data-label="Rent Paid">{{ tenant.rent_paid }}</td>
                     <td data-label="Date Paid">{{ tenant.date_paid }}</td>
@@ -37,11 +72,18 @@
                     <td data-label="Monthly Rent">{{ tenant.monthly_rent }}</td>
                     <td data-label="Rent Balance">{{ tenant.rent_balance }}</td>
                     <td data-label="Cumulative Rent Balance">{{ tenant.cumulative_rent_balance }}</td>
+
                     <td data-label="Actions">
                         <a href="{% url 'edit_tenant' tenant.id %}" class="btn btn-sm btn-warning mb-1">Edit</a>
                         <a href="{% url 'delete_tenant' tenant.id %}" class="btn btn-sm btn-danger mb-1">Delete</a>
                         <a href="{% url 'generate_receipt' tenant.id %}" class="btn btn-sm btn-info mb-1">Generate Receipt</a>
                         <a href="{% url 'receipt_history' tenant.id %}" class="btn btn-sm btn-secondary mb-1">View History</a>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="14" class="text-center text-muted py-3">
+                        No tenants found.
                     </td>
                 </tr>
                 {% endfor %}
@@ -52,16 +94,9 @@
 
 <style>
     @media (max-width: 576px) {
-        .table thead {
-            display: none;
-        }
-        .table tbody, .table tr, .table td {
-            display: block;
-            width: 100%;
-        }
-        .table tr {
-            margin-bottom: 15px;
-        }
+        .table thead { display: none; }
+        .table tbody, .table tr, .table td { display: block; width: 100%; }
+        .table tr { margin-bottom: 15px; }
         .table td {
             text-align: right;
             padding-left: 50%;
