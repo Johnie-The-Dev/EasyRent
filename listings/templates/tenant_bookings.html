@@ -1,232 +1,242 @@
+{# tenant_bookings.html (UNIT-FIRST / RELATION-SAFE) — UPDATED #}
 {% extends 'base.html' %}
 
 {% block title %}My Bookings - EasyRent{% endblock %}
 
 {% block content %}
 <div class="container mt-5">
-    <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-4">
-        <div>
-            <h2 class="fw-bold mb-1">My Bookings</h2>
-            <p class="text-muted mb-0">Unit-first booking requests and status updates</p>
-        </div>
-        <div class="d-flex gap-2 flex-wrap">
-            <a href="{% url 'view_collection' %}" class="btn btn-outline-secondary">
-                <i class="bi bi-heart"></i> My Collection
-            </a>
-            <a href="{% url 'tenant_feed' %}" class="btn btn-outline-secondary">
-                <i class="bi bi-search"></i> Browse Units
-            </a>
-        </div>
+
+  <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-4">
+    <div>
+      <h2 class="fw-bold mb-1">My Bookings</h2>
+      <p class="text-muted mb-0">Unit-first booking requests and status updates</p>
     </div>
-
-    {# Summary KPIs #}
-    <div class="row g-3 mb-4">
-        <div class="col-md-4">
-            <div class="card border-0 shadow-sm">
-                <div class="card-body">
-                    <div class="text-muted small fw-bold">Total</div>
-                    <div class="fw-bold" style="font-size:1.8rem">{{ bookings|length }}</div>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-4">
-            <div class="card border-0 shadow-sm">
-                <div class="card-body">
-                    <div class="text-muted small fw-bold">Confirmed</div>
-                    <div class="fw-bold" style="font-size:1.8rem;color:var(--success-color)">
-                        {{ confirmed_count|default:0 }}
-                    </div>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-4">
-            <div class="card border-0 shadow-sm">
-                <div class="card-body">
-                    <div class="text-muted small fw-bold">Pending</div>
-                    <div class="fw-bold" style="font-size:1.8rem;color:var(--warning-color)">
-                        {{ pending_count|default:0 }}
-                    </div>
-                </div>
-            </div>
-        </div>
+    <div class="d-flex gap-2 flex-wrap">
+      <a href="{% url 'view_collection' %}" class="btn btn-outline-secondary">
+        <i class="bi bi-heart"></i> My Collection
+      </a>
+      <a href="{% url 'tenant_feed' %}" class="btn btn-outline-secondary">
+        <i class="bi bi-search"></i> Browse Units
+      </a>
     </div>
+  </div>
 
-    <div class="row g-4">
-        {% for booking in bookings %}
-        <div class="col-lg-6">
-            <div class="card border-0 shadow-sm h-100">
-                <div class="card-body">
-
-                    {% if booking.unit and booking.unit.property %}
-                    <!-- Property/Unit Info Header -->
-                    <div class="d-flex justify-content-between align-items-start mb-3">
-                        <div>
-                            <h5 class="card-title fw-bold mb-1" style="color: var(--primary-color)">
-                                {{ booking.unit.property.name }}
-                            </h5>
-
-                            <div class="small text-muted">
-                                <i class="bi bi-geo-alt"></i>
-                                {% if booking.unit.property.county %}
-                                    {{ booking.unit.property.county }},
-                                {% endif %}
-                                {{ booking.unit.property.town }}
-                            </div>
-
-                            <div class="small text-muted mt-2 d-flex flex-wrap gap-2">
-                                <span class="badge bg-light text-dark" style="border:1px solid rgba(0,0,0,0.06);">
-                                    Unit {{ booking.unit.unit_code }}
-                                </span>
-                                <span class="badge bg-light text-dark" style="border:1px solid rgba(0,0,0,0.06);">
-                                    {{ booking.unit.unit_type }}
-                                </span>
-                            </div>
-                        </div>
-
-                        <div>
-                            {% if booking.status == 'pending' %}
-                                <span class="badge" style="background: var(--warning-color); color: white;">
-                                    <i class="bi bi-hourglass-split"></i> Pending
-                                </span>
-                            {% elif booking.status == 'confirmed' %}
-                                <span class="badge" style="background: var(--success-color)">
-                                    <i class="bi bi-check-circle-fill"></i> Confirmed
-                                </span>
-                            {% elif booking.status == 'cancelled' %}
-                                <span class="badge" style="background: var(--danger-color)">
-                                    <i class="bi bi-x-circle-fill"></i> Cancelled
-                                </span>
-                            {% else %}
-                                <span class="badge bg-secondary">Unknown</span>
-                            {% endif %}
-                        </div>
-                    </div>
-
-                    <!-- Booking Details -->
-                    <div class="row g-3 mb-3 pb-3 border-bottom border-light">
-                        <div class="col-6">
-                            <div class="small text-muted mb-1">Monthly Rent</div>
-                            <div class="fw-bold" style="color: var(--success-color)">
-                                Ksh {{ booking.unit.price|floatformat:0 }}
-                            </div>
-                        </div>
-                        <div class="col-6">
-                            <div class="small text-muted mb-1">Booked On</div>
-                            <div class="fw-500">{{ booking.created_at|date:"M d, Y" }}</div>
-                        </div>
-                        <div class="col-12">
-                            <div class="small text-muted mb-1">Landlord</div>
-                            <div class="fw-500">
-                                {{ booking.unit.property.landlord.get_full_name|default:booking.unit.property.landlord.username }}
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Landlord Contact -->
-                    <div class="mb-3">
-                        <div class="small text-muted mb-2">Contact Landlord</div>
-                        <div class="row g-2">
-                            <div class="col-6">
-                                {% if booking.unit.property.landlord_phone %}
-                                    <a href="tel:{{ booking.unit.property.landlord_phone }}"
-                                       class="btn btn-outline-secondary btn-sm w-100">
-                                        <i class="bi bi-telephone"></i> Call
-                                    </a>
-                                {% else %}
-                                    <button class="btn btn-outline-secondary btn-sm w-100" disabled>
-                                        <i class="bi bi-telephone"></i> Call
-                                    </button>
-                                {% endif %}
-                            </div>
-
-                            <div class="col-6">
-                                {% if booking.unit.property.whatsapp_link %}
-                                    <a href="{{ booking.unit.property.whatsapp_link }}" target="_blank" rel="noopener"
-                                       class="btn btn-success btn-sm w-100">
-                                        <i class="bi bi-whatsapp"></i> Message
-                                    </a>
-                                {% else %}
-                                    <button class="btn btn-success btn-sm w-100" disabled>
-                                        <i class="bi bi-whatsapp"></i> Message
-                                    </button>
-                                {% endif %}
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Actions -->
-                    {% if booking.status != 'cancelled' %}
-                        <div class="d-grid gap-2 pt-2 border-top border-light">
-                            <button type="button" class="btn btn-danger btn-sm"
-                                    data-bs-toggle="modal"
-                                    data-bs-target="#unbookModal{{ booking.id }}">
-                                <i class="bi bi-x-circle"></i> Cancel Booking
-                            </button>
-                        </div>
-                    {% else %}
-                        <div class="pt-2 border-top border-light">
-                            <div class="alert alert-warning mb-0">
-                                <small><i class="bi bi-info-circle"></i> This booking has been cancelled.</small>
-                            </div>
-                        </div>
-                    {% endif %}
-
-                    {% else %}
-                    <div class="text-muted">
-                        Booking details unavailable (missing unit/property relation).
-                    </div>
-                    {% endif %}
-                </div>
-            </div>
+  {# Summary KPIs (works with QuerySet; avoids relying on |length) #}
+  <div class="row g-3 mb-4">
+    <div class="col-md-4">
+      <div class="card border-0 shadow-sm">
+        <div class="card-body">
+          <div class="text-muted small fw-bold">Total</div>
+          <div class="fw-bold" style="font-size:1.8rem">{{ bookings_count|default:bookings.count }}</div>
         </div>
+      </div>
+    </div>
+    <div class="col-md-4">
+      <div class="card border-0 shadow-sm">
+        <div class="card-body">
+          <div class="text-muted small fw-bold">Confirmed</div>
+          <div class="fw-bold" style="font-size:1.8rem;color:var(--success-color)">
+            {{ confirmed_count|default:0 }}
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-4">
+      <div class="card border-0 shadow-sm">
+        <div class="card-body">
+          <div class="text-muted small fw-bold">Pending</div>
+          <div class="fw-bold" style="font-size:1.8rem;color:var(--warning-color)">
+            {{ pending_count|default:0 }}
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
 
-        {# ✅ IMPORTANT: Only render modal if unit+property exist #}
-        {% if booking.unit and booking.unit.property %}
+  <div class="row g-4">
+    {% for booking in bookings %}
+      <div class="col-lg-6">
+        <div class="card border-0 shadow-sm h-100">
+          <div class="card-body">
+
+            {# ✅ Relation-safe: unit may exist but property may be missing; also avoid extra queries #}
+            {% with unit=booking.unit prop=booking.unit.property %}
+              {% if unit and prop %}
+                <div class="d-flex justify-content-between align-items-start mb-3">
+                  <div>
+                    <h5 class="card-title fw-bold mb-1" style="color: var(--primary-color)">
+                      {{ prop.name }}
+                    </h5>
+
+                    <div class="small text-muted">
+                      <i class="bi bi-geo-alt"></i>
+                      {% if prop.county %}{{ prop.county }},{% endif %}
+                      {{ prop.town }}
+                    </div>
+
+                    <div class="small text-muted mt-2 d-flex flex-wrap gap-2">
+                      <span class="badge bg-light text-dark" style="border:1px solid rgba(0,0,0,0.06);">
+                        Unit {{ unit.unit_code }}
+                      </span>
+                      <span class="badge bg-light text-dark" style="border:1px solid rgba(0,0,0,0.06);">
+                        {{ unit.unit_type }}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div>
+                    {% if booking.status == 'pending' %}
+                      <span class="badge" style="background: var(--warning-color); color: white;">
+                        <i class="bi bi-hourglass-split"></i> Pending
+                      </span>
+                    {% elif booking.status == 'confirmed' %}
+                      <span class="badge" style="background: var(--success-color)">
+                        <i class="bi bi-check-circle-fill"></i> Confirmed
+                      </span>
+                    {% elif booking.status == 'cancelled' %}
+                      <span class="badge" style="background: var(--danger-color)">
+                        <i class="bi bi-x-circle-fill"></i> Cancelled
+                      </span>
+                    {% else %}
+                      <span class="badge bg-secondary">Unknown</span>
+                    {% endif %}
+                  </div>
+                </div>
+
+                <div class="row g-3 mb-3 pb-3 border-bottom border-light">
+                  <div class="col-6">
+                    <div class="small text-muted mb-1">Monthly Rent</div>
+                    <div class="fw-bold" style="color: var(--success-color)">
+                      Ksh {{ unit.price|floatformat:0 }}
+                    </div>
+                  </div>
+
+                  <div class="col-6">
+                    <div class="small text-muted mb-1">Booked On</div>
+                    <div class="fw-500">{{ booking.created_at|date:"M d, Y" }}</div>
+                  </div>
+
+                  <div class="col-12">
+                    <div class="small text-muted mb-1">Landlord</div>
+                    <div class="fw-500">
+                      {% with landlord=prop.landlord %}
+                        {% if landlord.get_full_name %}
+                          {{ landlord.get_full_name }}
+                        {% else %}
+                          {{ landlord.username }}
+                        {% endif %}
+                      {% endwith %}
+                    </div>
+                  </div>
+                </div>
+
+                <div class="mb-3">
+                  <div class="small text-muted mb-2">Contact Landlord</div>
+                  <div class="row g-2">
+                    <div class="col-6">
+                      {% if prop.landlord_phone %}
+                        <a href="tel:{{ prop.landlord_phone }}" class="btn btn-outline-secondary btn-sm w-100">
+                          <i class="bi bi-telephone"></i> Call
+                        </a>
+                      {% else %}
+                        <button class="btn btn-outline-secondary btn-sm w-100" disabled>
+                          <i class="bi bi-telephone"></i> Call
+                        </button>
+                      {% endif %}
+                    </div>
+
+                    <div class="col-6">
+                      {% if prop.whatsapp_link %}
+                        <a href="{{ prop.whatsapp_link }}" target="_blank" rel="noopener"
+                           class="btn btn-success btn-sm w-100">
+                          <i class="bi bi-whatsapp"></i> Message
+                        </a>
+                      {% else %}
+                        <button class="btn btn-success btn-sm w-100" disabled>
+                          <i class="bi bi-whatsapp"></i> Message
+                        </button>
+                      {% endif %}
+                    </div>
+                  </div>
+                </div>
+
+                {% if booking.status != 'cancelled' %}
+                  <div class="d-grid gap-2 pt-2 border-top border-light">
+                    <button type="button" class="btn btn-danger btn-sm"
+                            data-bs-toggle="modal"
+                            data-bs-target="#unbookModal{{ booking.id }}">
+                      <i class="bi bi-x-circle"></i> Cancel Booking
+                    </button>
+                  </div>
+                {% else %}
+                  <div class="pt-2 border-top border-light">
+                    <div class="alert alert-warning mb-0">
+                      <small><i class="bi bi-info-circle"></i> This booking has been cancelled.</small>
+                    </div>
+                  </div>
+                {% endif %}
+
+              {% else %}
+                <div class="text-muted">
+                  Booking details unavailable (missing unit/property relation).
+                </div>
+              {% endif %}
+            {% endwith %}
+
+          </div>
+        </div>
+      </div>
+
+      {# ✅ Only render modal when cancel action exists and relations exist #}
+      {% if booking.status != 'cancelled' and booking.unit and booking.unit.property %}
         <div class="modal fade" id="unbookModal{{ booking.id }}" tabindex="-1"
              aria-labelledby="unbookModalLabel{{ booking.id }}" aria-hidden="true">
-            <div class="modal-dialog modal-sm">
-                <div class="modal-content border-0">
-                    <div class="modal-header border-bottom bg-light">
-                        <h5 class="modal-title fw-bold" id="unbookModalLabel{{ booking.id }}">Cancel Booking?</h5>
-                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                    </div>
-                    <div class="modal-body">
-                        <p class="mb-0">
-                            Are you sure you want to cancel your booking for
-                            <strong>{{ booking.unit.property.name }}</strong>
-                            (Unit <strong>{{ booking.unit.unit_code }}</strong>)?
-                        </p>
-                        <p class="text-muted small mt-2">This action cannot be undone.</p>
-                    </div>
-                    <div class="modal-footer border-top bg-light">
-                        <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Keep It</button>
-                        <a href="{% url 'unbook_property' booking.id %}" class="btn btn-danger btn-sm">
-                            Yes, Cancel Booking
-                        </a>
-                    </div>
-                </div>
-            </div>
-        </div>
-        {% endif %}
+          <div class="modal-dialog modal-sm">
+            <div class="modal-content border-0">
+              <div class="modal-header border-bottom bg-light">
+                <h5 class="modal-title fw-bold" id="unbookModalLabel{{ booking.id }}">Cancel Booking?</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+              </div>
+              <div class="modal-body">
+                <p class="mb-0">
+                  Are you sure you want to cancel your booking for
+                  <strong>{{ booking.unit.property.name }}</strong>
+                  (Unit <strong>{{ booking.unit.unit_code }}</strong>)?
+                </p>
+                <p class="text-muted small mt-2">This action cannot be undone.</p>
+              </div>
+              <div class="modal-footer border-top bg-light">
+                <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Keep It</button>
 
-        {% empty %}
-        <div class="col-12">
-            <div class="card border-0 shadow-sm p-5 text-center"
-                 style="background: linear-gradient(135deg, rgba(106, 76, 156, 0.05) 0%, rgba(80, 201, 195, 0.05) 100%);">
-                <i class="bi bi-calendar-x" style="font-size: 3.5rem; color: var(--text-muted); margin-bottom: 1rem;"></i>
-                <h4 class="fw-bold text-muted mb-2">No Bookings Yet</h4>
-                <p class="text-muted mb-4">You haven't booked any units yet. Start exploring available properties now!</p>
-                <a href="{% url 'tenant_feed' %}" class="btn btn-primary btn-lg">
-                    <i class="bi bi-search"></i> Browse Properties
+                {# ✅ Cancel is a POST in your views? If it’s GET right now, keep anchor. Prefer POST for safety. #}
+                <a href="{% url 'unbook_property' booking.id %}" class="btn btn-danger btn-sm">
+                  Yes, Cancel Booking
                 </a>
+              </div>
             </div>
+          </div>
         </div>
-        {% endfor %}
-    </div>
+      {% endif %}
+
+    {% empty %}
+      <div class="col-12">
+        <div class="card border-0 shadow-sm p-5 text-center"
+             style="background: linear-gradient(135deg, rgba(106, 76, 156, 0.05) 0%, rgba(80, 201, 195, 0.05) 100%);">
+          <i class="bi bi-calendar-x" style="font-size: 3.5rem; color: var(--text-muted); margin-bottom: 1rem;"></i>
+          <h4 class="fw-bold text-muted mb-2">No Bookings Yet</h4>
+          <p class="text-muted mb-4">You haven't booked any units yet. Start exploring available properties now!</p>
+          <a href="{% url 'tenant_feed' %}" class="btn btn-primary btn-lg">
+            <i class="bi bi-search"></i> Browse Properties
+          </a>
+        </div>
+      </div>
+    {% endfor %}
+  </div>
+
 </div>
 
 <style>
-    .card { transition: all 0.3s ease; }
-    .card:hover { box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12) !important; }
+  .card { transition: all 0.3s ease; }
+  .card:hover { box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12) !important; }
 </style>
 {% endblock %}

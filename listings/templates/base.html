@@ -7,8 +7,10 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>{% block title %}EasyRent{% endblock %}</title>
+
     {% bootstrap_css %}
     {% bootstrap_javascript %}
+
     <style>
       :root {
         --primary-color: #667eea;
@@ -23,17 +25,10 @@
         --text-dark: #333;
         --text-muted: #666;
       }
-      
-      * {
-        margin: 0;
-        padding: 0;
-        box-sizing: border-box;
-      }
-      
-      html {
-        scroll-behavior: smooth;
-      }
-      
+
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      html { scroll-behavior: smooth; }
+
       body {
         font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif;
         background-color: var(--light-bg);
@@ -42,10 +37,10 @@
         display: flex;
         flex-direction: column;
         min-height: 100vh;
-        padding-top: 70px;
+        padding-top: 70px; /* fixed navbar height */
       }
-      
-      /* Navbar Styling */
+
+      /* Navbar */
       .navbar {
         background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-dark) 100%);
         box-shadow: 0 2px 12px rgba(0, 0, 0, 0.15);
@@ -55,7 +50,7 @@
         width: 100%;
         z-index: 1000;
       }
-      
+
       .navbar-brand {
         font-weight: 700;
         font-size: 1.4rem;
@@ -63,32 +58,28 @@
         transition: transform 0.2s ease;
         text-align: center;
       }
-      
-      .navbar-brand:hover {
-        transform: scale(1.05);
-      }
-      
+
+      .navbar-brand:hover { transform: scale(1.05); }
+
       .navbar-brand img {
         height: 50px;
         width: auto;
         object-fit: contain;
       }
-      
-        .navbar-nav .nav-link {
-          color: #ffffff !important;
-          margin: 0 6px;
-          font-weight: 600;
-          font-size: 0.95rem;
-          transition: color 0.2s ease;
-          position: relative;
-          padding: 6px 10px !important;
-          background: transparent;
-        }
-      
-      .navbar-nav .nav-link:hover {
-        color: var(--secondary-color) !important;
+
+      .navbar-nav .nav-link {
+        color: #ffffff !important;
+        margin: 0 6px;
+        font-weight: 600;
+        font-size: 0.95rem;
+        transition: color 0.2s ease;
+        position: relative;
+        padding: 6px 10px !important;
+        background: transparent;
       }
-      
+
+      .navbar-nav .nav-link:hover { color: var(--secondary-color) !important; }
+
       .navbar-nav .nav-link::after {
         content: '';
         position: absolute;
@@ -99,84 +90,61 @@
         background: var(--secondary-color);
         transition: width 0.3s ease;
       }
-      
-      .navbar-nav .nav-link:hover::after {
-        width: 100%;
+
+      .navbar-nav .nav-link:hover::after { width: 100%; }
+
+      /* Buttons */
+      .btn {
+        font-weight: 600;
+        border-radius: 6px;
+        transition: all 0.18s ease;
+        border: none;
+        cursor: pointer;
+        padding: 0.5rem 1rem;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
       }
 
-      /* Button Styling */
-        .btn {
-          font-weight: 600;
-          border-radius: 6px;
-          transition: all 0.18s ease;
-          border: none;
-          cursor: pointer;
-          padding: 0.5rem 1rem;
-          display: inline-flex;
-          align-items: center;
-          gap: 0.5rem;
-        }
-      
       .btn-primary {
         background: linear-gradient(135deg, var(--accent-color) 0%, #3e72b2 100%);
         color: #fff;
       }
-      
+
       .btn-primary:hover {
         background: linear-gradient(135deg, #3e72b2 0%, #2e5a9a 100%);
         transform: translateY(-2px);
         box-shadow: 0 4px 12px rgba(74, 144, 226, 0.3);
       }
-      
-      .btn-secondary {
-        background: var(--secondary-color);
-        color: #fff;
-      }
-      
+
+      .btn-secondary { background: var(--secondary-color); color: #fff; }
       .btn-secondary:hover {
         background: #3fa9a3;
         transform: translateY(-2px);
         box-shadow: 0 4px 12px rgba(80, 201, 195, 0.3);
       }
-      
-      .btn-success {
-        background: var(--success-color);
-        color: #fff;
-      }
-      
-      .btn-success:hover {
-        background: #229954;
-        transform: translateY(-2px);
-      }
-      
-      .btn-danger {
-        background: var(--danger-color);
-        color: #fff;
-      }
-      
-      .btn-danger:hover {
-        background: #c0392b;
-        transform: translateY(-2px);
-      }
-      
-      .btn-sm {
-        padding: 0.45rem 0.8rem;
-        font-size: 0.85rem;
-      }
-      
-      /* Card Styling */
+
+      .btn-success { background: var(--success-color); color: #fff; }
+      .btn-success:hover { background: #229954; transform: translateY(-2px); }
+
+      .btn-danger { background: var(--danger-color); color: #fff; }
+      .btn-danger:hover { background: #c0392b; transform: translateY(-2px); }
+
+      .btn-sm { padding: 0.45rem 0.8rem; font-size: 0.85rem; }
+
+      /* Cards */
       .card {
         border: 1px solid var(--border-color);
         border-radius: 10px;
         transition: all 0.3s ease;
         box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
       }
-      
+
       .card:hover {
         box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
         transform: translateY(-4px);
       }
-      
+
       .card-header {
         background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-dark) 100%);
         color: #fff;
@@ -184,12 +152,10 @@
         border-radius: 10px 10px 0 0;
         font-weight: 600;
       }
-      
-      .card-body {
-        padding: 1.25rem;
-      }
 
-      /* Form Styling */
+      .card-body { padding: 1.25rem; }
+
+      /* Forms */
       .form-control, .form-select {
         border: 1px solid var(--border-color);
         border-radius: 6px;
@@ -197,26 +163,31 @@
         transition: all 0.3s ease;
         font-size: 0.95rem;
       }
-      
+
       .form-control:focus, .form-select:focus {
         border-color: var(--accent-color);
         box-shadow: 0 0 0 0.2rem rgba(74, 144, 226, 0.15);
       }
-      
+
       .form-label {
         font-weight: 600;
         color: var(--text-dark);
         margin-bottom: 0.5rem;
         font-size: 0.95rem;
       }
-      
-      .form-text {
-        font-size: 0.85rem;
-        color: var(--text-muted);
-        margin-top: 0.35rem;
+
+      .form-text { font-size: 0.85rem; color: var(--text-muted); margin-top: 0.35rem; }
+
+      /* App layout wrapper (DO NOT override Bootstrap container) */
+      .app-container {
+        width: 100%;
+        max-width: 1000px;
+        margin: 1.25rem auto;
+        padding: 0 12px;
+        flex: 1;
       }
 
-      /* Footer Styling */
+      /* Footer */
       .footer {
         background: linear-gradient(135deg, #1a1a1a 0%, #0d0d0d 100%);
         color: #fff;
@@ -225,12 +196,9 @@
         text-align: center;
         border-top: 1px solid var(--border-color);
       }
-      
-      .footer p {
-        margin: 0.5rem 0;
-        font-size: 0.95rem;
-      }
-      
+
+      .footer p { margin: 0.5rem 0; font-size: 0.95rem; }
+
       .footer a {
         color: var(--secondary-color);
         text-decoration: none;
@@ -238,179 +206,78 @@
         transition: color 0.3s ease;
         margin: 0 10px;
       }
-      
-      .footer a:hover {
-        color: #fff;
-      }
 
-      /* Container & Spacing */
-        .container {
-          max-width: 1000px;
-          flex: 1;
-          margin-top: 1rem;
-          margin-bottom: 1rem;
-          padding-left: 12px;
-          padding-right: 12px;
-        }
+      .footer a:hover { color: #fff; }
 
-        /* Utility to keep single CTA in hero sections */
-        .hero-ctas > a, .hero-ctas > button { min-width: 180px; }
-
-      /* Navbar Toggler */
-      .navbar-toggler {
-        border: none;
-        padding: 0.5rem;
-      }
-      
-      .navbar-toggler:focus {
-        box-shadow: none;
-        outline: 2px solid var(--secondary-color);
-        outline-offset: 2px;
-      }
-      
-      .navbar-toggler-icon {
-        background-color: #ffffff;
-      }
-
-      /* Badge and Alert Styling */
-      .badge {
-        font-weight: 600;
-        padding: 0.5rem 0.75rem;
-        border-radius: 6px;
-        font-size: 0.85rem;
-      }
-      
-      .alert {
-        border-radius: 8px;
-        border: none;
-        padding: 1rem 1.25rem;
-        font-weight: 500;
-      }
-
-      /* Responsive Design */
+      /* Responsive */
       @media (max-width: 768px) {
-        body {
-          padding-top: 60px;
-        }
-        
-        .navbar-brand {
-          font-size: 1.2rem;
-        }
-        
-        .navbar-brand img {
-          height: 45px;
-        }
-        
+        body { padding-top: 60px; }
+        .navbar-brand { font-size: 1.2rem; }
+        .navbar-brand img { height: 45px; }
+
         .navbar-nav .nav-link {
           margin: 0.35rem 0;
           font-size: 0.9rem;
           padding: 0.5rem 0 !important;
         }
-        
-        .navbar-nav .nav-link::after {
-          display: none;
-        }
-        
-        .container {
-          max-width: 100%;
-          margin-top: 0.5rem;
-          margin-bottom: 0.5rem;
-        }
-        
-        .card {
-          margin-bottom: 1rem;
-        }
+
+        .navbar-nav .nav-link::after { display: none; }
+        .app-container { margin: 0.75rem auto; }
+        .card { margin-bottom: 1rem; }
       }
 
       @media (max-width: 576px) {
-        .navbar {
-          padding: 0.5rem 10px;
-        }
-        
-        .container {
-          padding: 0 12px;
-        }
-        
-        .btn-sm {
-          padding: 0.4rem 0.6rem;
-          font-size: 0.8rem;
-        }
-        
-        .form-control, .form-select {
-          padding: 0.6rem 0.65rem;
-          font-size: 0.9rem;
-        }
+        .navbar { padding: 0.5rem 10px; }
+        .btn-sm { padding: 0.4rem 0.6rem; font-size: 0.8rem; }
+        .form-control, .form-select { padding: 0.6rem 0.65rem; font-size: 0.9rem; }
       }
     </style>
   </head>
+
   <body>
     <nav class="navbar navbar-expand-lg navbar-dark">
       <div class="container">
-        <!-- Logo -->
         <a class="navbar-brand" href="{% url 'home' %}">
-          <img
-            src="{% static 'images/EasyRent(1).jpeg' %}"
-            alt="Logo"
-            width="100"
-            height="50"
-          />
+          <img src="{% static 'images/EasyRent(1).jpeg' %}" alt="Logo" width="100" height="50" />
         </a>
-        <button
-          class="navbar-toggler"
-          type="button"
-          data-bs-toggle="collapse"
-          data-bs-target="#navbarNav"
-          aria-controls="navbarNav"
-          aria-expanded="false"
-          aria-label="Toggle navigation"
-        >
+
+        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav"
+          aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
           <span class="navbar-toggler-icon"></span>
         </button>
+
         <div class="collapse navbar-collapse" id="navbarNav">
           <ul class="navbar-nav ms-auto">
-            <li class="nav-item">
-              <a class="nav-link" href="{% url 'about' %}">About</a>
-            </li>
-            {% if user.is_authenticated %} {% if user.is_tenant %}
-            <li class="nav-item">
-              <a class="nav-link" href="{% url 'tenant_feed' %}"
-                >Browse Listings</a
-              >
-            </li>
-            <li class="nav-item">
-              <a class="nav-link" href="{% url 'view_collection' %}"
-                >My Collection</a
-              >
-            </li>
-            {% elif user.is_landlord %}
-            <li class="nav-item">
-              <a class="nav-link" href="{% url 'landlord_dashboard' %}"
-                >Dashboard</a
-              >
-            </li>
-            {% endif %}
-            <li class="nav-item">
-              <a class="btn btn-danger logout-btn px-3 py-1" href="{% url 'logout' %}">Logout</a>
-            </li>
+            <li class="nav-item"><a class="nav-link" href="{% url 'about' %}">About</a></li>
+
+            {% if user.is_authenticated %}
+              {% if user.is_tenant %}
+                <li class="nav-item"><a class="nav-link" href="{% url 'tenant_feed' %}">Browse Listings</a></li>
+                <li class="nav-item"><a class="nav-link" href="{% url 'view_collection' %}">My Collection</a></li>
+              {% elif user.is_landlord %}
+                <li class="nav-item"><a class="nav-link" href="{% url 'landlord_dashboard' %}">Dashboard</a></li>
+              {% endif %}
+
+              <li class="nav-item">
+                <a class="btn btn-danger logout-btn px-3 py-1" href="{% url 'logout' %}">Logout</a>
+              </li>
             {% else %}
-            <li class="nav-item">
-              <a class="nav-link" href="{% url 'login' %}">Login</a>
-            </li>
-            <li class="nav-item">
-              <a class="nav-link" href="{% url 'signup' %}">Sign Up</a>
-            </li>
+              <li class="nav-item"><a class="nav-link" href="{% url 'login' %}">Login</a></li>
+              <li class="nav-item"><a class="nav-link" href="{% url 'signup' %}">Sign Up</a></li>
             {% endif %}
           </ul>
         </div>
       </div>
     </nav>
 
-    <div class="container mt-5">{% block content %}{% endblock %}</div>
+    <!-- IMPORTANT: do not force Bootstrap .container here; pages can choose -->
+    <main class="app-container">
+      {% block content %}{% endblock %}
+    </main>
 
     <footer class="footer">
-<a href="https://www.cooltechsoftware.com" target="_blank">Designed By Coolech Software</a>
+      <a href="https://www.cooltechsoftware.com" target="_blank" rel="noopener">Designed By Coolech Software</a>
       <p>&copy; 2025 EasyRent. All rights reserved.</p>
-     
     </footer>
   </body>
 </html>

@@ -20,44 +20,61 @@
         </div>
 
         <div class="card-body">
-          <form method="post" enctype="multipart/form-data">
+          <form method="post" enctype="multipart/form-data" novalidate>
             {% csrf_token %}
 
-            {% if form.non_field_errors %}
-              <div class="alert alert-danger">{{ form.non_field_errors }}</div>
-            {% endif %}
-            {% if unit_formset.non_form_errors %}
-              <div class="alert alert-danger">{{ unit_formset.non_form_errors }}</div>
+            {# --- Global error summary (super useful for upload issues) --- #}
+            {% if form.errors or unit_formset.errors or unit_formset.non_form_errors %}
+              <div class="alert alert-danger">
+                <strong>Please fix the errors below.</strong>
+                <div class="small mt-2">
+                  {% if form.non_field_errors %}{{ form.non_field_errors }}{% endif %}
+                  {% if unit_formset.non_form_errors %}{{ unit_formset.non_form_errors }}{% endif %}
+                </div>
+              </div>
             {% endif %}
 
             <div class="row g-3">
               <div class="col-md-6">
                 <label class="form-label">Property Name</label>
                 {{ form.name }}
+                {% if form.name.errors %}<div class="text-danger small">{{ form.name.errors }}</div>{% endif %}
               </div>
+
               <div class="col-md-6">
                 <label class="form-label">Landlord Phone</label>
                 {{ form.landlord_phone }}
+                {% if form.landlord_phone.errors %}<div class="text-danger small">{{ form.landlord_phone.errors }}</div>{% endif %}
               </div>
+
               <div class="col-md-6">
                 <label class="form-label">County</label>
                 {{ form.county }}
+                {% if form.county.errors %}<div class="text-danger small">{{ form.county.errors }}</div>{% endif %}
               </div>
+
               <div class="col-md-6">
                 <label class="form-label">Town</label>
                 {{ form.town }}
+                {% if form.town.errors %}<div class="text-danger small">{{ form.town.errors }}</div>{% endif %}
               </div>
+
               <div class="col-md-6">
                 <label class="form-label">Default Unit Type</label>
                 {{ form.property_type }}
+                {% if form.property_type.errors %}<div class="text-danger small">{{ form.property_type.errors }}</div>{% endif %}
               </div>
+
               <div class="col-md-6">
                 <label class="form-label">Default Unit Price (Ksh)</label>
                 {{ form.price }}
+                {% if form.price.errors %}<div class="text-danger small">{{ form.price.errors }}</div>{% endif %}
               </div>
+
               <div class="col-12">
                 <label class="form-label">Description</label>
                 {{ form.description }}
+                {% if form.description.errors %}<div class="text-danger small">{{ form.description.errors }}</div>{% endif %}
               </div>
             </div>
 
@@ -69,22 +86,31 @@
             {% for uf in unit_formset %}
               <div class="border rounded p-3 mb-3" style="background: rgba(255,255,255,0.92);">
                 {{ uf.id }}
+
+                {% if uf.non_field_errors %}
+                  <div class="alert alert-danger mb-2">{{ uf.non_field_errors }}</div>
+                {% endif %}
+
                 <div class="row g-2">
                   <div class="col-md-3">
                     <label class="form-label">Unit Code</label>
                     {{ uf.unit_code }}
+                    {% if uf.unit_code.errors %}<div class="text-danger small">{{ uf.unit_code.errors }}</div>{% endif %}
                   </div>
                   <div class="col-md-3">
                     <label class="form-label">Unit Type</label>
                     {{ uf.unit_type }}
+                    {% if uf.unit_type.errors %}<div class="text-danger small">{{ uf.unit_type.errors }}</div>{% endif %}
                   </div>
                   <div class="col-md-3">
                     <label class="form-label">Price</label>
                     {{ uf.price }}
+                    {% if uf.price.errors %}<div class="text-danger small">{{ uf.price.errors }}</div>{% endif %}
                   </div>
                   <div class="col-md-3">
                     <label class="form-label">Deposit</label>
                     {{ uf.deposit }}
+                    {% if uf.deposit.errors %}<div class="text-danger small">{{ uf.deposit.errors }}</div>{% endif %}
                   </div>
                 </div>
 
@@ -92,12 +118,14 @@
                   <div class="col-md-4">
                     <label class="form-label">Vacancy</label>
                     {{ uf.vacancy }}
+                    {% if uf.vacancy.errors %}<div class="text-danger small">{{ uf.vacancy.errors }}</div>{% endif %}
                   </div>
                   <div class="col-md-4">
                     <div class="form-check mt-4">
                       {{ uf.is_active }}
                       <label class="form-check-label ms-1">Active</label>
                     </div>
+                    {% if uf.is_active.errors %}<div class="text-danger small">{{ uf.is_active.errors }}</div>{% endif %}
                   </div>
                   <div class="col-md-4">
                     {% if uf.DELETE %}
@@ -105,6 +133,7 @@
                         {{ uf.DELETE }}
                         <label class="form-check-label ms-1 text-danger">Delete this unit</label>
                       </div>
+                      {% if uf.DELETE.errors %}<div class="text-danger small">{{ uf.DELETE.errors }}</div>{% endif %}
                     {% endif %}
                   </div>
                 </div>
@@ -113,10 +142,14 @@
 
             <hr class="my-4">
 
+            {# ✅ Single image upload: non-model field saved to PropertyImage in the view #}
             <div class="mb-3">
-              <label class="form-label">Add More Property Images</label>
-              {{ form.property_images }}
-              <div class="form-text small text-muted">Select multiple images.</div>
+              <label class="form-label">{{ form.property_image.label }}</label>
+              {{ form.property_image }}
+              {% if form.property_image.errors %}<div class="text-danger small">{{ form.property_image.errors }}</div>{% endif %}
+              <div class="form-text small text-muted">
+                Upload 1 image (JPG/PNG). Max 8MB.
+              </div>
             </div>
 
             {% if form.instance.images.exists %}
@@ -140,16 +173,26 @@
                     </div>
                   {% endfor %}
                 </div>
+                <div class="form-text small text-muted mt-2">
+                  Tip: if you upload a new image above, it will be added and can be set as primary later (if you implement that).
+                </div>
               </div>
             {% endif %}
 
+            {# ✅ Video: model field is Property.video, so render form.video #}
             <div class="mb-3">
               <label class="form-label">Upload / Replace Video</label>
-              {{ form.video_file }}
+              {{ form.video }}
+              {% if form.video.errors %}<div class="text-danger small">{{ form.video.errors }}</div>{% endif %}
+
               {% if form.instance.video %}
-                <div class="form-text small text-muted">Current video: <strong>{{ form.instance.video.name }}</strong></div>
+                <div class="form-text small text-muted">
+                  Current video: <strong>{{ form.instance.video.name }}</strong>
+                </div>
               {% else %}
-                <div class="form-text small text-muted">Optional. Allowed: mp4, mov, m4v, webm.</div>
+                <div class="form-text small text-muted">
+                  Optional. Allowed: mp4, mov, m4v, webm. Max 50MB.
+                </div>
               {% endif %}
             </div>
 

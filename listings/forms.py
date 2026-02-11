@@ -1,4 +1,4 @@
-# listings/forms.py  (UNIT-FIRST / DJANGO 5.1 SAFE) — REDO (FILES HANDLED IN VIEWS)
+# listings/forms.py (UNIT-FIRST / DJANGO 5.1 SAFE) — UPDATED (SINGLE IMAGE + MODEL VIDEO)
 
 import calendar
 import re
@@ -7,7 +7,9 @@ from datetime import datetime
 from django import forms
 from django.contrib.auth.forms import UserCreationForm
 from django.core.exceptions import ValidationError
+from django.core.validators import FileExtensionValidator
 from django.db.models import Q
+from django.forms import inlineformset_factory
 
 from .models import Property, Tenant, Unit, User
 
@@ -34,6 +36,7 @@ class SignUpForm(UserCreationForm):
 # ---------- Helpers ----------
 
 def _normalize_kenyan_phone(phone_raw: str) -> str:
+    """Normalize Kenyan mobile inputs into +2547XXXXXXXX format."""
     if not phone_raw:
         return ""
     digits = re.sub(r"\D", "", phone_raw)
@@ -48,28 +51,21 @@ def _normalize_kenyan_phone(phone_raw: str) -> str:
     return "+" + digits
 
 
-class MultiFileInput(forms.ClearableFileInput):
-    allow_multiple_selected = True
+VIDEO_EXT_VALIDATOR = FileExtensionValidator(["mp4", "mov", "m4v", "webm"])
 
 
-# ---------- Property (NO MODEL FILE BINDING) ----------
+# ---------- Property ----------
 
 class PropertyForm(forms.ModelForm):
     """
-    IMPORTANT:
-    - property_images and video_file are NOT model fields.
-    - We read them ONLY from request.FILES in the view.
+    - property_image is NOT a model field; you save it into PropertyImage in the view.
+    - video IS a model field (Property.video). Keep the name "video" so templates/views match.
     """
 
-    property_images = forms.FileField(
+    property_image = forms.ImageField(
         required=False,
-        label="Property Images (multiple allowed)",
-        widget=MultiFileInput(attrs={"class": "form-control", "multiple": True}),
-    )
-
-    video_file = forms.FileField(
-        required=False,
-        label="Upload Video (optional)",
+        label="Property Image (optional)",
+        help_text="Upload one image (max 8MB).",
         widget=forms.ClearableFileInput(attrs={"class": "form-control"}),
     )
 
@@ -83,6 +79,7 @@ class PropertyForm(forms.ModelForm):
             "price",
             "landlord_phone",
             "description",
+            "video",  # ✅ model field name
         ]
         widgets = {
             "name": forms.TextInput(attrs={"class": "form-control"}),
@@ -99,15 +96,56 @@ class PropertyForm(forms.ModelForm):
                 }
             ),
             "description": forms.Textarea(attrs={"class": "form-control", "rows": 4}),
+            "video": forms.ClearableFileInput(attrs={"class": "form-control"}),
         }
 
     def clean_landlord_phone(self):
         phone = (self.cleaned_data.get("landlord_phone") or "").strip()
         normalized = _normalize_kenyan_phone(phone)
         digits = re.sub(r"\D", "", normalized)
+
+        # +2547XXXXXXXX => 12 digits total
         if not digits or len(digits) != 12 or not digits.startswith("2547"):
             raise forms.ValidationError("Enter a valid Kenyan mobile number (e.g. 07XXXXXXXX).")
+
         return normalized
+
+    def clean_property_image(self):
+        """
+        Validate single uploaded image. Saved in the view to PropertyImage.
+        """
+        f = self.files.get("property_image")
+        if not f:
+            return None
+
+        max_file_size_mb = 8
+        ctype = getattr(f, "content_type", "") or ""
+
+        # If content_type exists, enforce image/*
+        if ctype and not ctype.startswith("image/"):
+            raise ValidationError("Only image files are allowed for the property image.")
+
+        if f.size and f.size > max_file_size_mb * 1024 * 1024:
+            raise ValidationError(f"Image must be under {max_file_size_mb}MB.")
+
+        return f
+
+    def clean_video(self):
+        """
+        Optional: validate video extension + size.
+        (Model validates extension too, but this gives user-friendly errors.)
+        """
+        f = self.cleaned_data.get("video")
+        if not f:
+            return None
+
+        VIDEO_EXT_VALIDATOR(f)
+
+        max_video_size_mb = 50
+        if f.size and f.size > max_video_size_mb * 1024 * 1024:
+            raise ValidationError(f"Video must be under {max_video_size_mb}MB.")
+
+        return f
 
 
 # ---------- Profiles ----------
@@ -193,9 +231,11 @@ class TenantForm(forms.ModelForm):
 
         qs = Unit.objects.filter(is_active=True).select_related("property")
 
+        # landlord sees only their units
         if user and getattr(user, "is_authenticated", False) and hasattr(user, "is_landlord") and user.is_landlord():
             qs = qs.filter(property__landlord=user)
 
+        # Hide occupied units by default; keep current unit visible when editing
         if self.instance and self.instance.pk and getattr(self.instance, "unit_fk_id", None):
             qs = qs.filter(Q(vacancy__in=["vacant", "booked", "maintenance"]) | Q(pk=self.instance.unit_fk_id))
         else:
@@ -208,8 +248,6 @@ class TenantForm(forms.ModelForm):
 
 
 # ---------- Units ----------
-
-from django.forms import inlineformset_factory
 
 class UnitForm(forms.ModelForm):
     class Meta:

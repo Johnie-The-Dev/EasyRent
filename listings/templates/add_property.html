@@ -7,7 +7,8 @@
   <div class="row justify-content-center">
     <div class="col-lg-8 col-xl-7">
       <div class="card shadow-sm mt-4">
-        <div class="card-header text-white" style="background: linear-gradient(135deg, #6a11cb, #2575fc); border-bottom: none;">
+        <div class="card-header text-white"
+             style="background: linear-gradient(135deg, #6a11cb, #2575fc); border-bottom: none;">
           <div class="d-flex justify-content-between align-items-center">
             <h4 class="mb-0">Add a New Property</h4>
             <a href="{% url 'landlord_dashboard' %}" class="btn btn-sm btn-light">
@@ -17,15 +18,18 @@
         </div>
 
         <div class="card-body">
-          <form method="post" enctype="multipart/form-data">
+          <form method="post" enctype="multipart/form-data" novalidate>
             {% csrf_token %}
 
-            {% if form.non_field_errors %}
-              <div class="alert alert-danger">{{ form.non_field_errors }}</div>
-            {% endif %}
-
-            {% if formset.non_form_errors %}
-              <div class="alert alert-danger">{{ formset.non_form_errors }}</div>
+            {# --- Global error summary (helps you see why uploads fail) --- #}
+            {% if form.errors or formset.errors or formset.non_form_errors %}
+              <div class="alert alert-danger">
+                <strong>Please fix the errors below.</strong>
+                <div class="small mt-2">
+                  {% if form.non_field_errors %}{{ form.non_field_errors }}{% endif %}
+                  {% if formset.non_form_errors %}{{ formset.non_form_errors }}{% endif %}
+                </div>
+              </div>
             {% endif %}
 
             <div class="row g-3">
@@ -126,6 +130,7 @@
                       {{ uf.is_active }}
                       <label class="form-check-label ms-1">Active</label>
                     </div>
+                    {% if uf.is_active.errors %}<div class="text-danger small">{{ uf.is_active.errors }}</div>{% endif %}
                   </div>
                 </div>
               </div>
@@ -133,18 +138,24 @@
 
             <hr class="my-4">
 
+            {# ✅ Single Image: non-model field saved to PropertyImage in the view #}
             <div class="mb-3">
-              <label class="form-label">{{ form.property_images.label }}</label>
-              {{ form.property_images }}
-              {% if form.property_images.errors %}<div class="text-danger small">{{ form.property_images.errors }}</div>{% endif %}
-              <div class="form-text small text-muted">Select multiple images.</div>
+              <label class="form-label">{{ form.property_image.label }}</label>
+              {{ form.property_image }}
+              {% if form.property_image.errors %}<div class="text-danger small">{{ form.property_image.errors }}</div>{% endif %}
+              <div class="form-text small text-muted">
+                Upload 1 image (JPG/PNG). Max 8MB.
+              </div>
             </div>
 
+            {# ✅ Video: model field is Property.video, so use form.video #}
             <div class="mb-3">
-              <label class="form-label">{{ form.video_file.label }}</label>
-              {{ form.video_file }}
-              {% if form.video_file.errors %}<div class="text-danger small">{{ form.video_file.errors }}</div>{% endif %}
-              <div class="form-text small text-muted">Allowed: mp4, mov, m4v, webm.</div>
+              <label class="form-label">Upload Video (optional)</label>
+              {{ form.video }}
+              {% if form.video.errors %}<div class="text-danger small">{{ form.video.errors }}</div>{% endif %}
+              <div class="form-text small text-muted">
+                Allowed: mp4, mov, m4v, webm. Max 50MB.
+              </div>
             </div>
 
             <button type="submit" class="btn btn-success w-100">

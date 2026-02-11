@@ -1,4 +1,4 @@
-# models.py (UNIT-FIRST / NO FALLBACK) — DJANGO 5.1 SAFE (UPDATED)
+# models.py (UNIT-FIRST / NO FALLBACK) — DJANGO 5.1 SAFE (FIXED)
 
 from __future__ import annotations
 
@@ -23,10 +23,10 @@ class User(AbstractUser):
     )
     role = models.CharField(max_length=10, choices=ROLE_CHOICES, default="tenant")
 
-    def is_tenant(self):
+    def is_tenant(self) -> bool:
         return self.role == "tenant"
 
-    def is_landlord(self):
+    def is_landlord(self) -> bool:
         return self.role == "landlord"
 
 
@@ -82,7 +82,7 @@ class Property(models.Model):
             models.Index(fields=["property_type"]),
         ]
 
-    def __str__(self):
+    def __str__(self) -> str:
         return self.name
 
     # ---- WhatsApp helpers ----
@@ -91,17 +91,18 @@ class Property(models.Model):
     def whatsapp_number(self) -> str:
         """
         Return Kenyan number digits only in 2547XXXXXXXX format, or "" if missing.
-        Assumes landlord_phone already normalized by PropertyForm, but remains defensive.
+        Defensive parsing in case landlord_phone was not normalized.
         """
         digits = re.sub(r"\D", "", self.landlord_phone or "")
         if not digits:
             return ""
         if digits.startswith("254") and len(digits) >= 12:
-            return digits
+            return digits[:12]
         if digits.startswith("0") and len(digits) >= 10:
-            return "254" + digits[1:]
+            return "254" + digits[1:10]
         if len(digits) == 9 and digits.startswith("7"):
             return "254" + digits
+        # fallback (best effort)
         return digits
 
     @property
@@ -165,21 +166,26 @@ class Unit(models.Model):
         ]
         ordering = ["property_id", "unit_code"]
 
-    def __str__(self):
+    def __str__(self) -> str:
         return f"{self.property.name} - {self.unit_code}"
 
     def clean(self):
-        # Ensure unit_code exists and is normalized
-        if self.unit_code:
-            self.unit_code = self.unit_code.strip().upper()
+        # Normalize + validate
+        self.unit_code = (self.unit_code or "").strip().upper()
         if not self.unit_code:
             raise ValidationError({"unit_code": "Unit code is required (e.g. A1, B3)."})
+        super().clean()
 
     def save(self, *args, **kwargs):
         # Normalize consistently even if saved outside forms/views
         if self.unit_code:
             self.unit_code = self.unit_code.strip().upper()
-        super().save(*args, **kwargs)
+
+        # Optional (strong correctness): enforce model validation on every save
+        # Uncomment if you want DB-level safety via Django validation too.
+        # self.full_clean()
+
+        return super().save(*args, **kwargs)
 
 
 # ---------------- Property Images ----------------
@@ -196,25 +202,24 @@ class PropertyImage(models.Model):
             models.Index(fields=["property", "is_primary"]),
         ]
         constraints = [
-            # Ensure at most one primary image per property
+            # ✅ One primary image per property (only when is_primary=True)
             models.UniqueConstraint(
-                fields=["property"],
+                fields=["property", "is_primary"],
                 condition=Q(is_primary=True),
                 name="uniq_primary_image_per_property",
             )
         ]
 
-    def __str__(self):
+    def __str__(self) -> str:
         return f"Image for {self.property.name}"
 
     def save(self, *args, **kwargs):
         """
-        If marking one image as primary, ensure others for the same property are unset.
-        This keeps UX clean even if you don't implement a dedicated "Set primary" view yet.
+        If this image is marked primary, unset other primary images for same property.
         """
         super().save(*args, **kwargs)
         if self.is_primary:
-            PropertyImage.objects.filter(property=self.property).exclude(pk=self.pk).update(is_primary=False)
+            PropertyImage.objects.filter(property=self.property, is_primary=True).exclude(pk=self.pk).update(is_primary=False)
 
 
 # ---------------- Tenant collection (saved properties) ----------------
@@ -234,7 +239,7 @@ class TenantCollection(models.Model):
             models.Index(fields=["property", "added_at"]),
         ]
 
-    def __str__(self):
+    def __str__(self) -> str:
         return f"{self.tenant.username} - {self.property.name}"
 
 
@@ -242,6 +247,9 @@ class TenantCollection(models.Model):
 
 def get_current_month() -> str:
     return datetime.now().strftime("%Y-%m")
+
+
+_MONTH_RE = re.compile(r"^\d{4}-\d{2}$")
 
 
 class Tenant(models.Model):
@@ -279,18 +287,17 @@ class Tenant(models.Model):
         ]
         ordering = ["-date_paid", "name"]
 
-    def __str__(self):
+    def __str__(self) -> str:
         return self.name
 
     @property
-    def property(self):
+    def property(self) -> Property:
         return self.unit_fk.property
 
     def clean(self):
-        # enforce YYYY-MM format strictly
-        if self.month_paid_for:
-            if not re.fullmatch(r"\d{4}-\d{2}", self.month_paid_for):
-                raise ValidationError({"month_paid_for": "Month must be in YYYY-MM format."})
+        if self.month_paid_for and not _MONTH_RE.fullmatch(self.month_paid_for):
+            raise ValidationError({"month_paid_for": "Month must be in YYYY-MM format."})
+        super().clean()
 
 
 class ReceiptHistory(models.Model):
@@ -301,7 +308,6 @@ class ReceiptHistory(models.Model):
     date_paid = models.DateField()
 
     month_paid_for = models.CharField(max_length=7)
-
     monthly_rent = models.DecimalField(max_digits=10, decimal_places=2, validators=[MinValueValidator(0)])
 
     rent_balance = models.DecimalField(max_digits=10, decimal_places=2)
@@ -314,12 +320,13 @@ class ReceiptHistory(models.Model):
             models.Index(fields=["month_paid_for"]),
         ]
 
-    def __str__(self):
+    def __str__(self) -> str:
         return f"Receipt for {self.tenant.name} on {self.date_generated:%Y-%m-%d %H:%M}"
 
     def clean(self):
-        if self.month_paid_for and not re.fullmatch(r"\d{4}-\d{2}", self.month_paid_for):
+        if self.month_paid_for and not _MONTH_RE.fullmatch(self.month_paid_for):
             raise ValidationError({"month_paid_for": "Month must be in YYYY-MM format."})
+        super().clean()
 
 
 # ---------------- Bookings ----------------
@@ -358,10 +365,9 @@ class Booking(models.Model):
             )
         ]
 
-    def __str__(self):
+    def __str__(self) -> str:
         return f"Booking: {self.tenant.username} -> {self.unit} ({self.status})"
 
     @property
-    def property(self):
-        # READ ONLY: do not assign booking.property anywhere
+    def property(self) -> Property:
         return self.unit.property
