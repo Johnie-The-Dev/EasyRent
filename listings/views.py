@@ -1,4 +1,6 @@
-# views.py (UNIT-FIRST / NO FALLBACK) — UPDATED (SINGLE IMAGE + MODEL VIDEO) ✅
+# views.py (UNIT-FIRST / NO FALLBACK) — FINAL (SINGLE IMAGE + MODEL VIDEO + BOOKED->OCCUPIED FIX) ✅
+
+from decimal import Decimal, InvalidOperation
 
 from django.conf import settings
 from django.contrib import messages
@@ -48,6 +50,31 @@ def _formset_has_any_unit(formset) -> bool:
         if code and not deleting:
             return True
     return False
+
+
+def _cancel_active_bookings_for_unit(unit: Unit) -> int:
+    """
+    Cancel any active bookings (pending/confirmed) for this unit.
+    Returns count updated.
+    """
+    return Booking.objects.filter(unit=unit, status__in=["pending", "confirmed"]).update(status="cancelled")
+
+
+def _set_unit_vacancy(unit: Unit, vacancy: str) -> None:
+    Unit.objects.filter(id=unit.id).update(vacancy=vacancy)
+
+
+def _money(val) -> str:
+    try:
+        v = Decimal(str(val or 0))
+    except (InvalidOperation, TypeError, ValueError):
+        v = Decimal("0")
+    return f"{v:,.0f}"
+
+
+def _safe_str(s, fallback="—") -> str:
+    s = (str(s).strip() if s is not None else "")
+    return s if s else fallback
 
 
 # ---------------- Auth ----------------
@@ -409,8 +436,14 @@ def book_property(request, property_id):
         return redirect("tenant_feed")
 
     with transaction.atomic():
+        # lock unit to avoid double-booking edge cases
+        unit = Unit.objects.select_for_update().get(id=unit.id)
+        if unit.vacancy != "vacant" or not unit.is_active:
+            messages.error(request, "That unit is no longer available.")
+            return redirect("tenant_feed")
+
         Booking.objects.create(unit=unit, tenant=request.user, status="pending")
-        Unit.objects.filter(id=unit.id).update(vacancy="booked")
+        _set_unit_vacancy(unit, "booked")
 
     messages.success(
         request,
@@ -458,10 +491,15 @@ def unbook_property(request, booking_id):
     booking = get_object_or_404(Booking, id=booking_id, tenant=request.user)
     prop_name = booking.unit.property.name if booking.unit_id else "booking"
 
-    if booking.unit_id and booking.status in ["pending", "confirmed"]:
-        Unit.objects.filter(id=booking.unit_id).update(vacancy="vacant")
+    with transaction.atomic():
+        if booking.unit_id and booking.status in ["pending", "confirmed"]:
+            unit = Unit.objects.select_for_update().get(id=booking.unit_id)
+            # Only revert to vacant if still booked (don’t override occupied/maintenance)
+            if unit.vacancy == "booked":
+                _set_unit_vacancy(unit, "vacant")
 
-    booking.delete()
+        booking.delete()
+
     messages.success(request, f"Successfully unbooked {prop_name}.")
     return redirect("tenant_bookings")
 
@@ -477,12 +515,15 @@ def update_booking_status(request, booking_id):
         new_status = request.POST.get("status")
         if new_status in ["confirmed", "cancelled", "pending"]:
             with transaction.atomic():
+                unit = Unit.objects.select_for_update().get(id=booking.unit_id)
+
                 Booking.objects.filter(id=booking.id).update(status=new_status)
+
                 vacancy = (
                     "occupied" if new_status == "confirmed"
                     else ("booked" if new_status == "pending" else "vacant")
                 )
-                Unit.objects.filter(id=booking.unit_id).update(vacancy=vacancy)
+                _set_unit_vacancy(unit, vacancy)
 
             messages.success(request, f"Booking status updated to {new_status}.")
     return redirect("landlord_bookings")
@@ -506,8 +547,6 @@ def remove_from_collection(request, property_id):
     prop = get_object_or_404(Property, id=property_id)
     TenantCollection.objects.filter(tenant=request.user, property=prop).delete()
 
-    # Keep the UX consistent: if user removed from within collection page,
-    # they should return there; otherwise tenant_feed is fine.
     next_url = request.GET.get("next")
     if next_url:
         return redirect(next_url)
@@ -647,18 +686,33 @@ def manage_tenants(request):
     if request.method == "POST":
         form = TenantForm(request.POST, user=request.user)
         if form.is_valid():
-            tenant_obj = form.save(commit=False)
+            with transaction.atomic():
+                tenant_obj = form.save(commit=False)
 
-            if tenant_obj.unit_fk.property.landlord != request.user:
-                messages.error(request, "You can only add tenants to your own units.")
-                return redirect(reverse("manage_tenants"))
+                # Ownership guard
+                if tenant_obj.unit_fk.property.landlord != request.user:
+                    messages.error(request, "You can only add tenants to your own units.")
+                    return redirect(reverse("manage_tenants"))
 
-            tenant_obj.rent_balance = tenant_obj.monthly_rent - tenant_obj.rent_paid
-            tenant_obj.cumulative_rent_balance += tenant_obj.rent_balance
-            tenant_obj.save()
+                # Lock the unit row (race-condition safety)
+                unit = Unit.objects.select_for_update().select_related("property").get(id=tenant_obj.unit_fk_id)
 
-            Unit.objects.filter(id=tenant_obj.unit_fk_id).update(vacancy="occupied")
+                # Extra safety: block if unit already has a tenant
+                if Tenant.objects.filter(unit_fk=unit).exists():
+                    messages.error(request, "That unit already has a tenant. Choose another unit.")
+                    return redirect(reverse("manage_tenants"))
 
+                # ✅ booked/vacant/maintenance -> occupied when tenant is added
+                cancelled = _cancel_active_bookings_for_unit(unit)
+                _set_unit_vacancy(unit, "occupied")
+
+                tenant_obj.rent_balance = tenant_obj.monthly_rent - tenant_obj.rent_paid
+                tenant_obj.cumulative_rent_balance += tenant_obj.rent_balance
+                tenant_obj.unit_fk = unit
+                tenant_obj.save()
+
+            if cancelled:
+                messages.info(request, f"Note: {cancelled} active booking(s) for this unit were cancelled.")
             messages.success(request, f"Tenant {tenant_obj.name} added successfully.")
             return redirect(reverse("tenant_list"))
     else:
@@ -680,20 +734,41 @@ def edit_tenant(request, tenant_id):
     if request.method == "POST":
         form = TenantForm(request.POST, instance=tenant_obj, user=request.user)
         if form.is_valid():
-            updated = form.save(commit=False)
+            with transaction.atomic():
+                updated = form.save(commit=False)
 
-            if updated.unit_fk.property.landlord != request.user:
-                messages.error(request, "You can only assign tenants to your own units.")
-                return redirect(reverse("tenant_list"))
+                if updated.unit_fk.property.landlord != request.user:
+                    messages.error(request, "You can only assign tenants to your own units.")
+                    return redirect(reverse("tenant_list"))
 
-            updated.rent_balance = updated.monthly_rent - updated.rent_paid
-            updated.cumulative_rent_balance += updated.rent_balance
-            updated.save()
+                old_unit = Unit.objects.select_for_update().get(id=old_unit_id)
+                new_unit = Unit.objects.select_for_update().select_related("property").get(id=updated.unit_fk_id)
 
-            if updated.unit_fk_id != old_unit_id:
-                Unit.objects.filter(id=old_unit_id).update(vacancy="vacant")
-                Unit.objects.filter(id=updated.unit_fk_id).update(vacancy="occupied")
+                cancelled = 0
 
+                if new_unit.id != old_unit.id:
+                    # Ensure target unit doesn't already have another tenant
+                    if Tenant.objects.filter(unit_fk=new_unit).exclude(id=tenant_obj.id).exists():
+                        messages.error(request, "That unit already has a tenant. Choose another unit.")
+                        return redirect(reverse("tenant_list"))
+
+                    # move out from old unit -> vacant
+                    _set_unit_vacancy(old_unit, "vacant")
+
+                    # move into new unit -> occupied, cancel bookings
+                    cancelled = _cancel_active_bookings_for_unit(new_unit)
+                    _set_unit_vacancy(new_unit, "occupied")
+                else:
+                    # keep occupied on same unit
+                    _set_unit_vacancy(new_unit, "occupied")
+
+                updated.rent_balance = updated.monthly_rent - updated.rent_paid
+                updated.cumulative_rent_balance += updated.rent_balance
+                updated.unit_fk = new_unit
+                updated.save()
+
+            if cancelled:
+                messages.info(request, f"Note: {cancelled} active booking(s) for this unit were cancelled.")
             messages.success(request, f"Tenant {updated.name} updated successfully.")
             return redirect(reverse("tenant_list"))
     else:
@@ -710,11 +785,11 @@ def delete_tenant(request, tenant_id):
         messages.error(request, "You don't have permission to delete this tenant.")
         return redirect(reverse("tenant_list"))
 
-    unit_id = tenant_obj.unit_fk_id
-    tenant_name = tenant_obj.name
-    tenant_obj.delete()
-
-    Unit.objects.filter(id=unit_id).update(vacancy="vacant")
+    with transaction.atomic():
+        unit = Unit.objects.select_for_update().get(id=tenant_obj.unit_fk_id)
+        tenant_name = tenant_obj.name
+        tenant_obj.delete()
+        _set_unit_vacancy(unit, "vacant")
 
     messages.success(request, f"Tenant {tenant_name} deleted successfully.")
     return redirect(reverse("tenant_list"))
@@ -740,6 +815,12 @@ def generate_receipt(request, tenant_id):
         messages.error(request, "You don't have permission to generate a receipt for this tenant.")
         return redirect(reverse("tenant_list"))
 
+    issued_at = timezone.now()
+    receipt_no = (
+        f"ER-{issued_at.strftime('%Y%m%d')}-"
+        f"{get_random_string(6, allowed_chars='ABCDEFGHJKLMNPQRSTUVWXYZ23456789')}"
+    )
+
     ReceiptHistory.objects.create(
         tenant=tenant_obj,
         rent_paid=tenant_obj.rent_paid,
@@ -756,43 +837,144 @@ def generate_receipt(request, tenant_id):
     p = canvas.Canvas(response, pagesize=A6)
     width, height = A6
 
-    p.setFillColor(HexColor("#f5f5f5"))
-    p.rect(0, 0, width, height, fill=1)
+    # Theme
+    brand = HexColor("#2F5BEA")
+    brand_dark = HexColor("#1F3FB8")
+    bg = HexColor("#FFFFFF")
+    light_bg = HexColor("#F5F7FB")
+    text = HexColor("#111827")
+    muted = HexColor("#6B7280")
+    border = HexColor("#E5E7EB")
+    success = HexColor("#16A34A")
 
-    p.setFillColor(HexColor("#6a11cb"))
-    p.rect(0, height - 20 * mm, width, 20 * mm, fill=1)
-    p.setFont("Helvetica-Bold", 14)
-    p.setFillColor(HexColor("#ffffff"))
-    p.drawString(10 * mm, height - 10 * mm, "EasyRent Receipt")
+    p.setFillColor(bg)
+    p.rect(0, 0, width, height, fill=1, stroke=0)
 
-    p.setFont("Helvetica", 10)
-    p.setFillColor(HexColor("#000000"))
-    y = height - 30 * mm
-    line_height = 5 * mm
+    header_h = 18 * mm
+    p.setFillColor(brand)
+    p.rect(0, height - header_h, width, header_h, fill=1, stroke=0)
+
+    p.setFillColor(HexColor("#FFFFFF"))
+    p.setFont("Helvetica-Bold", 12)
+    p.drawString(8 * mm, height - 11 * mm, "EasyRent")
+    p.setFont("Helvetica", 9)
+    p.drawRightString(width - 8 * mm, height - 11 * mm, "RECEIPT")
+
+    y = height - header_h - 5 * mm
+    p.setFillColor(text)
+    p.setFont("Helvetica-Bold", 8)
+    p.drawString(8 * mm, y, f"Receipt No: {receipt_no}")
+    p.setFont("Helvetica", 8)
+    p.setFillColor(muted)
+    p.drawRightString(width - 8 * mm, y, f"Issued: {issued_at.strftime('%d %b %Y, %H:%M')}")
+    y -= 6 * mm
 
     unit = tenant_obj.unit_fk
     prop = unit.property
+    landlord = request.user
 
-    p.drawString(10 * mm, y, f"Tenant: {tenant_obj.name}"); y -= line_height
-    p.drawString(10 * mm, y, f"Phone: {tenant_obj.phone}"); y -= line_height
-    p.drawString(10 * mm, y, f"Property: {prop.name}"); y -= line_height
-    p.drawString(10 * mm, y, f"Unit: {unit.unit_code}"); y -= line_height
+    tenant_name = _safe_str(tenant_obj.name)
+    tenant_phone = _safe_str(getattr(tenant_obj, "phone", None))
+    property_name = _safe_str(getattr(prop, "name", None))
+    property_loc = ", ".join([x for x in [getattr(prop, "town", ""), getattr(prop, "county", "")] if x]) or "—"
+    unit_code = _safe_str(getattr(unit, "unit_code", None))
 
-    p.drawString(10 * mm, y, f"Date Occupied: {tenant_obj.date_occupied}"); y -= line_height
-    p.drawString(10 * mm, y, f"Rent Paid: {tenant_obj.rent_paid}"); y -= line_height
-    p.drawString(10 * mm, y, f"Date Paid: {tenant_obj.date_paid}"); y -= line_height
-    p.drawString(10 * mm, y, f"Month Paid For: {tenant_obj.month_paid_for}"); y -= line_height
-    p.drawString(10 * mm, y, f"Monthly Rent: {tenant_obj.monthly_rent}"); y -= line_height
-    p.drawString(10 * mm, y, f"Rent Balance: {tenant_obj.rent_balance}"); y -= line_height
-    p.drawString(10 * mm, y, f"Cumulative Rent Balance: {tenant_obj.cumulative_rent_balance}")
+    landlord_name = _safe_str((landlord.get_full_name() or landlord.username))
+    landlord_email = _safe_str(getattr(landlord, "email", None))
+    landlord_phone = _safe_str(getattr(prop, "landlord_phone", None))
 
-    p.setFont("Helvetica-Bold", 10)
-    p.setFillColor(HexColor("#6a11cb"))
-    p.drawString(10 * mm, y - 2 * line_height, "Thank you for your payment!")
+    month_paid_for = _safe_str(getattr(tenant_obj, "month_paid_for", None))
+    date_paid = _safe_str(getattr(tenant_obj, "date_paid", None))
+    date_occupied = _safe_str(getattr(tenant_obj, "date_occupied", None))
 
-    p.setStrokeColor(HexColor("#6a11cb"))
+    rent_paid = _money(getattr(tenant_obj, "rent_paid", 0))
+    monthly_rent = _money(getattr(tenant_obj, "monthly_rent", 0))
+    rent_balance = _money(getattr(tenant_obj, "rent_balance", 0))
+    cumulative_balance = _money(getattr(tenant_obj, "cumulative_rent_balance", 0))
+
+    def section_title(label: str, yy: float):
+        p.setFillColor(brand_dark)
+        p.setFont("Helvetica-Bold", 8)
+        p.drawString(8 * mm, yy, label)
+
+    def keyval(k: str, v: str, yy: float):
+        p.setFont("Helvetica", 8)
+        p.setFillColor(muted)
+        p.drawString(8 * mm, yy, k)
+        p.setFillColor(text)
+        p.drawRightString(width - 8 * mm, yy, v)
+
+    def box(x, yy_top, w, h):
+        p.setFillColor(light_bg)
+        p.setStrokeColor(border)
+        p.setLineWidth(0.7)
+        p.rect(x, yy_top - h, w, h, fill=1, stroke=1)
+
+    parties_h = 32 * mm
+    box(6 * mm, y, width - 12 * mm, parties_h)
+    yy = y - 5 * mm
+
+    section_title("Tenant", yy)
+    yy -= 5 * mm
+    keyval("Name", tenant_name, yy); yy -= 4.2 * mm
+    keyval("Phone", tenant_phone, yy); yy -= 4.2 * mm
+    keyval("Date Occupied", date_occupied, yy); yy -= 5.2 * mm
+
+    section_title("Landlord / Issuer", yy)
+    yy -= 5 * mm
+    keyval("Name", landlord_name, yy); yy -= 4.2 * mm
+    keyval("Phone", landlord_phone, yy)
+
+    y -= (parties_h + 6 * mm)
+
+    prop_h = 18 * mm
+    box(6 * mm, y, width - 12 * mm, prop_h)
+    yy = y - 5 * mm
+    section_title("Property Details", yy)
+    yy -= 5 * mm
+    keyval("Property", property_name, yy); yy -= 4.2 * mm
+    keyval("Location", property_loc, yy); yy -= 4.2 * mm
+    keyval("Unit", unit_code, yy)
+
+    y -= (prop_h + 6 * mm)
+
+    pay_h = 34 * mm
+    box(6 * mm, y, width - 12 * mm, pay_h)
+    yy = y - 5 * mm
+    section_title("Payment", yy)
+    yy -= 5 * mm
+
+    keyval("Month Paid For", month_paid_for, yy); yy -= 4.2 * mm
+    keyval("Date Paid", date_paid, yy); yy -= 5.0 * mm
+
+    def amount_row(label, amount, yy_row, bold=False, color=text):
+        p.setFillColor(muted)
+        p.setFont("Helvetica-Bold" if bold else "Helvetica", 8)
+        p.drawString(8 * mm, yy_row, label)
+        p.setFillColor(color)
+        p.drawRightString(width - 8 * mm, yy_row, f"KES {amount}")
+
+    amount_row("Monthly Rent", monthly_rent, yy); yy -= 4.2 * mm
+    amount_row("Amount Received", rent_paid, yy, bold=True, color=success); yy -= 4.2 * mm
+    amount_row("Balance (This Month)", rent_balance, yy); yy -= 4.2 * mm
+    amount_row("Cumulative Balance", cumulative_balance, yy); yy -= 4.2 * mm
+
+    p.setStrokeColor(border)
+    p.setLineWidth(0.7)
+    p.line(8 * mm, 22 * mm, width - 8 * mm, 22 * mm)
+
+    p.setFillColor(muted)
+    p.setFont("Helvetica", 7)
+    p.drawString(8 * mm, 18 * mm, "Issued by EasyRent. This receipt is generated electronically.")
+    p.drawString(8 * mm, 14.5 * mm, f"Support / Email: {landlord_email}")
+
+    p.setFillColor(text)
+    p.setFont("Helvetica", 7)
+    p.drawRightString(width - 8 * mm, 14.5 * mm, "Signature: ____________________")
+
+    p.setStrokeColor(border)
     p.setLineWidth(1)
-    p.rect(5 * mm, 5 * mm, width - 10 * mm, height - 10 * mm)
+    p.rect(4 * mm, 4 * mm, width - 8 * mm, height - 8 * mm, fill=0, stroke=1)
 
     p.showPage()
     p.save()

@@ -1,147 +1,198 @@
+{# edit_tenant.html (UNIT-FIRST / modern UI + same behavior) — UPDATED #}
 {% extends 'base.html' %}
 
 {% block title %}Edit Tenant - EasyRent{% endblock %}
 
 {% block content %}
-<div class="container">
-    <h2 class="text-center mb-4 fw-bold">Edit Tenant</h2>
+<style>
+  .page-head {
+    background: linear-gradient(135deg, rgba(37,99,235,.12) 0%, rgba(99,102,241,.10) 50%, rgba(14,165,233,.10) 100%);
+    border: 1px solid rgba(0,0,0,.06);
+    border-radius: 16px;
+    padding: 22px 18px;
+  }
+  .card-soft {
+    border: 1px solid rgba(0,0,0,.06);
+    border-radius: 16px;
+    box-shadow: 0 10px 28px rgba(0,0,0,0.06);
+  }
+  .form-hint { font-size: .85rem; color: var(--text-muted); }
+  .badge-soft {
+    background: rgba(37, 99, 235, .10);
+    color: #1d4ed8;
+    border: 1px solid rgba(37, 99, 235, .18);
+  }
+</style>
 
-    <form id="tenantForm" method="post" action="{% url 'edit_tenant' tenant.id %}">
+<div class="container py-4">
+
+  <div class="page-head mb-4 d-flex justify-content-between align-items-start flex-wrap gap-2">
+    <div>
+      <h2 class="fw-bold mb-1">Edit Tenant</h2>
+      <div class="text-muted">Update tenant details and payment info. Balances preview will update live.</div>
+    </div>
+    <div class="d-flex gap-2 flex-wrap">
+      <a href="{% url 'tenant_list' %}" class="btn btn-outline-secondary">
+        <i class="bi bi-arrow-left"></i> Back
+      </a>
+    </div>
+  </div>
+
+  <div class="card card-soft border-0">
+    <div class="card-body p-4">
+
+      <form id="tenantForm" method="post" action="{% url 'edit_tenant' tenant.id %}">
         {% csrf_token %}
 
         {% if form.non_field_errors %}
-          <div class="alert alert-danger">{{ form.non_field_errors }}</div>
+          <div class="alert alert-danger border-0">
+            <i class="bi bi-exclamation-triangle-fill"></i> {{ form.non_field_errors }}
+          </div>
         {% endif %}
 
-        <div class="mb-3">
-            <label class="form-label">Tenant Name:</label>
+        <div class="row g-3">
+          <div class="col-md-6">
+            <label class="form-label fw-semibold">Tenant Name</label>
             {{ form.name }}
-            {% if form.name.errors %}<div class="text-danger small">{{ form.name.errors }}</div>{% endif %}
-        </div>
+            {% if form.name.errors %}<div class="text-danger small mt-1">{{ form.name.errors }}</div>{% endif %}
+          </div>
 
-        <div class="mb-3">
-            <label class="form-label">Tenant Phone:</label>
+          <div class="col-md-6">
+            <label class="form-label fw-semibold">Tenant Phone</label>
             {{ form.phone }}
-            {% if form.phone.errors %}<div class="text-danger small">{{ form.phone.errors }}</div>{% endif %}
-        </div>
+            {% if form.phone.errors %}<div class="text-danger small mt-1">{{ form.phone.errors }}</div>{% endif %}
+            <div class="form-hint mt-1">Example: 07XXXXXXXX</div>
+          </div>
 
-        <div class="mb-3">
-            <label class="form-label">Unit Occupied:</label>
+          <div class="col-12">
+            <label class="form-label fw-semibold">Unit Occupied</label>
             {{ form.unit_fk }}
-            {% if form.unit_fk.errors %}<div class="text-danger small">{{ form.unit_fk.errors }}</div>{% endif %}
-            {% if form.unit_fk.help_text %}<div class="form-text">{{ form.unit_fk.help_text }}</div>{% endif %}
+            {% if form.unit_fk.errors %}<div class="text-danger small mt-1">{{ form.unit_fk.errors }}</div>{% endif %}
+            {% if form.unit_fk.help_text %}<div class="form-hint mt-1">{{ form.unit_fk.help_text }}</div>{% endif %}
 
             {% if tenant.unit_fk %}
-            <div class="form-text text-muted mt-1">
-                Current: <strong>{{ tenant.unit_fk.property.name }}</strong> —
-                <strong>{{ tenant.unit_fk.unit_code }}</strong>
-                ({{ tenant.unit_fk.unit_type }})
-            </div>
+              <div class="mt-2">
+                <span class="badge badge-soft">
+                  Current: {{ tenant.unit_fk.property.name }} — {{ tenant.unit_fk.unit_code }} ({{ tenant.unit_fk.unit_type }})
+                </span>
+              </div>
             {% endif %}
-        </div>
+          </div>
 
-        <div class="mb-3">
-            <label class="form-label">Date Occupied:</label>
+          <div class="col-md-4">
+            <label class="form-label fw-semibold">Date Occupied</label>
             {{ form.date_occupied }}
-            {% if form.date_occupied.errors %}<div class="text-danger small">{{ form.date_occupied.errors }}</div>{% endif %}
-        </div>
+            {% if form.date_occupied.errors %}<div class="text-danger small mt-1">{{ form.date_occupied.errors }}</div>{% endif %}
+          </div>
 
-        <div class="mb-3">
-            <label class="form-label">Rent Paid:</label>
-            {{ form.rent_paid }}
-            {% if form.rent_paid.errors %}<div class="text-danger small">{{ form.rent_paid.errors }}</div>{% endif %}
-        </div>
-
-        <div class="mb-3">
-            <label class="form-label">Date Paid:</label>
+          <div class="col-md-4">
+            <label class="form-label fw-semibold">Date Paid</label>
             {{ form.date_paid }}
-            {% if form.date_paid.errors %}<div class="text-danger small">{{ form.date_paid.errors }}</div>{% endif %}
-        </div>
+            {% if form.date_paid.errors %}<div class="text-danger small mt-1">{{ form.date_paid.errors }}</div>{% endif %}
+          </div>
 
-        <div class="mb-3">
-            <label class="form-label">Month Paid For:</label>
+          <div class="col-md-4">
+            <label class="form-label fw-semibold">Month Paid For</label>
             {{ form.month_paid_for }}
-            {% if form.month_paid_for.errors %}<div class="text-danger small">{{ form.month_paid_for.errors }}</div>{% endif %}
-        </div>
+            {% if form.month_paid_for.errors %}<div class="text-danger small mt-1">{{ form.month_paid_for.errors }}</div>{% endif %}
+          </div>
 
-        <div class="mb-3">
-            <label class="form-label">Monthly Rent:</label>
+          <div class="col-md-6">
+            <label class="form-label fw-semibold">Monthly Rent (KES)</label>
             {{ form.monthly_rent }}
-            {% if form.monthly_rent.errors %}<div class="text-danger small">{{ form.monthly_rent.errors }}</div>{% endif %}
-        </div>
+            {% if form.monthly_rent.errors %}<div class="text-danger small mt-1">{{ form.monthly_rent.errors }}</div>{% endif %}
+          </div>
 
-        <hr>
+          <div class="col-md-6">
+            <label class="form-label fw-semibold">Rent Paid (KES)</label>
+            {{ form.rent_paid }}
+            {% if form.rent_paid.errors %}<div class="text-danger small mt-1">{{ form.rent_paid.errors }}</div>{% endif %}
+          </div>
 
-        {# Display-only computed fields (server still calculates/saves) #}
-        <div class="mb-3">
-            <label class="form-label">Rent Balance (computed):</label>
+          <div class="col-12">
+            <hr class="my-2">
+          </div>
+
+          {# Display-only computed fields (server still calculates/saves) #}
+          <div class="col-md-6">
+            <label class="form-label fw-semibold">Rent Balance (preview)</label>
             <input
-                type="number"
-                id="rent_balance"
-                class="form-control"
-                value="{{ tenant.rent_balance }}"
-                readonly
+              type="number"
+              id="rent_balance"
+              class="form-control"
+              value="{{ tenant.rent_balance }}"
+              readonly
             >
-        </div>
+            <div class="form-hint mt-1">Monthly Rent − Rent Paid</div>
+          </div>
 
-        <div class="mb-3">
-            <label class="form-label">Total Rent Balance (computed):</label>
+          <div class="col-md-6">
+            <label class="form-label fw-semibold">Cumulative Balance (preview)</label>
             <input
-                type="number"
-                id="total_rent_balance"
-                class="form-control"
-                value="{{ tenant.cumulative_rent_balance }}"
-                readonly
+              type="number"
+              id="total_rent_balance"
+              class="form-control"
+              value="{{ tenant.cumulative_rent_balance }}"
+              readonly
             >
+            <div class="form-hint mt-1">Preview only; server will store the authoritative total.</div>
+          </div>
+
+          <div class="col-12 d-flex gap-2 flex-wrap mt-2">
+            <button type="submit" class="btn btn-primary flex-grow-1">
+              <i class="bi bi-save"></i> Update Tenant
+            </button>
+            <a href="{% url 'tenant_list' %}" class="btn btn-outline-secondary">
+              Cancel
+            </a>
+          </div>
         </div>
+      </form>
 
-        <button type="submit" class="btn btn-primary w-100">Update Tenant</button>
-    </form>
-
-    <div class="text-center mt-3">
-        <a href="{% url 'tenant_list' %}" class="btn btn-secondary">Back to Tenant List</a>
     </div>
+  </div>
 </div>
 
 <script>
 (function() {
-    const form = document.getElementById('tenantForm');
+  const form = document.getElementById('tenantForm');
+  if (!form) return;
 
-    const monthlyRentEl = form.querySelector('[name="monthly_rent"]');
-    const rentPaidEl = form.querySelector('[name="rent_paid"]');
+  const monthlyRentEl = form.querySelector('[name="monthly_rent"]');
+  const rentPaidEl = form.querySelector('[name="rent_paid"]');
 
-    const rentBalanceEl = document.getElementById('rent_balance');
-    const totalBalanceEl = document.getElementById('total_rent_balance');
+  const rentBalanceEl = document.getElementById('rent_balance');
+  const totalBalanceEl = document.getElementById('total_rent_balance');
 
-    function storeInitials() {
-        totalBalanceEl.dataset.initialValue = totalBalanceEl.value || "0";
-        rentBalanceEl.dataset.initialValue = rentBalanceEl.value || "0";
+  function storeInitials() {
+    totalBalanceEl.dataset.initialValue = totalBalanceEl.value || "0";
+    rentBalanceEl.dataset.initialValue = rentBalanceEl.value || "0";
+  }
+
+  function recalc() {
+    const monthlyRent = parseFloat(monthlyRentEl?.value || "0") || 0;
+    const rentPaid = parseFloat(rentPaidEl?.value || "0") || 0;
+
+    const newRentBalance = monthlyRent - rentPaid;
+    rentBalanceEl.value = newRentBalance;
+
+    const initialTotal = parseFloat(totalBalanceEl.dataset.initialValue || "0") || 0;
+    const initialRentBal = parseFloat(rentBalanceEl.dataset.initialValue || "0") || 0;
+
+    const newTotal = (initialTotal - initialRentBal) + newRentBalance;
+    totalBalanceEl.value = newTotal;
+  }
+
+  document.addEventListener('DOMContentLoaded', function() {
+    storeInitials();
+    recalc();
+  });
+
+  form.addEventListener('input', function(e) {
+    if (e.target && (e.target.name === "monthly_rent" || e.target.name === "rent_paid")) {
+      recalc();
     }
-
-    function recalc() {
-        const monthlyRent = parseFloat(monthlyRentEl?.value || "0") || 0;
-        const rentPaid = parseFloat(rentPaidEl?.value || "0") || 0;
-
-        const newRentBalance = monthlyRent - rentPaid;
-        rentBalanceEl.value = newRentBalance;
-
-        const initialTotal = parseFloat(totalBalanceEl.dataset.initialValue || "0") || 0;
-        const initialRentBal = parseFloat(rentBalanceEl.dataset.initialValue || "0") || 0;
-
-        const newTotal = (initialTotal - initialRentBal) + newRentBalance;
-        totalBalanceEl.value = newTotal;
-    }
-
-    document.addEventListener('DOMContentLoaded', function() {
-        storeInitials();
-        recalc();
-    });
-
-    form.addEventListener('input', function(e) {
-        if (e.target && (e.target.name === "monthly_rent" || e.target.name === "rent_paid")) {
-            recalc();
-        }
-    });
+  });
 })();
 </script>
 {% endblock %}

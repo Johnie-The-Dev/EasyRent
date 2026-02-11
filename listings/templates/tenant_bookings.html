@@ -4,27 +4,47 @@
 {% block title %}My Bookings - EasyRent{% endblock %}
 
 {% block content %}
-<div class="container mt-5">
+<style>
+  .page-header{
+    background: linear-gradient(135deg, #0ea5e9, #2563eb);
+    color:#fff;
+    border-radius: 14px;
+    padding: 22px 18px;
+  }
+  .kpi-card{
+    border: 1px solid rgba(0,0,0,.06);
+    border-radius: 14px;
+    box-shadow: 0 10px 30px rgba(0,0,0,.06);
+  }
+  .booking-card{
+    border: 1px solid rgba(0,0,0,.06);
+    border-radius: 14px;
+    box-shadow: 0 10px 30px rgba(0,0,0,.06);
+  }
+</style>
 
-  <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-4">
-    <div>
-      <h2 class="fw-bold mb-1">My Bookings</h2>
-      <p class="text-muted mb-0">Unit-first booking requests and status updates</p>
-    </div>
-    <div class="d-flex gap-2 flex-wrap">
-      <a href="{% url 'view_collection' %}" class="btn btn-outline-secondary">
-        <i class="bi bi-heart"></i> My Collection
-      </a>
-      <a href="{% url 'tenant_feed' %}" class="btn btn-outline-secondary">
-        <i class="bi bi-search"></i> Browse Units
-      </a>
+<div class="container py-4">
+
+  <div class="page-header mb-4">
+    <div class="d-flex justify-content-between align-items-start flex-wrap gap-2">
+      <div>
+        <h2 class="fw-bold mb-1">My Bookings</h2>
+        <p class="mb-0" style="opacity:.95;">Unit-first booking requests and status updates.</p>
+      </div>
+      <div class="d-flex gap-2 flex-wrap">
+        <a href="{% url 'view_collection' %}" class="btn btn-light btn-sm">
+          <i class="bi bi-heart"></i> My Collection
+        </a>
+        <a href="{% url 'tenant_feed' %}" class="btn btn-outline-light btn-sm">
+          <i class="bi bi-search"></i> Browse Units
+        </a>
+      </div>
     </div>
   </div>
 
-  {# Summary KPIs (works with QuerySet; avoids relying on |length) #}
   <div class="row g-3 mb-4">
     <div class="col-md-4">
-      <div class="card border-0 shadow-sm">
+      <div class="card kpi-card">
         <div class="card-body">
           <div class="text-muted small fw-bold">Total</div>
           <div class="fw-bold" style="font-size:1.8rem">{{ bookings_count|default:bookings.count }}</div>
@@ -32,7 +52,7 @@
       </div>
     </div>
     <div class="col-md-4">
-      <div class="card border-0 shadow-sm">
+      <div class="card kpi-card">
         <div class="card-body">
           <div class="text-muted small fw-bold">Confirmed</div>
           <div class="fw-bold" style="font-size:1.8rem;color:var(--success-color)">
@@ -42,7 +62,7 @@
       </div>
     </div>
     <div class="col-md-4">
-      <div class="card border-0 shadow-sm">
+      <div class="card kpi-card">
         <div class="card-body">
           <div class="text-muted small fw-bold">Pending</div>
           <div class="fw-bold" style="font-size:1.8rem;color:var(--warning-color)">
@@ -56,10 +76,9 @@
   <div class="row g-4">
     {% for booking in bookings %}
       <div class="col-lg-6">
-        <div class="card border-0 shadow-sm h-100">
+        <div class="card booking-card h-100">
           <div class="card-body">
 
-            {# ✅ Relation-safe: unit may exist but property may be missing; also avoid extra queries #}
             {% with unit=booking.unit prop=booking.unit.property %}
               {% if unit and prop %}
                 <div class="d-flex justify-content-between align-items-start mb-3">
@@ -120,11 +139,7 @@
                     <div class="small text-muted mb-1">Landlord</div>
                     <div class="fw-500">
                       {% with landlord=prop.landlord %}
-                        {% if landlord.get_full_name %}
-                          {{ landlord.get_full_name }}
-                        {% else %}
-                          {{ landlord.username }}
-                        {% endif %}
+                        {% if landlord.get_full_name %}{{ landlord.get_full_name }}{% else %}{{ landlord.username }}{% endif %}
                       {% endwith %}
                     </div>
                   </div>
@@ -187,7 +202,6 @@
         </div>
       </div>
 
-      {# ✅ Only render modal when cancel action exists and relations exist #}
       {% if booking.status != 'cancelled' and booking.unit and booking.unit.property %}
         <div class="modal fade" id="unbookModal{{ booking.id }}" tabindex="-1"
              aria-labelledby="unbookModalLabel{{ booking.id }}" aria-hidden="true">
@@ -207,8 +221,6 @@
               </div>
               <div class="modal-footer border-top bg-light">
                 <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Keep It</button>
-
-                {# ✅ Cancel is a POST in your views? If it’s GET right now, keep anchor. Prefer POST for safety. #}
                 <a href="{% url 'unbook_property' booking.id %}" class="btn btn-danger btn-sm">
                   Yes, Cancel Booking
                 </a>
@@ -221,7 +233,7 @@
     {% empty %}
       <div class="col-12">
         <div class="card border-0 shadow-sm p-5 text-center"
-             style="background: linear-gradient(135deg, rgba(106, 76, 156, 0.05) 0%, rgba(80, 201, 195, 0.05) 100%);">
+             style="background: linear-gradient(135deg, rgba(106, 76, 156, 0.05) 0%, rgba(80, 201, 195, 0.05) 100%); border-radius:14px;">
           <i class="bi bi-calendar-x" style="font-size: 3.5rem; color: var(--text-muted); margin-bottom: 1rem;"></i>
           <h4 class="fw-bold text-muted mb-2">No Bookings Yet</h4>
           <p class="text-muted mb-4">You haven't booked any units yet. Start exploring available properties now!</p>
@@ -234,9 +246,4 @@
   </div>
 
 </div>
-
-<style>
-  .card { transition: all 0.3s ease; }
-  .card:hover { box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12) !important; }
-</style>
 {% endblock %}

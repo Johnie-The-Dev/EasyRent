@@ -1,4 +1,5 @@
-# listings/forms.py (UNIT-FIRST / DJANGO 5.1 SAFE) — UPDATED (SINGLE IMAGE + MODEL VIDEO)
+# listings/forms.py (UNIT-FIRST / DJANGO 5.1 SAFE)
+# UPDATED: SINGLE IMAGE + MODEL VIDEO + BOOKED UNITS ALLOWED IN TENANT FORM
 
 import calendar
 import re
@@ -52,6 +53,18 @@ def _normalize_kenyan_phone(phone_raw: str) -> str:
 
 
 VIDEO_EXT_VALIDATOR = FileExtensionValidator(["mp4", "mov", "m4v", "webm"])
+
+
+def _unit_status_values():
+    """
+    Prefer Unit constants if they exist; otherwise fallback to string literals.
+    Keeps compatibility if your Unit model doesn't define constants.
+    """
+    vacant = getattr(Unit, "VACANT", "vacant")
+    booked = getattr(Unit, "BOOKED", "booked")
+    maintenance = getattr(Unit, "MAINTENANCE", "maintenance")
+    occupied = getattr(Unit, "OCCUPIED", "occupied")
+    return vacant, booked, maintenance, occupied
 
 
 # ---------- Property ----------
@@ -121,7 +134,6 @@ class PropertyForm(forms.ModelForm):
         max_file_size_mb = 8
         ctype = getattr(f, "content_type", "") or ""
 
-        # If content_type exists, enforce image/*
         if ctype and not ctype.startswith("image/"):
             raise ValidationError("Only image files are allowed for the property image.")
 
@@ -133,7 +145,6 @@ class PropertyForm(forms.ModelForm):
     def clean_video(self):
         """
         Optional: validate video extension + size.
-        (Model validates extension too, but this gives user-friendly errors.)
         """
         f = self.cleaned_data.get("video")
         if not f:
@@ -194,7 +205,7 @@ class TenantForm(forms.ModelForm):
         queryset=Unit.objects.none(),
         label="Unit",
         widget=forms.Select(attrs={"class": "form-control"}),
-        help_text="Select the specific unit the tenant occupies.",
+        help_text="Select the specific unit the tenant occupies (vacant/booked/maintenance only).",
     )
 
     class Meta:
@@ -225,9 +236,34 @@ class TenantForm(forms.ModelForm):
             raise ValidationError("Enter a valid phone number.")
         return phone
 
+    def clean_unit_fk(self):
+        """
+        Extra guardrail:
+        - allow 'booked' units (convert booking -> tenant)
+        - block units that already have an active tenancy record
+        """
+        unit = self.cleaned_data.get("unit_fk")
+        if not unit:
+            return unit
+
+        # If editing, allow keeping the same unit
+        current_unit_id = getattr(self.instance, "unit_fk_id", None)
+        if self.instance and self.instance.pk and current_unit_id == unit.id:
+            return unit
+
+        # Prevent selecting a unit that already has a tenant record (active occupancy)
+        # If you later add tenancy end-dates, replace this with a more precise rule.
+        if Tenant.objects.filter(unit_fk=unit).exists():
+            raise ValidationError("This unit already has a tenant record. Choose another unit.")
+
+        return unit
+
     def __init__(self, *args, **kwargs):
         user = kwargs.pop("user", None)
         super().__init__(*args, **kwargs)
+
+        vacant, booked, maintenance, occupied = _unit_status_values()
+        allowed_statuses = [vacant, booked, maintenance]
 
         qs = Unit.objects.filter(is_active=True).select_related("property")
 
@@ -237,9 +273,9 @@ class TenantForm(forms.ModelForm):
 
         # Hide occupied units by default; keep current unit visible when editing
         if self.instance and self.instance.pk and getattr(self.instance, "unit_fk_id", None):
-            qs = qs.filter(Q(vacancy__in=["vacant", "booked", "maintenance"]) | Q(pk=self.instance.unit_fk_id))
+            qs = qs.filter(Q(vacancy__in=allowed_statuses) | Q(pk=self.instance.unit_fk_id))
         else:
-            qs = qs.filter(vacancy__in=["vacant", "booked", "maintenance"])
+            qs = qs.filter(vacancy__in=allowed_statuses)
 
         self.fields["unit_fk"].queryset = qs
         self.fields["unit_fk"].label_from_instance = (

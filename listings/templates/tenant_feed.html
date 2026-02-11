@@ -1,4 +1,4 @@
-{# tenant_feed.html (UNIT-FIRST / NO FALLBACK) — FIXED (carousel/queryset, video modal per-card safe) #}
+{# tenant_feed.html (UNIT-FIRST / NO FALLBACK) — UPDATED (queryset-safe images, safer video modal, better UX, keeps your context vars) #}
 {% extends 'base.html' %}
 
 {% block title %}Tenant Feed - EasyRent{% endblock %}
@@ -6,37 +6,49 @@
 {% block content %}
 <style>
   .page-header {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: linear-gradient(135deg, #667eea 0%, #2563eb 50%, #0ea5e9 100%);
     color: white;
-    padding: 40px 20px;
+    padding: 42px 20px;
     margin: -1rem -12px 2rem;
-    border-radius: 0;
   }
-  .page-header h1 { font-size: 2.5rem; font-weight: 700; margin-bottom: 10px; }
-  .page-header p { font-size: 1.1rem; opacity: 0.95; }
+  .page-header h1 { font-size: 2.35rem; font-weight: 800; margin-bottom: 10px; }
+  .page-header p { font-size: 1.05rem; opacity: 0.95; margin-bottom: 0; }
 
-  .property-card { transition: all 0.3s ease; border: 1px solid var(--border-color); }
-  .property-card:hover {
-    transform: translateY(-8px);
-    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.15);
-    border-color: var(--secondary-color);
+  .filter-form {
+    background: #fff;
+    border-radius: 14px;
+    border: 1px solid rgba(0,0,0,0.06);
+    box-shadow: 0 10px 28px rgba(0,0,0,0.06);
+  }
+
+  .property-card {
+    transition: transform .25s ease, box-shadow .25s ease, border-color .25s ease;
+    border: 1px solid rgba(0,0,0,0.06);
+    border-radius: 14px;
+    overflow: hidden;
+    box-shadow: 0 10px 28px rgba(0,0,0,0.06);
+  }
+  .property-card:hover{
+    transform: translateY(-6px);
+    box-shadow: 0 14px 34px rgba(0,0,0,0.12);
+    border-color: rgba(37, 99, 235, .25);
   }
 
   .carousel-control-prev-icon,
   .carousel-control-next-icon {
-    background-color: rgba(0, 0, 0, 0.5);
+    background-color: rgba(0, 0, 0, 0.45);
     border-radius: 50%;
     padding: 8px;
   }
 
-  .pagination .page-link { border-radius: 6px; margin: 0 4px; transition: all 0.3s ease; }
-  .pagination .page-link:hover { background-color: var(--primary-color); color: white; }
-
-  .filter-form {
-    background: white;
-    border-radius: 12px;
-    box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+  .badge-soft {
+    background: rgba(37, 99, 235, .10);
+    color: #1d4ed8;
+    border: 1px solid rgba(37, 99, 235, .18);
   }
+
+  .pagination .page-link { border-radius: 8px; margin: 0 4px; transition: all 0.2s ease; }
+  .pagination .page-link:hover { background-color: var(--primary-color); color: white; }
 </style>
 
 <div class="page-header">
@@ -44,11 +56,15 @@
   <p>Find your next room or small flat. Filter, call, and arrange viewings quickly.</p>
 </div>
 
-<div class="container py-4">
+<div class="container py-3">
 
   {% if user.is_authenticated %}
-    <div class="mb-4 text-end">
-      <a href="{% url 'tenant_bookings' %}" class="btn btn-secondary btn-lg">
+    <div class="mb-4 d-flex justify-content-end gap-2 flex-wrap">
+      <a href="{% url 'view_collection' %}" class="btn btn-outline-light"
+         style="border-color: rgba(255,255,255,.45); background: rgba(255,255,255,.10);">
+        <i class="bi bi-heart"></i> My Collection
+      </a>
+      <a href="{% url 'tenant_bookings' %}" class="btn btn-light">
         <i class="bi bi-bookmark-fill"></i> My Bookings / Orodha
       </a>
     </div>
@@ -98,15 +114,24 @@
           <i class="bi bi-search"></i> Filter
         </button>
       </div>
+
+      <div class="col-12 d-flex justify-content-between align-items-center flex-wrap gap-2">
+        <small class="text-muted">
+          Showing properties with <strong>vacant</strong> units only.
+        </small>
+        <a href="{% url 'tenant_feed' %}" class="btn btn-link btn-sm text-decoration-none">
+          Clear filters
+        </a>
+      </div>
     </div>
   </form>
 
   <div class="row g-4">
     {% for property in properties %}
       <div class="col-lg-4 col-md-6">
-        <div class="card property-card h-100 border-0" style="border-radius: 12px; overflow: hidden;">
+        <div class="card property-card h-100">
 
-          {# ✅ Images (FIX: don't use "if property.images.all" because QuerySet is always truthy) #}
+          {# ✅ Images (queryset-safe) #}
           {% with imgs=property.images.all %}
             {% if imgs|length %}
               <div id="carousel{{ property.id }}" class="carousel slide carousel-dark" data-bs-ride="carousel">
@@ -134,19 +159,26 @@
               <div class="bg-light text-center d-flex align-items-center justify-content-center" style="height: 220px;">
                 <div>
                   <i class="bi bi-image" style="font-size: 2.5rem; color: var(--text-muted);"></i>
-                  <p class="text-muted mt-2">No image</p>
+                  <p class="text-muted mt-2 mb-0">No image</p>
                 </div>
               </div>
             {% endif %}
           {% endwith %}
 
           <div class="card-body d-flex flex-column">
-            <h5 class="card-title fw-bold mb-2" style="color: var(--primary-color);">
-              {{ property.name }}
-            </h5>
+            <div class="d-flex justify-content-between align-items-start gap-2">
+              <h5 class="card-title fw-bold mb-2" style="color: var(--primary-color);">
+                {{ property.name }}
+              </h5>
 
-            {# Location #}
-            <div class="mb-2">
+              {% if property.vacant_units_display %}
+                <span class="badge badge-soft">
+                  Vacant {{ property.vacant_units_display }}
+                </span>
+              {% endif %}
+            </div>
+
+            <div class="mb-2 small">
               <i class="bi bi-geo-alt" style="color: var(--secondary-color);"></i>
               <span class="ms-1">
                 {% if property.county %}<strong>{{ property.county }}</strong>{% endif %}
@@ -155,7 +187,6 @@
               </span>
             </div>
 
-            {# Unit-first summary #}
             <div class="mb-3">
               <div class="mb-1">
                 {% if selected_type %}
@@ -169,13 +200,13 @@
               </div>
 
               {% if property.min_vacant_price %}
-                <p class="card-text fs-5 fw-bold mb-1" style="color: var(--success-color);">
+                <div class="fs-5 fw-bold mb-1" style="color: var(--success-color);">
                   From Ksh {{ property.min_vacant_price|floatformat:0 }}/month
-                </p>
+                </div>
               {% else %}
-                <p class="card-text fs-5 fw-bold mb-1" style="color: var(--success-color);">
+                <div class="fs-5 fw-bold mb-1" style="color: var(--success-color);">
                   From Ksh {{ property.price|floatformat:0 }}/month
-                </p>
+                </div>
               {% endif %}
 
               <div class="small text-muted">
@@ -189,50 +220,62 @@
             {% if property.amenities %}
               <div class="mb-2">
                 {% for amen in property.amenities %}
-                  <span class="badge bg-light text-dark me-1" style="border:1px solid rgba(0,0,0,0.06);">
+                  <span class="badge bg-light text-dark me-1 mb-1" style="border:1px solid rgba(0,0,0,0.06);">
                     {{ amen }}
                   </span>
                 {% endfor %}
               </div>
             {% endif %}
 
-            <p class="card-text text-muted small flex-grow-1">
-              {{ property.description|default:""|truncatewords:20 }}
+            <p class="card-text text-muted small flex-grow-1 mb-3">
+              {{ property.description|default:""|truncatewords:22 }}
             </p>
 
             <div class="mb-3 pb-3 border-bottom border-light">
-              <p class="card-text small mb-2">
+              <div class="small mb-2">
                 <i class="bi bi-telephone" style="color: var(--accent-color);"></i>
-                <strong>{{ property.landlord_phone }}</strong>
-              </p>
+                <strong>{{ property.landlord_phone|default:"—" }}</strong>
+              </div>
 
               <div class="row g-2">
                 <div class="col-6">
-                  <a href="tel:{{ property.landlord_phone }}" class="btn btn-outline-secondary btn-sm w-100">
-                    <i class="bi bi-telephone"></i> Call / Piga
-                  </a>
+                  {% if property.landlord_phone %}
+                    <a href="tel:{{ property.landlord_phone }}" class="btn btn-outline-secondary btn-sm w-100">
+                      <i class="bi bi-telephone"></i> Call / Piga
+                    </a>
+                  {% else %}
+                    <button class="btn btn-outline-secondary btn-sm w-100" disabled>
+                      <i class="bi bi-telephone"></i> Call / Piga
+                    </button>
+                  {% endif %}
                 </div>
 
-                {% if property.whatsapp_link %}
-                  <div class="col-6">
+                <div class="col-6">
+                  {% if property.whatsapp_link %}
                     <a href="{{ property.whatsapp_link }}" target="_blank" rel="noopener"
                        class="btn btn-success btn-sm w-100">
                       <i class="bi bi-whatsapp"></i> Message / Tuma
                     </a>
-                  </div>
-                {% endif %}
+                  {% else %}
+                    <button class="btn btn-success btn-sm w-100" disabled>
+                      <i class="bi bi-whatsapp"></i> Message / Tuma
+                    </button>
+                  {% endif %}
+                </div>
               </div>
             </div>
 
             <div class="d-grid gap-2">
-              {% if property.id in saved_properties %}
-                <a href="{% url 'remove_from_collection' property.id %}" class="btn btn-danger btn-sm">
-                  <i class="bi bi-heart-fill"></i> Remove from Collection
-                </a>
-              {% else %}
-                <a href="{% url 'add_to_collection' property.id %}" class="btn btn-outline-secondary btn-sm">
-                  <i class="bi bi-heart"></i> Save / Hifadhi
-                </a>
+              {% if user.is_authenticated %}
+                {% if property.id in saved_properties %}
+                  <a href="{% url 'remove_from_collection' property.id %}" class="btn btn-danger btn-sm">
+                    <i class="bi bi-heart-fill"></i> Remove from Collection
+                  </a>
+                {% else %}
+                  <a href="{% url 'add_to_collection' property.id %}" class="btn btn-outline-secondary btn-sm">
+                    <i class="bi bi-heart"></i> Save / Hifadhi
+                  </a>
+                {% endif %}
               {% endif %}
 
               {% if user.is_authenticated and user.is_tenant %}
@@ -247,7 +290,7 @@
                 {% endif %}
               {% endif %}
 
-              {# ✅ Video button opens ONE shared modal; we pass URL via data-* #}
+              {# ✅ Video button: one shared modal; safer source type handling #}
               {% if property.video %}
                 <button type="button"
                         class="btn btn-outline-secondary btn-sm"
@@ -259,18 +302,18 @@
                 </button>
               {% endif %}
             </div>
-
           </div>
         </div>
       </div>
 
     {% empty %}
       <div class="col-12 text-center py-5">
-        <div style="background: white; padding: 3rem; border-radius: 12px;">
+        <div style="background: white; padding: 3rem; border-radius: 14px; border:1px solid rgba(0,0,0,.06); box-shadow: 0 10px 28px rgba(0,0,0,.06);">
           <i class="bi bi-inbox" style="font-size: 3rem; color: var(--text-muted);"></i>
-          <p class="text-muted mt-3 fs-5">
-            Hakuna nyumba zinazokidhi vigezo vyako. Try clearing filters or search elsewhere.
+          <p class="text-muted mt-3 fs-5 mb-2">
+            Hakuna nyumba zinazokidhi vigezo vyako.
           </p>
+          <p class="text-muted mb-4">Try clearing filters or search elsewhere.</p>
           <a href="{% url 'tenant_feed' %}" class="btn btn-primary btn-sm mt-2">View All Properties / Ona Zote</a>
         </div>
       </div>
@@ -279,7 +322,7 @@
 
   {% if properties.has_other_pages %}
     <nav aria-label="Property pagination" class="mt-5">
-      <ul class="pagination justify-content-center">
+      <ul class="pagination justify-content-center flex-wrap">
         {% if properties.has_previous %}
           <li class="page-item">
             <a class="page-link"
@@ -318,17 +361,17 @@
   {% endif %}
 </div>
 
-{# ✅ One shared modal (avoid duplicate IDs / bugs) #}
+{# ✅ One shared video modal #}
 <div class="modal fade" id="videoModal" tabindex="-1" aria-labelledby="videoModalLabel" aria-hidden="true">
-  <div class="modal-dialog modal-lg">
+  <div class="modal-dialog modal-lg modal-dialog-centered">
     <div class="modal-content border-0">
       <div class="modal-header border-bottom">
-        <h5 class="modal-title" id="videoModalLabel"></h5>
+        <h5 class="modal-title fw-bold" id="videoModalLabel">Property Video</h5>
         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
       </div>
       <div class="modal-body p-0">
-        <video id="sharedVideoPlayer" width="100%" controls style="border-radius: 0 0 8px 8px;">
-          <source id="sharedVideoSource" src="" type="video/mp4">
+        <video id="sharedVideoPlayer" width="100%" controls style="border-radius: 0 0 12px 12px;">
+          <source id="sharedVideoSource" src="" type="">
           Your browser does not support the video tag.
         </video>
       </div>
@@ -341,6 +384,14 @@ document.addEventListener('DOMContentLoaded', function () {
   var videoModal = document.getElementById('videoModal');
   if (!videoModal) return;
 
+  function guessMime(url) {
+    url = (url || '').toLowerCase();
+    if (url.endsWith('.webm')) return 'video/webm';
+    if (url.endsWith('.mov')) return 'video/quicktime';
+    if (url.endsWith('.m4v')) return 'video/x-m4v';
+    return 'video/mp4';
+  }
+
   videoModal.addEventListener('show.bs.modal', function (event) {
     var button = event.relatedTarget;
     if (!button) return;
@@ -348,14 +399,18 @@ document.addEventListener('DOMContentLoaded', function () {
     var videoUrl = button.getAttribute('data-video-url') || '';
     var propName = button.getAttribute('data-property-name') || '';
 
-    document.getElementById('videoModalLabel').textContent =
-      propName ? (propName + ' - Property Video') : 'Property Video';
+    var title = propName ? (propName + ' — Video') : 'Property Video';
+    var label = document.getElementById('videoModalLabel');
+    if (label) label.textContent = title;
 
     var source = document.getElementById('sharedVideoSource');
-    source.setAttribute('src', videoUrl);
-
     var player = document.getElementById('sharedVideoPlayer');
-    player.load();
+
+    if (source) {
+      source.setAttribute('src', videoUrl);
+      source.setAttribute('type', guessMime(videoUrl));
+    }
+    if (player) player.load();
   });
 
   videoModal.addEventListener('hidden.bs.modal', function () {
@@ -363,7 +418,10 @@ document.addEventListener('DOMContentLoaded', function () {
     var source = document.getElementById('sharedVideoSource');
 
     if (player) player.pause();
-    if (source) source.setAttribute('src', '');
+    if (source) {
+      source.setAttribute('src', '');
+      source.setAttribute('type', '');
+    }
   });
 });
 </script>

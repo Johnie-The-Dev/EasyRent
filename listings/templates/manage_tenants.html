@@ -3,141 +3,249 @@
 {% block title %}Manage Tenants - EasyRent{% endblock %}
 
 {% block content %}
-<div class="container">
-    <h2 class="text-center mb-4 fw-bold">Manage Tenants</h2>
+<style>
+  .page-wrap{
+    max-width: 900px;
+    margin: 0 auto;
+  }
+  .header-band{
+    background: linear-gradient(135deg, #0ea5e9, #2563eb);
+    border-radius: 14px;
+    padding: 22px 18px;
+    color: #fff;
+  }
+  .header-band h2{ margin: 0; font-weight: 800; }
+  .header-band p{ margin: 6px 0 0; opacity: .95; }
 
-    <form id="tenantForm" method="post" action="{% url 'manage_tenants' %}">
+  .form-shell{
+    background: #fff;
+    border-radius: 14px;
+    box-shadow: 0 10px 30px rgba(0,0,0,.06);
+    border: 1px solid rgba(0,0,0,.06);
+    overflow: hidden;
+  }
+  .form-shell .body{
+    padding: 18px;
+  }
+
+  .hint-card{
+    border: 1px solid rgba(0,0,0,.06);
+    background: rgba(245, 247, 251, 1);
+    border-radius: 12px;
+    padding: 12px 12px;
+  }
+
+  .meta-pill{
+    display:inline-flex;
+    gap:.35rem;
+    align-items:center;
+    font-size:.8rem;
+    padding:.2rem .55rem;
+    border-radius: 999px;
+    border: 1px solid rgba(0,0,0,.08);
+    background: rgba(255,255,255,.85);
+  }
+
+  .kpi-box{
+    border: 1px solid rgba(0,0,0,.06);
+    border-radius: 12px;
+    padding: 12px;
+    background: #fff;
+  }
+
+  .req-star{ color: #ef4444; }
+</style>
+
+<div class="container py-4 page-wrap">
+
+  <div class="header-band mb-4">
+    <div class="d-flex justify-content-between align-items-start flex-wrap gap-2">
+      <div>
+        <h2>Manage Tenants</h2>
+        <p class="mb-0">Add an occupying tenant to a specific unit (unit-first).</p>
+      </div>
+      <div class="d-flex gap-2">
+        <a href="{% url 'tenant_list' %}" class="btn btn-light btn-sm">
+          <i class="bi bi-people"></i> Tenant List
+        </a>
+        <a href="{% url 'landlord_dashboard' %}" class="btn btn-outline-light btn-sm">
+          <i class="bi bi-speedometer2"></i> Dashboard
+        </a>
+      </div>
+    </div>
+  </div>
+
+  <div class="form-shell">
+    <div class="body">
+
+      <form id="tenantForm" method="post" action="{% url 'manage_tenants' %}" novalidate>
         {% csrf_token %}
 
         {% if form.non_field_errors %}
-          <div class="alert alert-danger">{{ form.non_field_errors }}</div>
+          <div class="alert alert-danger">
+            <strong>Fix the errors below.</strong>
+            <div class="small mt-2">{{ form.non_field_errors }}</div>
+          </div>
         {% endif %}
 
-        <div class="mb-3">
-            <label class="form-label">Tenant Name:</label>
-            {{ form.name }}
-            {% if form.name.errors %}<div class="text-danger small">{{ form.name.errors }}</div>{% endif %}
-        </div>
-
-        <div class="mb-3">
-            <label class="form-label">Tenant Phone:</label>
-            {{ form.phone }}
-            {% if form.phone.errors %}<div class="text-danger small">{{ form.phone.errors }}</div>{% endif %}
-        </div>
-
-        <div class="mb-3">
-            <label class="form-label">Unit Occupied:</label>
-            {{ form.unit_fk }}
-            {% if form.unit_fk.errors %}<div class="text-danger small">{{ form.unit_fk.errors }}</div>{% endif %}
-            {% if form.unit_fk.help_text %}<div class="form-text">{{ form.unit_fk.help_text }}</div>{% endif %}
-
-            <div id="unitMeta" class="form-text text-muted mt-1" style="display:none;"></div>
-        </div>
-
-        <div class="mb-3">
-            <label class="form-label">Date Occupied:</label>
-            {{ form.date_occupied }}
-            {% if form.date_occupied.errors %}<div class="text-danger small">{{ form.date_occupied.errors }}</div>{% endif %}
-        </div>
-
-        <div class="mb-3">
-            <label class="form-label">Rent Paid:</label>
-            {{ form.rent_paid }}
-            {% if form.rent_paid.errors %}<div class="text-danger small">{{ form.rent_paid.errors }}</div>{% endif %}
-        </div>
-
-        <div class="mb-3">
-            <label class="form-label">Date Paid:</label>
-            {{ form.date_paid }}
-            {% if form.date_paid.errors %}<div class="text-danger small">{{ form.date_paid.errors }}</div>{% endif %}
-        </div>
-
-        <div class="mb-3">
-            <label class="form-label">Month Paid For:</label>
-            {{ form.month_paid_for }}
-            {% if form.month_paid_for.errors %}<div class="text-danger small">{{ form.month_paid_for.errors }}</div>{% endif %}
-        </div>
-
-        <div class="mb-3">
-            <label class="form-label">Monthly Rent:</label>
-            {{ form.monthly_rent }}
-            {% if form.monthly_rent.errors %}<div class="text-danger small">{{ form.monthly_rent.errors }}</div>{% endif %}
-        </div>
-
-        <hr>
-
-        {# Display-only computed fields (server still calculates/saves) #}
-        <div class="mb-3">
-            <label class="form-label">Rent Balance (preview):</label>
-            <input type="number" id="rent_balance" class="form-control" value="0" readonly>
-        </div>
-
-        <div class="mb-3">
-            <label class="form-label">Total Rent Balance (preview):</label>
-            <input type="number" id="total_rent_balance" class="form-control" value="0" readonly>
-            <div class="form-text small text-muted">
-                This page cannot know historical balances before saving. The server will compute and store the correct totals.
+        <div class="hint-card mb-3">
+          <div class="d-flex gap-2 align-items-start">
+            <i class="bi bi-info-circle" style="font-size:1.1rem;"></i>
+            <div class="small">
+              <div class="fw-bold">Booked unit note</div>
+              <div class="text-muted">
+                Units marked <span class="meta-pill"><i class="bi bi-bookmark-check"></i> BOOKED</span>
+                have an active booking. When you add a tenant to that unit, the system will
+                <strong>cancel the booking</strong> and set the unit to <strong>OCCUPIED</strong>.
+              </div>
             </div>
+          </div>
         </div>
 
-        <button type="submit" class="btn btn-primary w-100">Add Tenant</button>
-    </form>
+        <div class="row g-3">
+          <div class="col-md-6">
+            <label class="form-label">Tenant Name <span class="req-star">*</span></label>
+            {{ form.name }}
+            {% if form.name.errors %}<div class="text-danger small mt-1">{{ form.name.errors }}</div>{% endif %}
+          </div>
 
-    <div class="text-center mt-3">
-        <a href="{% url 'tenant_list' %}" class="btn btn-secondary">Back to Tenant List</a>
+          <div class="col-md-6">
+            <label class="form-label">Tenant Phone <span class="req-star">*</span></label>
+            {{ form.phone }}
+            <div class="form-text small text-muted">Example: 07XXXXXXXX</div>
+            {% if form.phone.errors %}<div class="text-danger small mt-1">{{ form.phone.errors }}</div>{% endif %}
+          </div>
+
+          <div class="col-12">
+            <label class="form-label">Unit Occupied <span class="req-star">*</span></label>
+            {{ form.unit_fk }}
+            {% if form.unit_fk.errors %}<div class="text-danger small mt-1">{{ form.unit_fk.errors }}</div>{% endif %}
+            {% if form.unit_fk.help_text %}<div class="form-text small">{{ form.unit_fk.help_text }}</div>{% endif %}
+
+            <div id="unitMeta" class="form-text text-muted mt-2" style="display:none;"></div>
+            <div id="unitStatusWarn" class="alert alert-warning py-2 px-3 mt-2 mb-0" style="display:none;">
+              <small>
+                <i class="bi bi-exclamation-triangle"></i>
+                This unit is currently <strong>BOOKED</strong>. Saving will cancel the booking and set it to <strong>OCCUPIED</strong>.
+              </small>
+            </div>
+          </div>
+
+          <div class="col-md-6">
+            <label class="form-label">Date Occupied <span class="req-star">*</span></label>
+            {{ form.date_occupied }}
+            {% if form.date_occupied.errors %}<div class="text-danger small mt-1">{{ form.date_occupied.errors }}</div>{% endif %}
+          </div>
+
+          <div class="col-md-6">
+            <label class="form-label">Date Paid <span class="req-star">*</span></label>
+            {{ form.date_paid }}
+            {% if form.date_paid.errors %}<div class="text-danger small mt-1">{{ form.date_paid.errors }}</div>{% endif %}
+          </div>
+
+          <div class="col-md-6">
+            <label class="form-label">Month Paid For <span class="req-star">*</span></label>
+            {{ form.month_paid_for }}
+            {% if form.month_paid_for.errors %}<div class="text-danger small mt-1">{{ form.month_paid_for.errors }}</div>{% endif %}
+          </div>
+
+          <div class="col-md-6">
+            <label class="form-label">Monthly Rent (KES) <span class="req-star">*</span></label>
+            {{ form.monthly_rent }}
+            {% if form.monthly_rent.errors %}<div class="text-danger small mt-1">{{ form.monthly_rent.errors }}</div>{% endif %}
+          </div>
+
+          <div class="col-md-6">
+            <label class="form-label">Rent Paid (KES) <span class="req-star">*</span></label>
+            {{ form.rent_paid }}
+            {% if form.rent_paid.errors %}<div class="text-danger small mt-1">{{ form.rent_paid.errors }}</div>{% endif %}
+          </div>
+
+          <div class="col-md-6">
+            <div class="kpi-box">
+              <div class="small text-muted fw-bold">Rent Balance (preview)</div>
+              <input type="number" id="rent_balance" class="form-control mt-2" value="0" readonly>
+              <div class="form-text small text-muted mt-2">
+                Preview only. Final balances are computed and saved on the server.
+              </div>
+            </div>
+          </div>
+
+          <div class="col-12">
+            <div class="d-flex gap-2">
+              <button type="submit" class="btn btn-primary flex-grow-1">
+                <i class="bi bi-person-plus"></i> Add Tenant
+              </button>
+              <a href="{% url 'tenant_list' %}" class="btn btn-outline-secondary">
+                <i class="bi bi-arrow-left"></i> Back
+              </a>
+            </div>
+          </div>
+        </div>
+
+      </form>
+
     </div>
+  </div>
 </div>
 
 <script>
 (function() {
-    const form = document.getElementById('tenantForm');
+  const form = document.getElementById('tenantForm');
+  if (!form) return;
 
-    const unitSelect = form.querySelector('[name="unit_fk"]');
-    const unitMeta = document.getElementById('unitMeta');
+  const unitSelect = form.querySelector('[name="unit_fk"]');
+  const unitMeta = document.getElementById('unitMeta');
+  const unitStatusWarn = document.getElementById('unitStatusWarn');
 
-    const monthlyRentEl = form.querySelector('[name="monthly_rent"]');
-    const rentPaidEl = form.querySelector('[name="rent_paid"]');
+  const monthlyRentEl = form.querySelector('[name="monthly_rent"]');
+  const rentPaidEl = form.querySelector('[name="rent_paid"]');
 
-    const rentBalanceEl = document.getElementById('rent_balance');
-    const totalBalanceEl = document.getElementById('total_rent_balance');
+  const rentBalanceEl = document.getElementById('rent_balance');
 
-    function recalcBalances() {
-        const monthlyRent = parseFloat(monthlyRentEl?.value || "0") || 0;
-        const rentPaid = parseFloat(rentPaidEl?.value || "0") || 0;
+  function recalcBalances() {
+    const monthlyRent = parseFloat(monthlyRentEl?.value || "0") || 0;
+    const rentPaid = parseFloat(rentPaidEl?.value || "0") || 0;
+    rentBalanceEl.value = (monthlyRent - rentPaid);
+  }
 
-        const rentBalance = monthlyRent - rentPaid;
-        rentBalanceEl.value = rentBalance;
+  function showUnitMeta() {
+    if (!unitSelect) return;
 
-        // For new tenant creation, we don't have prior cumulative value in the browser.
-        // Keep total = rentBalance as a UX hint; server will save the real cumulative.
-        totalBalanceEl.value = rentBalance;
+    const opt = unitSelect.options[unitSelect.selectedIndex];
+    const text = (opt ? opt.text : "").trim();
+
+    if (text) {
+      unitMeta.style.display = "block";
+      unitMeta.textContent = "Selected: " + text;
+    } else {
+      unitMeta.style.display = "none";
+      unitMeta.textContent = "";
     }
 
-    function showUnitMeta() {
-        if (!unitSelect) return;
-        const opt = unitSelect.options[unitSelect.selectedIndex];
-        const text = opt ? opt.text.trim() : "";
-        if (text) {
-            unitMeta.style.display = "block";
-            unitMeta.textContent = "Selected: " + text;
-        } else {
-            unitMeta.style.display = "none";
-            unitMeta.textContent = "";
-        }
+    // Detect [BOOKED] tag in option label (added by TenantForm.label_from_instance)
+    const isBooked = /\[BOOKED\]/i.test(text) || /\bBOOKED\b/i.test(text);
+
+    if (isBooked) {
+      unitStatusWarn.style.display = "block";
+    } else {
+      unitStatusWarn.style.display = "none";
     }
+  }
 
-    document.addEventListener('DOMContentLoaded', function() {
-        recalcBalances();
-        showUnitMeta();
-    });
+  document.addEventListener('DOMContentLoaded', function() {
+    recalcBalances();
+    showUnitMeta();
+  });
 
-    form.addEventListener('input', function(e) {
-        if (e.target && (e.target.name === "monthly_rent" || e.target.name === "rent_paid")) {
-            recalcBalances();
-        }
-    });
+  form.addEventListener('input', function(e) {
+    if (!e.target) return;
+    if (e.target.name === "monthly_rent" || e.target.name === "rent_paid") {
+      recalcBalances();
+    }
+  });
 
-    unitSelect?.addEventListener('change', showUnitMeta);
+  unitSelect?.addEventListener('change', showUnitMeta);
 })();
 </script>
 {% endblock %}

@@ -1,116 +1,330 @@
+{# tenant_list.html (UNIT-FIRST / modernized list + searchable + responsive cards) — UPDATED #}
 {% extends 'base.html' %}
 
 {% block title %}Tenant List - EasyRent{% endblock %}
 
 {% block content %}
-<div class="container">
-    <h2 class="text-center mb-4 fw-bold">Tenant List</h2>
+<style>
+  .page-head {
+    background: linear-gradient(135deg, rgba(37,99,235,.12) 0%, rgba(99,102,241,.10) 50%, rgba(14,165,233,.10) 100%);
+    border: 1px solid rgba(0,0,0,.06);
+    border-radius: 16px;
+    padding: 22px 18px;
+  }
+  .kpi-card{
+    border: 1px solid rgba(0,0,0,.06);
+    border-radius: 16px;
+    box-shadow: 0 10px 28px rgba(0,0,0,0.06);
+  }
+  .table-card{
+    border: 1px solid rgba(0,0,0,.06);
+    border-radius: 16px;
+    overflow: hidden;
+    box-shadow: 0 10px 28px rgba(0,0,0,0.06);
+  }
+  .badge-soft { background: rgba(37,99,235,.10); color:#1d4ed8; border:1px solid rgba(37,99,235,.18); }
+  .badge-warn { background: rgba(245,158,11,.15); color:#b45309; border:1px solid rgba(245,158,11,.25); }
+  .badge-ok { background: rgba(22,163,74,.15); color:#166534; border:1px solid rgba(22,163,74,.25); }
+  .badge-danger { background: rgba(239,68,68,.14); color:#991b1b; border:1px solid rgba(239,68,68,.25); }
 
-    <div class="table-responsive">
-        <table class="table table-striped table-bordered">
-            <thead class="table-dark">
-                <tr>
-                    <th>Name</th>
-                    <th>Phone</th>
-                    <th>Property</th>
-                    <th>Unit</th>
-                    <th>Unit Type</th>
-                    <th>Unit Status</th>
-                    <th>Date Occupied</th>
-                    <th>Rent Paid</th>
-                    <th>Date Paid</th>
-                    <th>Month Paid For</th>
-                    <th>Monthly Rent</th>
-                    <th>Rent Balance</th>
-                    <th>Cumulative Rent Balance</th>
-                    <th>Actions</th>
-                </tr>
-            </thead>
+  .sticky-actions { min-width: 260px; }
+  .search-input { max-width: 420px; }
 
-            <tbody>
-                {% for tenant in tenant_list %}
-                <tr>
-                    <td data-label="Name">{{ tenant.name }}</td>
-                    <td data-label="Phone">{{ tenant.phone }}</td>
+  /* Mobile cards */
+  @media (max-width: 992px) {
+    .desktop-table { display: none; }
+  }
+  @media (min-width: 993px) {
+    .mobile-cards { display: none; }
+  }
+</style>
 
-                    <td data-label="Property">
-                        {% if tenant.unit_fk and tenant.unit_fk.property %}
-                            {{ tenant.unit_fk.property.name }}
-                        {% else %}
-                            —
-                        {% endif %}
-                    </td>
+<div class="container py-4">
 
-                    <td data-label="Unit">
-                        {% if tenant.unit_fk %}
-                            {{ tenant.unit_fk.unit_code }}
-                        {% else %}
-                            —
-                        {% endif %}
-                    </td>
-
-                    <td data-label="Unit Type">
-                        {% if tenant.unit_fk %}
-                            {{ tenant.unit_fk.unit_type }}
-                        {% else %}
-                            —
-                        {% endif %}
-                    </td>
-
-                    <td data-label="Unit Status">
-                        {% if tenant.unit_fk %}
-                            {{ tenant.unit_fk.vacancy }}
-                        {% else %}
-                            —
-                        {% endif %}
-                    </td>
-
-                    <td data-label="Date Occupied">{{ tenant.date_occupied }}</td>
-                    <td data-label="Rent Paid">{{ tenant.rent_paid }}</td>
-                    <td data-label="Date Paid">{{ tenant.date_paid }}</td>
-                    <td data-label="Month Paid For">{{ tenant.month_paid_for }}</td>
-                    <td data-label="Monthly Rent">{{ tenant.monthly_rent }}</td>
-                    <td data-label="Rent Balance">{{ tenant.rent_balance }}</td>
-                    <td data-label="Cumulative Rent Balance">{{ tenant.cumulative_rent_balance }}</td>
-
-                    <td data-label="Actions">
-                        <a href="{% url 'edit_tenant' tenant.id %}" class="btn btn-sm btn-warning mb-1">Edit</a>
-                        <a href="{% url 'delete_tenant' tenant.id %}" class="btn btn-sm btn-danger mb-1">Delete</a>
-                        <a href="{% url 'generate_receipt' tenant.id %}" class="btn btn-sm btn-info mb-1">Generate Receipt</a>
-                        <a href="{% url 'receipt_history' tenant.id %}" class="btn btn-sm btn-secondary mb-1">View History</a>
-                    </td>
-                </tr>
-                {% empty %}
-                <tr>
-                    <td colspan="14" class="text-center text-muted py-3">
-                        No tenants found.
-                    </td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
+  <div class="page-head mb-4 d-flex justify-content-between align-items-start flex-wrap gap-2">
+    <div>
+      <h2 class="fw-bold mb-1">Tenants</h2>
+      <div class="text-muted">Unit-first tenant records, balances, and receipts.</div>
     </div>
+    <div class="d-flex gap-2 flex-wrap">
+      <a href="{% url 'manage_tenants' %}" class="btn btn-primary">
+        <i class="bi bi-plus-lg"></i> Add Tenant
+      </a>
+      <a href="{% url 'landlord_dashboard' %}" class="btn btn-outline-secondary">
+        <i class="bi bi-speedometer2"></i> Dashboard
+      </a>
+    </div>
+  </div>
+
+  {# KPIs #}
+  <div class="row g-3 mb-4">
+    <div class="col-md-4">
+      <div class="card kpi-card border-0 h-100">
+        <div class="card-body">
+          <div class="text-muted small fw-bold">Total Tenants</div>
+          <div class="fw-bold" style="font-size:1.9rem;">{{ tenant_list|length }}</div>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-4">
+      <div class="card kpi-card border-0 h-100">
+        <div class="card-body">
+          <div class="text-muted small fw-bold">This Page</div>
+          <div class="text-muted">Search + quick actions (edit, receipt, history)</div>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-4">
+      <div class="card kpi-card border-0 h-100">
+        <div class="card-body">
+          <div class="text-muted small fw-bold">Tip</div>
+          <div class="text-muted">Use the search box to filter instantly (client-side).</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  {# Toolbar #}
+  <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+    <div class="input-group search-input">
+      <span class="input-group-text bg-white"><i class="bi bi-search"></i></span>
+      <input type="text" id="tenantSearch" class="form-control" placeholder="Search by name, phone, property, unit…">
+    </div>
+    <div class="small text-muted" id="tenantCountHint"></div>
+  </div>
+
+  {# Desktop table #}
+  <div class="desktop-table table-card">
+    <div class="table-responsive">
+      <table class="table table-hover mb-0" id="tenantTable">
+        <thead style="background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-dark) 100%); color: white;">
+          <tr>
+            <th style="padding: 1rem; border: none;">Tenant</th>
+            <th style="padding: 1rem; border: none;">Property / Unit</th>
+            <th style="padding: 1rem; border: none;">Payment</th>
+            <th style="padding: 1rem; border: none;">Balances</th>
+            <th class="text-center sticky-actions" style="padding: 1rem; border: none;">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for tenant in tenant_list %}
+            <tr class="tenant-row">
+              <td style="padding: 1rem; vertical-align: middle;">
+                <div class="fw-semibold">{{ tenant.name }}</div>
+                <div class="small text-muted">
+                  <i class="bi bi-telephone"></i> {{ tenant.phone|default:"—" }}
+                </div>
+                <div class="small text-muted">
+                  <i class="bi bi-calendar3"></i> Occupied: {{ tenant.date_occupied|date:"M d, Y" }}
+                </div>
+              </td>
+
+              <td style="padding: 1rem; vertical-align: middle;">
+                {% if tenant.unit_fk and tenant.unit_fk.property %}
+                  <div class="fw-semibold">{{ tenant.unit_fk.property.name }}</div>
+                  <div class="small text-muted">
+                    Unit <strong>{{ tenant.unit_fk.unit_code }}</strong> • {{ tenant.unit_fk.unit_type }}
+                  </div>
+                  <div class="small">
+                    {% if tenant.unit_fk.vacancy == 'occupied' %}
+                      <span class="badge badge-ok">Occupied</span>
+                    {% elif tenant.unit_fk.vacancy == 'booked' %}
+                      <span class="badge badge-warn">Booked</span>
+                    {% elif tenant.unit_fk.vacancy == 'maintenance' %}
+                      <span class="badge badge-warn">Maintenance</span>
+                    {% else %}
+                      <span class="badge badge-soft">Vacant</span>
+                    {% endif %}
+                  </div>
+                {% else %}
+                  <span class="text-muted">—</span>
+                {% endif %}
+              </td>
+
+              <td style="padding: 1rem; vertical-align: middle;">
+                <div class="small text-muted">Month</div>
+                <div class="fw-semibold">{{ tenant.month_paid_for|default:"—" }}</div>
+
+                <div class="mt-2 small text-muted">Paid</div>
+                <div class="fw-semibold">
+                  KES {{ tenant.rent_paid|floatformat:0 }}
+                  <span class="text-muted small">on {{ tenant.date_paid|date:"M d, Y" }}</span>
+                </div>
+
+                <div class="small text-muted mt-2">Monthly Rent</div>
+                <div class="fw-semibold">KES {{ tenant.monthly_rent|floatformat:0 }}</div>
+              </td>
+
+              <td style="padding: 1rem; vertical-align: middle;">
+                <div class="small text-muted">This Month</div>
+                <div class="fw-semibold">KES {{ tenant.rent_balance|floatformat:0 }}</div>
+
+                <div class="small text-muted mt-2">Cumulative</div>
+                <div class="fw-semibold">KES {{ tenant.cumulative_rent_balance|floatformat:0 }}</div>
+              </td>
+
+              <td class="text-center" style="padding: 1rem; vertical-align: middle;">
+                <div class="d-grid gap-2">
+                  <div class="btn-group">
+                    <a href="{% url 'edit_tenant' tenant.id %}" class="btn btn-sm btn-outline-primary" title="Edit">
+                      <i class="bi bi-pencil-square"></i>
+                    </a>
+                    <a href="{% url 'delete_tenant' tenant.id %}" class="btn btn-sm btn-outline-danger" title="Delete">
+                      <i class="bi bi-trash"></i>
+                    </a>
+                    <a href="{% url 'generate_receipt' tenant.id %}" class="btn btn-sm btn-outline-success" title="Generate Receipt">
+                      <i class="bi bi-receipt"></i>
+                    </a>
+                  </div>
+                  <a href="{% url 'receipt_history' tenant.id %}" class="btn btn-sm btn-secondary">
+                    <i class="bi bi-clock-history"></i> Receipt History
+                  </a>
+                </div>
+              </td>
+            </tr>
+          {% empty %}
+            <tr>
+              <td colspan="5" class="text-center text-muted py-4">No tenants found.</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  {# Mobile cards #}
+  <div class="mobile-cards">
+    <div class="row g-3" id="tenantCards">
+      {% for tenant in tenant_list %}
+        <div class="col-12 tenant-card">
+          <div class="card kpi-card border-0">
+            <div class="card-body">
+              <div class="d-flex justify-content-between align-items-start gap-2">
+                <div>
+                  <div class="fw-bold">{{ tenant.name }}</div>
+                  <div class="small text-muted"><i class="bi bi-telephone"></i> {{ tenant.phone|default:"—" }}</div>
+                </div>
+                <div>
+                  {% if tenant.unit_fk %}
+                    {% if tenant.unit_fk.vacancy == 'occupied' %}
+                      <span class="badge badge-ok">Occupied</span>
+                    {% elif tenant.unit_fk.vacancy == 'booked' %}
+                      <span class="badge badge-warn">Booked</span>
+                    {% elif tenant.unit_fk.vacancy == 'maintenance' %}
+                      <span class="badge badge-warn">Maintenance</span>
+                    {% else %}
+                      <span class="badge badge-soft">Vacant</span>
+                    {% endif %}
+                  {% endif %}
+                </div>
+              </div>
+
+              <div class="mt-2 small">
+                <div class="text-muted">Property / Unit</div>
+                <div class="fw-semibold">
+                  {% if tenant.unit_fk and tenant.unit_fk.property %}
+                    {{ tenant.unit_fk.property.name }} — {{ tenant.unit_fk.unit_code }}
+                    <span class="text-muted">({{ tenant.unit_fk.unit_type }})</span>
+                  {% else %}
+                    —
+                  {% endif %}
+                </div>
+              </div>
+
+              <div class="row g-2 mt-3">
+                <div class="col-6">
+                  <div class="text-muted small">Paid</div>
+                  <div class="fw-semibold">KES {{ tenant.rent_paid|floatformat:0 }}</div>
+                  <div class="text-muted small">{{ tenant.date_paid|date:"M d, Y" }}</div>
+                </div>
+                <div class="col-6">
+                  <div class="text-muted small">Month</div>
+                  <div class="fw-semibold">{{ tenant.month_paid_for|default:"—" }}</div>
+                </div>
+                <div class="col-6">
+                  <div class="text-muted small">This Balance</div>
+                  <div class="fw-semibold">KES {{ tenant.rent_balance|floatformat:0 }}</div>
+                </div>
+                <div class="col-6">
+                  <div class="text-muted small">Cumulative</div>
+                  <div class="fw-semibold">KES {{ tenant.cumulative_rent_balance|floatformat:0 }}</div>
+                </div>
+              </div>
+
+              <div class="d-grid gap-2 mt-3">
+                <div class="btn-group">
+                  <a href="{% url 'edit_tenant' tenant.id %}" class="btn btn-sm btn-outline-primary">
+                    <i class="bi bi-pencil-square"></i> Edit
+                  </a>
+                  <a href="{% url 'generate_receipt' tenant.id %}" class="btn btn-sm btn-outline-success">
+                    <i class="bi bi-receipt"></i> Receipt
+                  </a>
+                </div>
+                <a href="{% url 'receipt_history' tenant.id %}" class="btn btn-sm btn-secondary">
+                  <i class="bi bi-clock-history"></i> Receipt History
+                </a>
+                <a href="{% url 'delete_tenant' tenant.id %}" class="btn btn-sm btn-outline-danger">
+                  <i class="bi bi-trash"></i> Delete
+                </a>
+              </div>
+            </div>
+          </div>
+        </div>
+      {% empty %}
+        <div class="col-12">
+          <div class="card kpi-card border-0">
+            <div class="card-body text-center text-muted py-4">No tenants found.</div>
+          </div>
+        </div>
+      {% endfor %}
+    </div>
+  </div>
+
 </div>
 
-<style>
-    @media (max-width: 576px) {
-        .table thead { display: none; }
-        .table tbody, .table tr, .table td { display: block; width: 100%; }
-        .table tr { margin-bottom: 15px; }
-        .table td {
-            text-align: right;
-            padding-left: 50%;
-            position: relative;
-        }
-        .table td::before {
-            content: attr(data-label);
-            position: absolute;
-            left: 0;
-            width: 50%;
-            padding-left: 15px;
-            font-weight: bold;
-            text-align: left;
-        }
+<script>
+(function(){
+  const input = document.getElementById('tenantSearch');
+  const rows = Array.from(document.querySelectorAll('.tenant-row'));
+  const cards = Array.from(document.querySelectorAll('.tenant-card'));
+  const hint = document.getElementById('tenantCountHint');
+
+  function updateHint(visible, total){
+    if (!hint) return;
+    hint.textContent = visible + ' of ' + total + ' shown';
+  }
+
+  function filterAll(q){
+    q = (q || '').toLowerCase().trim();
+
+    let visibleRows = 0;
+    if (rows.length) {
+      rows.forEach(r => {
+        const show = r.innerText.toLowerCase().includes(q);
+        r.style.display = show ? '' : 'none';
+        if (show) visibleRows++;
+      });
+      updateHint(visibleRows, rows.length);
     }
-</style>
+
+    if (cards.length) {
+      let visibleCards = 0;
+      cards.forEach(c => {
+        const show = c.innerText.toLowerCase().includes(q);
+        c.style.display = show ? '' : 'none';
+        if (show) visibleCards++;
+      });
+      if (!rows.length) updateHint(visibleCards, cards.length);
+    }
+  }
+
+  document.addEventListener('DOMContentLoaded', function(){
+    updateHint(rows.length || cards.length, rows.length || cards.length);
+  });
+
+  input && input.addEventListener('input', function(e){
+    filterAll(e.target.value);
+  });
+})();
+</script>
 {% endblock %}

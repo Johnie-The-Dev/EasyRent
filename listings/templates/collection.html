@@ -1,9 +1,24 @@
-{# collection.html (UNIT-FIRST / RELATION-SAFE) — UPDATED #}
+{# collection.html (UNIT-FIRST / RELATION-SAFE) — UPDATED (queryset-safe images, safer modal wiring) #}
 {% extends 'base.html' %}
 
 {% block title %}My Collection - EasyRent{% endblock %}
 
 {% block content %}
+<style>
+  .property-card {
+    transition: transform .25s ease, box-shadow .25s ease, border-color .25s ease;
+    border: 1px solid rgba(0,0,0,0.06);
+    border-radius: 14px;
+    overflow: hidden;
+    box-shadow: 0 10px 28px rgba(0,0,0,0.06);
+  }
+  .property-card:hover{
+    transform: translateY(-6px);
+    box-shadow: 0 14px 34px rgba(0,0,0,0.12);
+    border-color: rgba(37, 99, 235, .25);
+  }
+</style>
+
 <div class="container py-5">
 
   <div class="mb-5">
@@ -26,13 +41,12 @@
   {% if collection %}
     <div class="row g-4">
       {% for item in collection %}
-        {# Relation-safe: item.property should exist, but guard anyway #}
         {% with prop=item.property %}
           <div class="col-lg-4 col-md-6">
-            <div class="card property-card h-100 border-0" style="border-radius: 12px; overflow: hidden;">
+            <div class="card property-card h-100 border-0">
 
-              {# ✅ Image (works for 1 image or many; avoids truthy QuerySet pitfalls) #}
-              {% if prop and prop.images.exists %}
+              {# ✅ Image (queryset-safe). Use images_count from view if you ever add it; otherwise keep this #}
+              {% if prop and prop.images.all|length %}
                 <img
                   src="{{ prop.images.first.image.url }}"
                   class="card-img-top"
@@ -47,7 +61,7 @@
                 <div class="bg-light text-center d-flex align-items-center justify-content-center" style="height: 220px;">
                   <div>
                     <i class="bi bi-image" style="font-size: 2.5rem; color: var(--text-muted);"></i>
-                    <p class="text-muted mt-2">No image</p>
+                    <p class="text-muted mt-2 mb-0">No image</p>
                   </div>
                 </div>
               {% endif %}
@@ -79,20 +93,16 @@
                     </span>
                   </div>
 
-                  {# ✅ These are annotated in view_collection() #}
                   {% if item.min_vacant_price %}
                     <p class="card-text fs-5 fw-bold mb-1" style="color: var(--success-color);">
                       From Ksh {{ item.min_vacant_price|floatformat:0 }}/month
                     </p>
                   {% else %}
-                    <p class="card-text fs-6 text-muted mb-0">
-                      Pricing varies by unit
-                    </p>
+                    <p class="card-text fs-6 text-muted mb-0">Pricing varies by unit</p>
                   {% endif %}
 
                   <div class="small text-muted mt-2">
-                    Vacant:
-                    <strong>{{ item.vacant_units_filtered|default:0 }}</strong>
+                    Vacant: <strong>{{ item.vacant_units_filtered|default:0 }}</strong>
                   </div>
                 </div>
 
@@ -162,7 +172,7 @@
 
   {% else %}
     <div class="card border-0 shadow-sm p-5 text-center"
-         style="background: linear-gradient(135deg, rgba(106, 76, 156, 0.05) 0%, rgba(80, 201, 195, 0.05) 100%);">
+         style="background: linear-gradient(135deg, rgba(106, 76, 156, 0.05) 0%, rgba(80, 201, 195, 0.05) 100%); border-radius:14px;">
       <i class="bi bi-heart" style="font-size: 3.5rem; color: var(--text-muted); margin-bottom: 1rem;"></i>
       <h4 class="fw-bold text-muted mb-2">No Saved Properties</h4>
       <p class="text-muted mb-4">Start adding properties to your collection when you find ones you like!</p>
@@ -174,27 +184,9 @@
 
 </div>
 
-<style>
-  .property-card {
-    transition: all 0.3s ease;
-    border: 1px solid var(--border-color);
-  }
-  .property-card:hover {
-    transform: translateY(-8px);
-    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.15);
-    border-color: var(--secondary-color);
-  }
-  .carousel-control-prev-icon,
-  .carousel-control-next-icon {
-    background-color: rgba(0, 0, 0, 0.5);
-    border-radius: 50%;
-    padding: 8px;
-  }
-</style>
-
 {# Shared Image Modal #}
 <div class="modal fade" id="imageModal" tabindex="-1" aria-labelledby="imageModalLabel" aria-hidden="true">
-  <div class="modal-dialog modal-lg">
+  <div class="modal-dialog modal-lg modal-dialog-centered">
     <div class="modal-content border-0">
       <div class="modal-header border-bottom">
         <h5 class="modal-title fw-bold" id="imageModalLabel"></h5>
@@ -226,16 +218,17 @@ document.addEventListener('DOMContentLoaded', function(){
 
     var images = btn.getAttribute('data-images') || '';
     var propName = btn.getAttribute('data-property-name') || '';
-    document.getElementById('imageModalLabel').textContent = propName || 'Images';
+    var label = document.getElementById('imageModalLabel');
+    if (label) label.textContent = propName || 'Images';
 
     var inner = document.getElementById('sharedImageCarouselInner');
     inner.innerHTML = '';
 
     if (images) {
-      images.split('|').forEach(function(url, idx){
+      images.split('|').filter(Boolean).forEach(function(url, idx){
         var div = document.createElement('div');
         div.className = 'carousel-item' + (idx === 0 ? ' active' : '');
-        div.innerHTML = '<img src="'+ url +'" class="d-block w-100" style="max-height:500px; object-fit:contain;">';
+        div.innerHTML = '<img src="'+ url +'" class="d-block w-100" style="max-height:520px; object-fit:contain;">';
         inner.appendChild(div);
       });
     }

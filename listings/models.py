@@ -1,4 +1,4 @@
-# models.py (UNIT-FIRST / NO FALLBACK) — DJANGO 5.1 SAFE (FIXED)
+# models.py (UNIT-FIRST / NO FALLBACK) — DJANGO 5.1 SAFE (UPDATED WITH CONSTANTS)
 
 from __future__ import annotations
 
@@ -60,7 +60,6 @@ class Property(models.Model):
     county = models.CharField(max_length=255, null=True, blank=True)
     town = models.CharField(max_length=255)
 
-    # Defaults for unit creation + listing display
     property_type = models.CharField(max_length=50, choices=PROPERTY_TYPE_CHOICES)
     price = models.DecimalField(max_digits=10, decimal_places=2, validators=[MinValueValidator(0)])
 
@@ -89,10 +88,6 @@ class Property(models.Model):
 
     @property
     def whatsapp_number(self) -> str:
-        """
-        Return Kenyan number digits only in 2547XXXXXXXX format, or "" if missing.
-        Defensive parsing in case landlord_phone was not normalized.
-        """
         digits = re.sub(r"\D", "", self.landlord_phone or "")
         if not digits:
             return ""
@@ -102,7 +97,6 @@ class Property(models.Model):
             return "254" + digits[1:10]
         if len(digits) == 9 and digits.startswith("7"):
             return "254" + digits
-        # fallback (best effort)
         return digits
 
     @property
@@ -122,7 +116,8 @@ class Property(models.Model):
 
     @property
     def vacant_units(self) -> int:
-        return self.units.filter(is_active=True, vacancy="vacant").count()
+        # ✅ use constants (prevents "vacant" string mismatch bugs)
+        return self.units.filter(is_active=True, vacancy=Unit.VACANT).count()
 
 
 # ---------------- Unit (inventory) ----------------
@@ -135,11 +130,17 @@ class Unit(models.Model):
 
     UNIT_TYPE_CHOICES = Property.PROPERTY_TYPE_CHOICES
 
-    STATUS_CHOICES = [
-        ("vacant", "Vacant"),
-        ("occupied", "Occupied"),
-        ("booked", "Booked"),
-        ("maintenance", "Maintenance"),
+    # ✅ Canonical vacancy constants
+    VACANT = "vacant"
+    OCCUPIED = "occupied"
+    BOOKED = "booked"
+    MAINTENANCE = "maintenance"
+
+    VACANCY_CHOICES = [
+        (VACANT, "Vacant"),
+        (OCCUPIED, "Occupied"),
+        (BOOKED, "Booked"),
+        (MAINTENANCE, "Maintenance"),
     ]
 
     property = models.ForeignKey(Property, on_delete=models.CASCADE, related_name="units")
@@ -150,7 +151,8 @@ class Unit(models.Model):
     price = models.DecimalField(max_digits=10, decimal_places=2, validators=[MinValueValidator(0)])
     deposit = models.DecimalField(max_digits=10, decimal_places=2, default=0, validators=[MinValueValidator(0)])
 
-    vacancy = models.CharField(max_length=20, choices=STATUS_CHOICES, default="vacant")
+    # ✅ use VACANCY_CHOICES everywhere
+    vacancy = models.CharField(max_length=20, choices=VACANCY_CHOICES, default=VACANT)
     is_active = models.BooleanField(default=True)
 
     created_at = models.DateTimeField(auto_now_add=True)
@@ -170,21 +172,14 @@ class Unit(models.Model):
         return f"{self.property.name} - {self.unit_code}"
 
     def clean(self):
-        # Normalize + validate
         self.unit_code = (self.unit_code or "").strip().upper()
         if not self.unit_code:
             raise ValidationError({"unit_code": "Unit code is required (e.g. A1, B3)."})
         super().clean()
 
     def save(self, *args, **kwargs):
-        # Normalize consistently even if saved outside forms/views
         if self.unit_code:
             self.unit_code = self.unit_code.strip().upper()
-
-        # Optional (strong correctness): enforce model validation on every save
-        # Uncomment if you want DB-level safety via Django validation too.
-        # self.full_clean()
-
         return super().save(*args, **kwargs)
 
 
@@ -202,7 +197,6 @@ class PropertyImage(models.Model):
             models.Index(fields=["property", "is_primary"]),
         ]
         constraints = [
-            # ✅ One primary image per property (only when is_primary=True)
             models.UniqueConstraint(
                 fields=["property", "is_primary"],
                 condition=Q(is_primary=True),
@@ -214,9 +208,6 @@ class PropertyImage(models.Model):
         return f"Image for {self.property.name}"
 
     def save(self, *args, **kwargs):
-        """
-        If this image is marked primary, unset other primary images for same property.
-        """
         super().save(*args, **kwargs)
         if self.is_primary:
             PropertyImage.objects.filter(property=self.property, is_primary=True).exclude(pk=self.pk).update(is_primary=False)
@@ -253,11 +244,6 @@ _MONTH_RE = re.compile(r"^\d{4}-\d{2}$")
 
 
 class Tenant(models.Model):
-    """
-    Occupancy/payment record (later: Tenancy/Lease).
-    Unit is mandatory. Property is derived via unit_fk.property.
-    """
-
     name = models.CharField(max_length=100)
     phone = models.CharField(max_length=20)
 
@@ -271,12 +257,10 @@ class Tenant(models.Model):
     rent_paid = models.DecimalField(max_digits=10, decimal_places=2, validators=[MinValueValidator(0)])
     date_paid = models.DateField()
 
-    # YYYY-MM
     month_paid_for = models.CharField(max_length=7, default=get_current_month)
 
     monthly_rent = models.DecimalField(max_digits=10, decimal_places=2, default=0, validators=[MinValueValidator(0)])
 
-    # balances can be negative (overpayment)
     rent_balance = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     cumulative_rent_balance = models.DecimalField(max_digits=10, decimal_places=2, default=0)
 
@@ -332,10 +316,6 @@ class ReceiptHistory(models.Model):
 # ---------------- Bookings ----------------
 
 class Booking(models.Model):
-    """
-    Booking targets a Unit (required). Property is derived via unit.property.
-    """
-
     STATUS_CHOICES = [
         ("pending", "Pending"),
         ("confirmed", "Confirmed"),
