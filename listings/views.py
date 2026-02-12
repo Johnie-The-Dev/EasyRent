@@ -1,4 +1,4 @@
-# views.py (UNIT-FIRST / NO FALLBACK) — FINAL (SINGLE IMAGE + MODEL VIDEO + BOOKED->OCCUPIED FIX) ✅
+# listings/views.py (UNIT-FIRST / NO FALLBACK) — FIXED & COMPLETE ✅
 
 from decimal import Decimal, InvalidOperation
 
@@ -35,14 +35,15 @@ from .models import Booking, Property, PropertyImage, ReceiptHistory, Tenant, Te
 
 User = get_user_model()
 
+# ---------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------
 
-# ---------------- Helpers ----------------
+ACTIVE_BOOKING_STATUSES = ("pending", "confirmed")
+
 
 def _formset_has_any_unit(formset) -> bool:
-    """
-    Ensure at least one non-deleted unit_code exists.
-    Works after formset.is_valid() is True.
-    """
+    """At least one non-deleted unit_code exists (after formset.is_valid())."""
     for f in formset.forms:
         cd = getattr(f, "cleaned_data", None) or {}
         code = (cd.get("unit_code") or "").strip()
@@ -53,22 +54,27 @@ def _formset_has_any_unit(formset) -> bool:
 
 
 def _cancel_active_bookings_for_unit(unit: Unit) -> int:
-    """
-    Cancel any active bookings (pending/confirmed) for this unit.
-    Returns count updated.
-    """
-    return Booking.objects.filter(unit=unit, status__in=["pending", "confirmed"]).update(status="cancelled")
+    """Cancel pending/confirmed bookings for a unit. Returns number cancelled."""
+    return Booking.objects.filter(unit=unit, status__in=ACTIVE_BOOKING_STATUSES).update(status="cancelled")
+
+
+def _unit_has_active_bookings(unit: Unit) -> bool:
+    return Booking.objects.filter(unit=unit, status__in=ACTIVE_BOOKING_STATUSES).exists()
 
 
 def _set_unit_vacancy(unit: Unit, vacancy: str) -> None:
     Unit.objects.filter(id=unit.id).update(vacancy=vacancy)
 
 
-def _money(val) -> str:
+def _normalize_decimal(val, default="0"):
     try:
-        v = Decimal(str(val or 0))
+        return Decimal(str(val))
     except (InvalidOperation, TypeError, ValueError):
-        v = Decimal("0")
+        return Decimal(default)
+
+
+def _money(val) -> str:
+    v = _normalize_decimal(val, default="0")
     return f"{v:,.0f}"
 
 
@@ -77,7 +83,9 @@ def _safe_str(s, fallback="—") -> str:
     return s if s else fallback
 
 
-# ---------------- Auth ----------------
+# ---------------------------------------------------------------------
+# Auth
+# ---------------------------------------------------------------------
 
 def signup_view(request):
     if request.method == "POST":
@@ -100,7 +108,17 @@ def custom_logout(request):
     return redirect("login")
 
 
-# ---------------- Dashboard ----------------
+# ---------------------------------------------------------------------
+# Home
+# ---------------------------------------------------------------------
+
+def home(request):
+    return render(request, "home.html")
+
+
+# ---------------------------------------------------------------------
+# Landlord Dashboard (KPIs fixed + template aliases added)
+# ---------------------------------------------------------------------
 
 @login_required
 def landlord_dashboard(request):
@@ -112,25 +130,29 @@ def landlord_dashboard(request):
     vacant_units = units_qs.filter(vacancy="vacant").count()
     booked_units = units_qs.filter(vacancy="booked").count()
     maintenance_units = units_qs.filter(vacancy="maintenance").count()
-    occupancy_rate = (occupied_units / total_units * 100) if total_units else 0
 
-    total_monthly_rent = units_qs.aggregate(total=Sum("price", output_field=DecimalField()))["total"] or 0
+    occupancy_rate = round((occupied_units / total_units * 100), 1) if total_units else 0
 
+    expected_monthly_rent = (
+        units_qs.aggregate(total=Sum("price", output_field=DecimalField()))["total"] or Decimal("0")
+    )
+
+    # ReceiptHistory month_paid_for must be "YYYY-MM"
     current_month = timezone.now().strftime("%Y-%m")
-    rent_collected_month = (
+
+    rent_paid_month = (
         ReceiptHistory.objects.filter(
             tenant__unit_fk__property__landlord=request.user,
             month_paid_for=current_month,
-        )
-        .aggregate(total=Sum("rent_paid", output_field=DecimalField()))["total"]
-        or 0
+        ).aggregate(total=Sum("rent_paid", output_field=DecimalField()))["total"] or Decimal("0")
     )
-    rent_remaining_month = (total_monthly_rent or 0) - (rent_collected_month or 0)
 
-    outstanding_balance = (
+    rent_remaining_month = expected_monthly_rent - rent_paid_month
+
+    outstanding_balance_total = (
         Tenant.objects.filter(unit_fk__property__landlord=request.user)
         .aggregate(total=Sum("rent_balance", output_field=DecimalField()))["total"]
-        or 0
+        or Decimal("0")
     )
 
     pending_bookings = (
@@ -138,7 +160,6 @@ def landlord_dashboard(request):
         .select_related("tenant", "unit", "unit__property")
         .order_by("-created_at")[:8]
     )
-    pending_count = pending_bookings.count()
 
     recent_tenants = (
         Tenant.objects.filter(unit_fk__property__landlord=request.user)
@@ -153,16 +174,12 @@ def landlord_dashboard(request):
     )
 
     active_units_filter = Q(units__is_active=True)
-    vacant_units_filter = Q(units__is_active=True, units__vacancy="vacant")
-    occupied_units_filter = Q(units__is_active=True, units__vacancy="occupied")
-    booked_units_filter = Q(units__is_active=True, units__vacancy="booked")
-
     properties = (
         properties_qs.annotate(
             total_units_count=Count("units", filter=active_units_filter, distinct=True),
-            vacant_units_count=Count("units", filter=vacant_units_filter, distinct=True),
-            occupied_units_count=Count("units", filter=occupied_units_filter, distinct=True),
-            booked_units_count=Count("units", filter=booked_units_filter, distinct=True),
+            vacant_units_count=Count("units", filter=Q(units__is_active=True, units__vacancy="vacant"), distinct=True),
+            occupied_units_count=Count("units", filter=Q(units__is_active=True, units__vacancy="occupied"), distinct=True),
+            booked_units_count=Count("units", filter=Q(units__is_active=True, units__vacancy="booked"), distinct=True),
             expected_monthly_rent=Sum("units__price", filter=active_units_filter, output_field=DecimalField()),
         )
         .prefetch_related("images")
@@ -170,35 +187,46 @@ def landlord_dashboard(request):
     )
 
     context = {
-        "total_monthly_rent": total_monthly_rent,
-        "rent_collected_month": rent_collected_month,
-        "rent_remaining_month": rent_remaining_month,
-        "outstanding_balance": outstanding_balance,
+        # unit stats
         "total_units": total_units,
         "occupied_units": occupied_units,
         "vacant_units": vacant_units,
         "booked_units": booked_units,
         "maintenance_units": maintenance_units,
-        "occupancy_rate": round(occupancy_rate, 1),
+        "occupancy_rate": occupancy_rate,
+
+        # ✅ names used in YOUR dashboard template
+        "expected_monthly_rent": expected_monthly_rent,
+        "rent_paid_month": rent_paid_month,
+        "rent_remaining_month": rent_remaining_month,
+        "outstanding_balance_total": outstanding_balance_total,
+
+        # keep backward-compatible keys (in case other templates rely on them)
+        "total_monthly_rent": expected_monthly_rent,
+        "rent_collected_month": rent_paid_month,
+        "outstanding_balance": outstanding_balance_total,
+
         "pending_bookings": pending_bookings,
-        "pending_count": pending_count,
+        "pending_count": pending_bookings.count(),
         "recent_tenants": recent_tenants,
         "recent_payments": recent_payments,
+
         "properties": properties,
         "total_properties": properties.count(),
     }
     return render(request, "landlord_dashboard.html", context)
 
 
-# ---------------- Tenant Feed ----------------
+# ---------------------------------------------------------------------
+# Tenant Feed (filters restored + unit-first vacancy correct)
+# ---------------------------------------------------------------------
 
 def tenant_feed(request):
-    # Prefetch images + avoid N+1 for landlord access in templates
     properties_list = Property.objects.all().select_related("landlord").prefetch_related("images")
 
     county = request.GET.get("county", "")
     town = request.GET.get("town", "")
-    property_type = request.GET.get("property_type", "")
+    unit_type = request.GET.get("property_type", "")  # UI label, actually unit_type
     min_price = request.GET.get("min_price", "")
     max_price = request.GET.get("max_price", "")
 
@@ -209,20 +237,14 @@ def tenant_feed(request):
 
     unit_filter = Q(units__is_active=True, units__vacancy="vacant")
 
-    if property_type:
-        unit_filter &= Q(units__unit_type=property_type)
+    if unit_type:
+        unit_filter &= Q(units__unit_type=unit_type)
 
     if min_price:
-        try:
-            unit_filter &= Q(units__price__gte=float(min_price))
-        except (ValueError, TypeError):
-            pass
+        unit_filter &= Q(units__price__gte=_normalize_decimal(min_price, default="0"))
 
     if max_price:
-        try:
-            unit_filter &= Q(units__price__lte=float(max_price))
-        except (ValueError, TypeError):
-            pass
+        unit_filter &= Q(units__price__lte=_normalize_decimal(max_price, default="999999999"))
 
     properties_list = (
         properties_list.filter(unit_filter)
@@ -232,11 +254,11 @@ def tenant_feed(request):
             min_vacant_price=Min("units__price", filter=unit_filter),
             total_units_active=Count("units", filter=Q(units__is_active=True), distinct=True),
         )
+        .order_by("-created_at")
     )
 
     paginator = Paginator(properties_list, 10)
-    page_number = request.GET.get("page")
-    properties = paginator.get_page(page_number)
+    properties = paginator.get_page(request.GET.get("page"))
 
     AMENITY_KEYWORDS = {
         "WiFi": ["wifi", "wi-fi", "internet"],
@@ -255,7 +277,6 @@ def tenant_feed(request):
         lower = text.lower()
         return [label for label, keys in AMENITY_KEYWORDS.items() if any(k in lower for k in keys)]
 
-    # Avoid mutating model fields; add display-only attrs
     for prop in properties:
         prop.amenities = extract_amenities(getattr(prop, "description", ""))
         prop.vacant_units_display = getattr(prop, "vacant_units_filtered", 0) or 0
@@ -264,28 +285,29 @@ def tenant_feed(request):
         "properties": properties,
         "selected_county": county,
         "selected_town": town,
-        "selected_type": property_type,
+        "selected_type": unit_type,
         "selected_min_price": min_price,
         "selected_max_price": max_price,
+        "user_bookings": [],
+        "saved_properties": [],
     }
 
     if request.user.is_authenticated:
         context["user_bookings"] = list(
-            Booking.objects.filter(tenant=request.user, status__in=["pending", "confirmed"])
+            Booking.objects.filter(tenant=request.user, status__in=ACTIVE_BOOKING_STATUSES)
             .values_list("unit__property_id", flat=True)
             .distinct()
         )
         context["saved_properties"] = list(
             TenantCollection.objects.filter(tenant=request.user).values_list("property_id", flat=True)
         )
-    else:
-        context["user_bookings"] = []
-        context["saved_properties"] = []
 
     return render(request, "tenant_feed.html", context)
 
 
-# ---------------- Properties (ADD / EDIT) ----------------
+# ---------------------------------------------------------------------
+# Properties (single image + model video)
+# ---------------------------------------------------------------------
 
 @login_required
 def add_property(request):
@@ -301,11 +323,11 @@ def add_property(request):
             with transaction.atomic():
                 prop = form.save(commit=False)
                 prop.landlord = request.user
-                prop.save()  # ✅ saves model field "video" too
+                prop.save()
 
-                # units
                 formset.instance = prop
                 units = formset.save(commit=False)
+
                 for u in units:
                     if not (u.unit_code or "").strip():
                         continue
@@ -322,7 +344,6 @@ def add_property(request):
                 for obj in formset.deleted_objects:
                     obj.delete()
 
-                # ✅ SINGLE image upload: property_image (non-model field)
                 image_file = form.cleaned_data.get("property_image")
                 if image_file:
                     PropertyImage.objects.create(property=prop, image=image_file, is_primary=True)
@@ -348,7 +369,7 @@ def edit_property(request, property_id):
 
         if form.is_valid() and unit_formset.is_valid():
             with transaction.atomic():
-                prop = form.save()  # ✅ saves model field "video" if newly uploaded
+                prop = form.save()
 
                 units = unit_formset.save(commit=False)
                 for u in units:
@@ -358,22 +379,14 @@ def edit_property(request, property_id):
 
                 for obj in unit_formset.deleted_objects:
                     if obj.vacancy == "occupied":
-                        messages.error(
-                            request,
-                            f"Cannot delete occupied unit {obj.unit_code}. Mark inactive instead."
-                        )
+                        messages.error(request, f"Cannot delete occupied unit {obj.unit_code}. Mark inactive instead.")
                         continue
                     obj.delete()
 
-                # ✅ SINGLE image upload: property_image
                 image_file = form.cleaned_data.get("property_image")
                 if image_file:
                     has_primary = PropertyImage.objects.filter(property=prop, is_primary=True).exists()
-                    PropertyImage.objects.create(
-                        property=prop,
-                        image=image_file,
-                        is_primary=(not has_primary),
-                    )
+                    PropertyImage.objects.create(property=prop, image=image_file, is_primary=(not has_primary))
 
             messages.success(request, "Property updated successfully.")
             return redirect("edit_property", property_id=prop.id)
@@ -383,11 +396,7 @@ def edit_property(request, property_id):
         form = PropertyForm(instance=prop)
         unit_formset = UnitFormSet(instance=prop)
 
-    return render(
-        request,
-        "edit_property.html",
-        {"form": form, "unit_formset": unit_formset, "property": prop},
-    )
+    return render(request, "edit_property.html", {"form": form, "unit_formset": unit_formset, "property": prop})
 
 
 @login_required
@@ -409,7 +418,6 @@ def delete_property_image(request, image_id):
 
     image.delete()
 
-    # ✅ If we deleted the primary, promote another image to primary (if any left)
     if not PropertyImage.objects.filter(property=prop, is_primary=True).exists():
         next_img = PropertyImage.objects.filter(property=prop).order_by("id").first()
         if next_img:
@@ -420,35 +428,33 @@ def delete_property_image(request, image_id):
     return redirect("edit_property", property_id=prop.id)
 
 
-# ---------------- Bookings ----------------
+# ---------------------------------------------------------------------
+# Bookings (confirmed DOES NOT mean occupied)
+# ---------------------------------------------------------------------
 
 @login_required
 def book_property(request, property_id):
     prop = get_object_or_404(Property, id=property_id)
 
-    unit = Unit.objects.filter(property=prop, vacancy="vacant", is_active=True).order_by("id").first()
-    if not unit:
-        messages.error(request, "No vacant units available for this property.")
-        return redirect("tenant_feed")
-
-    if Booking.objects.filter(tenant=request.user, unit=unit, status__in=["pending", "confirmed"]).exists():
-        messages.info(request, "You already have an active booking for this unit.")
-        return redirect("tenant_feed")
-
     with transaction.atomic():
-        # lock unit to avoid double-booking edge cases
-        unit = Unit.objects.select_for_update().get(id=unit.id)
-        if unit.vacancy != "vacant" or not unit.is_active:
-            messages.error(request, "That unit is no longer available.")
+        unit = (
+            Unit.objects.select_for_update()
+            .filter(property=prop, vacancy="vacant", is_active=True)
+            .order_by("id")
+            .first()
+        )
+        if not unit:
+            messages.error(request, "No vacant units available for this property.")
+            return redirect("tenant_feed")
+
+        if Booking.objects.filter(tenant=request.user, unit=unit, status__in=ACTIVE_BOOKING_STATUSES).exists():
+            messages.info(request, "You already have an active booking for this unit.")
             return redirect("tenant_feed")
 
         Booking.objects.create(unit=unit, tenant=request.user, status="pending")
         _set_unit_vacancy(unit, "booked")
 
-    messages.success(
-        request,
-        f"Booking request sent! Landlord: {prop.landlord.get_full_name() or prop.landlord.username}",
-    )
+    messages.success(request, f"Booking request sent! Landlord: {prop.landlord.get_full_name() or prop.landlord.username}")
     return redirect("tenant_feed")
 
 
@@ -477,11 +483,12 @@ def tenant_bookings(request):
         .select_related("unit", "unit__property", "unit__property__landlord")
         .order_by("-created_at")
     )
-
     context = {
         "bookings": bookings,
+        "bookings_count": bookings.count(),
         "confirmed_count": bookings.filter(status="confirmed").count(),
         "pending_count": bookings.filter(status="pending").count(),
+        "cancelled_count": bookings.filter(status="cancelled").count(),
     }
     return render(request, "tenant_bookings.html", context)
 
@@ -492,13 +499,17 @@ def unbook_property(request, booking_id):
     prop_name = booking.unit.property.name if booking.unit_id else "booking"
 
     with transaction.atomic():
-        if booking.unit_id and booking.status in ["pending", "confirmed"]:
+        unit = None
+        if booking.unit_id and booking.status in ACTIVE_BOOKING_STATUSES:
             unit = Unit.objects.select_for_update().get(id=booking.unit_id)
-            # Only revert to vacant if still booked (don’t override occupied/maintenance)
-            if unit.vacancy == "booked":
-                _set_unit_vacancy(unit, "vacant")
 
         booking.delete()
+
+        # Only revert to vacant if:
+        # - unit is still marked booked
+        # - and there are no other active bookings
+        if unit and unit.vacancy == "booked" and not _unit_has_active_bookings(unit):
+            _set_unit_vacancy(unit, "vacant")
 
     messages.success(request, f"Successfully unbooked {prop_name}.")
     return redirect("tenant_bookings")
@@ -517,19 +528,26 @@ def update_booking_status(request, booking_id):
             with transaction.atomic():
                 unit = Unit.objects.select_for_update().get(id=booking.unit_id)
 
+                # Update booking
                 Booking.objects.filter(id=booking.id).update(status=new_status)
 
-                vacancy = (
-                    "occupied" if new_status == "confirmed"
-                    else ("booked" if new_status == "pending" else "vacant")
-                )
-                _set_unit_vacancy(unit, vacancy)
+                # Vacancy rules:
+                # - pending/confirmed => unit is "booked" (not occupied)
+                # - cancelled => unit becomes vacant ONLY if no other active bookings and not occupied/maintenance
+                if new_status in ("pending", "confirmed"):
+                    if unit.vacancy != "occupied":  # don't override real occupancy
+                        _set_unit_vacancy(unit, "booked")
+                else:  # cancelled
+                    if unit.vacancy == "booked" and not _unit_has_active_bookings(unit):
+                        _set_unit_vacancy(unit, "vacant")
 
             messages.success(request, f"Booking status updated to {new_status}.")
     return redirect("landlord_bookings")
 
 
-# ---------------- Collections ----------------
+# ---------------------------------------------------------------------
+# Collections
+# ---------------------------------------------------------------------
 
 @login_required
 def add_to_collection(request, property_id):
@@ -537,7 +555,7 @@ def add_to_collection(request, property_id):
     _, created = TenantCollection.objects.get_or_create(tenant=request.user, property=prop)
     messages.success(
         request,
-        "Property added to your collection!" if created else "Property is already in your collection.",
+        "Property added to your collection!" if created else "Property is already in your collection."
     )
     return redirect("tenant_feed")
 
@@ -550,7 +568,6 @@ def remove_from_collection(request, property_id):
     next_url = request.GET.get("next")
     if next_url:
         return redirect(next_url)
-
     return redirect("tenant_feed")
 
 
@@ -570,19 +587,180 @@ def view_collection(request):
     )
 
     booked_property_ids = list(
-        Booking.objects.filter(tenant=request.user, status__in=["pending", "confirmed"])
+        Booking.objects.filter(tenant=request.user, status__in=ACTIVE_BOOKING_STATUSES)
         .values_list("unit__property_id", flat=True)
         .distinct()
     )
 
-    return render(
-        request,
-        "collection.html",
-        {"collection": collection, "user_bookings": booked_property_ids},
+    return render(request, "collection.html", {"collection": collection, "user_bookings": booked_property_ids})
+
+
+# ---------------------------------------------------------------------
+# Profiles
+# ---------------------------------------------------------------------
+
+@login_required
+def landlord_profile(request):
+    if request.method == "POST":
+        form = LandlordProfileForm(request.POST, instance=request.user)
+        if form.is_valid():
+            form.save()
+            messages.success(request, "Profile updated successfully!")
+            return redirect("landlord_profile")
+    else:
+        form = LandlordProfileForm(instance=request.user)
+    return render(request, "landlord_profile.html", {"form": form})
+
+
+@login_required
+def tenant_profile(request):
+    if request.method == "POST":
+        form = TenantProfileForm(request.POST, instance=request.user)
+        if form.is_valid():
+            form.save()
+            messages.success(request, "Profile updated successfully!")
+            return redirect("tenant_profile")
+    else:
+        form = TenantProfileForm(instance=request.user)
+    return render(request, "tenant_profile.html", {"form": form})
+
+
+# ---------------------------------------------------------------------
+# Tenants (booked -> occupied + correct cumulative math)
+# ---------------------------------------------------------------------
+
+@login_required
+def manage_tenants(request):
+    if request.method == "POST":
+        form = TenantForm(request.POST, user=request.user)
+        if form.is_valid():
+            with transaction.atomic():
+                tenant_obj = form.save(commit=False)
+
+                unit = Unit.objects.select_for_update().select_related("property").get(id=tenant_obj.unit_fk_id)
+
+                if unit.property.landlord != request.user:
+                    messages.error(request, "You can only add tenants to your own units.")
+                    return redirect("manage_tenants")
+
+                if Tenant.objects.filter(unit_fk=unit).exists():
+                    messages.error(request, "That unit already has a tenant. Choose another unit.")
+                    return redirect("manage_tenants")
+
+                cancelled = _cancel_active_bookings_for_unit(unit)
+                _set_unit_vacancy(unit, "occupied")
+
+                tenant_obj.rent_balance = tenant_obj.monthly_rent - tenant_obj.rent_paid
+                tenant_obj.cumulative_rent_balance = tenant_obj.rent_balance
+                tenant_obj.unit_fk = unit
+                tenant_obj.save()
+
+            if cancelled:
+                messages.info(request, f"Note: {cancelled} active booking(s) for this unit were cancelled.")
+            messages.success(request, f"Tenant {tenant_obj.name} added successfully.")
+            return redirect("tenant_list")
+    else:
+        form = TenantForm(user=request.user)
+
+    return render(request, "manage_tenants.html", {"form": form})
+
+
+@login_required
+def edit_tenant(request, tenant_id):
+    tenant_obj = get_object_or_404(Tenant, id=tenant_id)
+
+    if tenant_obj.unit_fk.property.landlord != request.user:
+        messages.error(request, "You don't have permission to edit this tenant.")
+        return redirect("tenant_list")
+
+    old_unit_id = tenant_obj.unit_fk_id
+    old_rent_balance = _normalize_decimal(tenant_obj.rent_balance, "0")
+    old_cum = _normalize_decimal(tenant_obj.cumulative_rent_balance, "0")
+
+    if request.method == "POST":
+        form = TenantForm(request.POST, instance=tenant_obj, user=request.user)
+        if form.is_valid():
+            with transaction.atomic():
+                updated = form.save(commit=False)
+
+                new_unit = Unit.objects.select_for_update().select_related("property").get(id=updated.unit_fk_id)
+                old_unit = Unit.objects.select_for_update().get(id=old_unit_id)
+
+                if new_unit.property.landlord != request.user:
+                    messages.error(request, "You can only assign tenants to your own units.")
+                    return redirect("tenant_list")
+
+                cancelled = 0
+
+                if new_unit.id != old_unit.id:
+                    if Tenant.objects.filter(unit_fk=new_unit).exclude(id=tenant_obj.id).exists():
+                        messages.error(request, "That unit already has a tenant. Choose another unit.")
+                        return redirect("tenant_list")
+
+                    # free old unit: if it has active bookings, it's booked, else vacant
+                    if _unit_has_active_bookings(old_unit):
+                        _set_unit_vacancy(old_unit, "booked")
+                    else:
+                        _set_unit_vacancy(old_unit, "vacant")
+
+                    cancelled = _cancel_active_bookings_for_unit(new_unit)
+                    _set_unit_vacancy(new_unit, "occupied")
+                else:
+                    _set_unit_vacancy(new_unit, "occupied")
+
+                new_balance = _normalize_decimal(updated.monthly_rent, "0") - _normalize_decimal(updated.rent_paid, "0")
+                updated.rent_balance = new_balance
+                updated.cumulative_rent_balance = (old_cum - old_rent_balance) + new_balance
+
+                updated.unit_fk = new_unit
+                updated.save()
+
+            if cancelled:
+                messages.info(request, f"Note: {cancelled} active booking(s) for this unit were cancelled.")
+            messages.success(request, f"Tenant {updated.name} updated successfully.")
+            return redirect("tenant_list")
+    else:
+        form = TenantForm(instance=tenant_obj, user=request.user)
+
+    return render(request, "edit_tenant.html", {"form": form, "tenant": tenant_obj})
+
+
+@login_required
+def delete_tenant(request, tenant_id):
+    tenant_obj = get_object_or_404(Tenant, id=tenant_id)
+
+    if tenant_obj.unit_fk.property.landlord != request.user:
+        messages.error(request, "You don't have permission to delete this tenant.")
+        return redirect("tenant_list")
+
+    with transaction.atomic():
+        unit = Unit.objects.select_for_update().get(id=tenant_obj.unit_fk_id)
+        tenant_name = tenant_obj.name
+        tenant_obj.delete()
+
+        # after deletion, unit should become booked if bookings exist; else vacant
+        if _unit_has_active_bookings(unit):
+            _set_unit_vacancy(unit, "booked")
+        else:
+            _set_unit_vacancy(unit, "vacant")
+
+    messages.success(request, f"Tenant {tenant_name} deleted successfully.")
+    return redirect("tenant_list")
+
+
+@login_required
+def tenant_list(request):
+    tenant_list_qs = (
+        Tenant.objects.filter(unit_fk__property__landlord=request.user)
+        .select_related("unit_fk", "unit_fk__property")
+        .order_by("-date_paid")
     )
+    return render(request, "tenant_list.html", {"tenant_list": tenant_list_qs})
 
 
-# ---------------- Password Reset ----------------
+# ---------------------------------------------------------------------
+# Password Reset
+# ---------------------------------------------------------------------
 
 reset_codes = {}
 
@@ -649,163 +827,9 @@ class SetNewPasswordView(View):
         return redirect("password_reset")
 
 
-# ---------------- Profiles ----------------
-
-@login_required
-def landlord_profile(request):
-    if request.method == "POST":
-        form = LandlordProfileForm(request.POST, instance=request.user)
-        if form.is_valid():
-            form.save()
-            messages.success(request, "Profile updated successfully!")
-            return redirect("landlord_profile")
-    else:
-        form = LandlordProfileForm(instance=request.user)
-
-    return render(request, "landlord_profile.html", {"form": form})
-
-
-@login_required
-def tenant_profile(request):
-    if request.method == "POST":
-        form = TenantProfileForm(request.POST, instance=request.user)
-        if form.is_valid():
-            form.save()
-            messages.success(request, "Profile updated successfully!")
-            return redirect("tenant_profile")
-    else:
-        form = TenantProfileForm(instance=request.user)
-
-    return render(request, "tenant_profile.html", {"form": form})
-
-
-# ---------------- Tenants ----------------
-
-@login_required
-def manage_tenants(request):
-    if request.method == "POST":
-        form = TenantForm(request.POST, user=request.user)
-        if form.is_valid():
-            with transaction.atomic():
-                tenant_obj = form.save(commit=False)
-
-                # Ownership guard
-                if tenant_obj.unit_fk.property.landlord != request.user:
-                    messages.error(request, "You can only add tenants to your own units.")
-                    return redirect(reverse("manage_tenants"))
-
-                # Lock the unit row (race-condition safety)
-                unit = Unit.objects.select_for_update().select_related("property").get(id=tenant_obj.unit_fk_id)
-
-                # Extra safety: block if unit already has a tenant
-                if Tenant.objects.filter(unit_fk=unit).exists():
-                    messages.error(request, "That unit already has a tenant. Choose another unit.")
-                    return redirect(reverse("manage_tenants"))
-
-                # ✅ booked/vacant/maintenance -> occupied when tenant is added
-                cancelled = _cancel_active_bookings_for_unit(unit)
-                _set_unit_vacancy(unit, "occupied")
-
-                tenant_obj.rent_balance = tenant_obj.monthly_rent - tenant_obj.rent_paid
-                tenant_obj.cumulative_rent_balance += tenant_obj.rent_balance
-                tenant_obj.unit_fk = unit
-                tenant_obj.save()
-
-            if cancelled:
-                messages.info(request, f"Note: {cancelled} active booking(s) for this unit were cancelled.")
-            messages.success(request, f"Tenant {tenant_obj.name} added successfully.")
-            return redirect(reverse("tenant_list"))
-    else:
-        form = TenantForm(user=request.user)
-
-    return render(request, "manage_tenants.html", {"form": form})
-
-
-@login_required
-def edit_tenant(request, tenant_id):
-    tenant_obj = get_object_or_404(Tenant, id=tenant_id)
-
-    if tenant_obj.unit_fk.property.landlord != request.user:
-        messages.error(request, "You don't have permission to edit this tenant.")
-        return redirect(reverse("tenant_list"))
-
-    old_unit_id = tenant_obj.unit_fk_id
-
-    if request.method == "POST":
-        form = TenantForm(request.POST, instance=tenant_obj, user=request.user)
-        if form.is_valid():
-            with transaction.atomic():
-                updated = form.save(commit=False)
-
-                if updated.unit_fk.property.landlord != request.user:
-                    messages.error(request, "You can only assign tenants to your own units.")
-                    return redirect(reverse("tenant_list"))
-
-                old_unit = Unit.objects.select_for_update().get(id=old_unit_id)
-                new_unit = Unit.objects.select_for_update().select_related("property").get(id=updated.unit_fk_id)
-
-                cancelled = 0
-
-                if new_unit.id != old_unit.id:
-                    # Ensure target unit doesn't already have another tenant
-                    if Tenant.objects.filter(unit_fk=new_unit).exclude(id=tenant_obj.id).exists():
-                        messages.error(request, "That unit already has a tenant. Choose another unit.")
-                        return redirect(reverse("tenant_list"))
-
-                    # move out from old unit -> vacant
-                    _set_unit_vacancy(old_unit, "vacant")
-
-                    # move into new unit -> occupied, cancel bookings
-                    cancelled = _cancel_active_bookings_for_unit(new_unit)
-                    _set_unit_vacancy(new_unit, "occupied")
-                else:
-                    # keep occupied on same unit
-                    _set_unit_vacancy(new_unit, "occupied")
-
-                updated.rent_balance = updated.monthly_rent - updated.rent_paid
-                updated.cumulative_rent_balance += updated.rent_balance
-                updated.unit_fk = new_unit
-                updated.save()
-
-            if cancelled:
-                messages.info(request, f"Note: {cancelled} active booking(s) for this unit were cancelled.")
-            messages.success(request, f"Tenant {updated.name} updated successfully.")
-            return redirect(reverse("tenant_list"))
-    else:
-        form = TenantForm(instance=tenant_obj, user=request.user)
-
-    return render(request, "edit_tenant.html", {"form": form, "tenant": tenant_obj})
-
-
-@login_required
-def delete_tenant(request, tenant_id):
-    tenant_obj = get_object_or_404(Tenant, id=tenant_id)
-
-    if tenant_obj.unit_fk.property.landlord != request.user:
-        messages.error(request, "You don't have permission to delete this tenant.")
-        return redirect(reverse("tenant_list"))
-
-    with transaction.atomic():
-        unit = Unit.objects.select_for_update().get(id=tenant_obj.unit_fk_id)
-        tenant_name = tenant_obj.name
-        tenant_obj.delete()
-        _set_unit_vacancy(unit, "vacant")
-
-    messages.success(request, f"Tenant {tenant_name} deleted successfully.")
-    return redirect(reverse("tenant_list"))
-
-
-@login_required
-def tenant_list(request):
-    tenant_list_qs = (
-        Tenant.objects.filter(unit_fk__property__landlord=request.user)
-        .select_related("unit_fk", "unit_fk__property")
-        .order_by("-date_paid")
-    )
-    return render(request, "tenant_list.html", {"tenant_list": tenant_list_qs})
-
-
-# ---------------- Receipts ----------------
+# ---------------------------------------------------------------------
+# Receipts
+# ---------------------------------------------------------------------
 
 @login_required
 def generate_receipt(request, tenant_id):
@@ -813,13 +837,10 @@ def generate_receipt(request, tenant_id):
 
     if tenant_obj.unit_fk.property.landlord != request.user:
         messages.error(request, "You don't have permission to generate a receipt for this tenant.")
-        return redirect(reverse("tenant_list"))
+        return redirect("tenant_list")
 
     issued_at = timezone.now()
-    receipt_no = (
-        f"ER-{issued_at.strftime('%Y%m%d')}-"
-        f"{get_random_string(6, allowed_chars='ABCDEFGHJKLMNPQRSTUVWXYZ23456789')}"
-    )
+    receipt_no = f"ER-{issued_at.strftime('%Y%m%d')}-{get_random_string(6, allowed_chars='ABCDEFGHJKLMNPQRSTUVWXYZ23456789')}"
 
     ReceiptHistory.objects.create(
         tenant=tenant_obj,
@@ -837,7 +858,6 @@ def generate_receipt(request, tenant_id):
     p = canvas.Canvas(response, pagesize=A6)
     width, height = A6
 
-    # Theme
     brand = HexColor("#2F5BEA")
     brand_dark = HexColor("#1F3FB8")
     bg = HexColor("#FFFFFF")
@@ -914,14 +934,12 @@ def generate_receipt(request, tenant_id):
     box(6 * mm, y, width - 12 * mm, parties_h)
     yy = y - 5 * mm
 
-    section_title("Tenant", yy)
-    yy -= 5 * mm
+    section_title("Tenant", yy); yy -= 5 * mm
     keyval("Name", tenant_name, yy); yy -= 4.2 * mm
     keyval("Phone", tenant_phone, yy); yy -= 4.2 * mm
     keyval("Date Occupied", date_occupied, yy); yy -= 5.2 * mm
 
-    section_title("Landlord / Issuer", yy)
-    yy -= 5 * mm
+    section_title("Landlord / Issuer", yy); yy -= 5 * mm
     keyval("Name", landlord_name, yy); yy -= 4.2 * mm
     keyval("Phone", landlord_phone, yy)
 
@@ -930,8 +948,7 @@ def generate_receipt(request, tenant_id):
     prop_h = 18 * mm
     box(6 * mm, y, width - 12 * mm, prop_h)
     yy = y - 5 * mm
-    section_title("Property Details", yy)
-    yy -= 5 * mm
+    section_title("Property Details", yy); yy -= 5 * mm
     keyval("Property", property_name, yy); yy -= 4.2 * mm
     keyval("Location", property_loc, yy); yy -= 4.2 * mm
     keyval("Unit", unit_code, yy)
@@ -941,8 +958,7 @@ def generate_receipt(request, tenant_id):
     pay_h = 34 * mm
     box(6 * mm, y, width - 12 * mm, pay_h)
     yy = y - 5 * mm
-    section_title("Payment", yy)
-    yy -= 5 * mm
+    section_title("Payment", yy); yy -= 5 * mm
 
     keyval("Month Paid For", month_paid_for, yy); yy -= 4.2 * mm
     keyval("Date Paid", date_paid, yy); yy -= 5.0 * mm
@@ -987,13 +1003,7 @@ def receipt_history(request, tenant_id):
 
     if tenant_obj.unit_fk.property.landlord != request.user:
         messages.error(request, "You don't have permission to view this receipt history.")
-        return redirect(reverse("tenant_list"))
+        return redirect("tenant_list")
 
     history = ReceiptHistory.objects.filter(tenant=tenant_obj).order_by("-date_generated")
     return render(request, "receipt_history.html", {"tenant": tenant_obj, "history": history})
-
-
-# ---------------- Home ----------------
-
-def home(request):
-    return render(request, "home.html")

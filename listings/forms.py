@@ -1,5 +1,7 @@
 # listings/forms.py (UNIT-FIRST / DJANGO 5.1 SAFE)
 # UPDATED: SINGLE IMAGE + MODEL VIDEO + BOOKED UNITS ALLOWED IN TENANT FORM
+# FIXED: first unit not selectable (remove empty "---------" choice via empty_label=None)
+# IMPROVED: unit labels show status tag; stronger unit validation
 
 import calendar
 import re
@@ -65,6 +67,13 @@ def _unit_status_values():
     maintenance = getattr(Unit, "MAINTENANCE", "maintenance")
     occupied = getattr(Unit, "OCCUPIED", "occupied")
     return vacant, booked, maintenance, occupied
+
+
+def _money_label(val) -> str:
+    try:
+        return f"{float(val):,.0f}"
+    except (TypeError, ValueError):
+        return str(val)
 
 
 # ---------- Property ----------
@@ -204,6 +213,7 @@ class TenantForm(forms.ModelForm):
     unit_fk = forms.ModelChoiceField(
         queryset=Unit.objects.none(),
         label="Unit",
+        empty_label=None,  # ✅ FIX: removes the blank "---------" option so first unit is selectable
         widget=forms.Select(attrs={"class": "form-control"}),
         help_text="Select the specific unit the tenant occupies (vacant/booked/maintenance only).",
     )
@@ -238,9 +248,9 @@ class TenantForm(forms.ModelForm):
 
     def clean_unit_fk(self):
         """
-        Extra guardrail:
+        Guardrails:
         - allow 'booked' units (convert booking -> tenant)
-        - block units that already have an active tenancy record
+        - block units that already have a Tenant record (prevents double assignment)
         """
         unit = self.cleaned_data.get("unit_fk")
         if not unit:
@@ -251,8 +261,7 @@ class TenantForm(forms.ModelForm):
         if self.instance and self.instance.pk and current_unit_id == unit.id:
             return unit
 
-        # Prevent selecting a unit that already has a tenant record (active occupancy)
-        # If you later add tenancy end-dates, replace this with a more precise rule.
+        # Prevent selecting a unit that already has a tenant record
         if Tenant.objects.filter(unit_fk=unit).exists():
             raise ValidationError("This unit already has a tenant record. Choose another unit.")
 
@@ -278,9 +287,17 @@ class TenantForm(forms.ModelForm):
             qs = qs.filter(vacancy__in=allowed_statuses)
 
         self.fields["unit_fk"].queryset = qs
-        self.fields["unit_fk"].label_from_instance = (
-            lambda u: f"{u.property.name} — {u.unit_code} ({u.unit_type}) | KES {u.price}"
-        )
+
+        # Label shows property, unit, type, price, and status (lets UI warn on BOOKED)
+        def _label(u: Unit) -> str:
+            prop_name = getattr(getattr(u, "property", None), "name", "—")
+            code = getattr(u, "unit_code", "—")
+            utype = getattr(u, "unit_type", "—")
+            price = _money_label(getattr(u, "price", 0))
+            status = (getattr(u, "vacancy", "") or "").upper() or "—"
+            return f"{prop_name} — {code} ({utype}) | KES {price} [{status}]"
+
+        self.fields["unit_fk"].label_from_instance = _label
 
 
 # ---------- Units ----------
