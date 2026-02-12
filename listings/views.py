@@ -1,4 +1,13 @@
-# listings/views.py (UNIT-FIRST / NO FALLBACK) — FIXED & COMPLETE ✅
+# listings/views.py (UNIT-FIRST / NO FALLBACK) — UPDATED (NO DEPOSIT HISTORY VIEW) ✅
+# ✅ Clear cancelled booking support
+# ✅ Cancelled bookings remain until tenant clears them
+# ✅ Vacancy logic: bookings => BOOKED, tenancy => OCCUPIED (never auto-occupy on booking confirm)
+# ✅ Safe vacancy transitions when tenant unbooks or landlord cancels
+# ✅ Dashboard KPI keys match template
+# ✅ "Payment Received Now" support on edit tenant (increments rent_paid + updates balances)
+# ✅ Deposits recorded ONLY when adding a new tenant (NOT rent; no rent KPI/balance impact)
+# ✅ Deposits shown via manage_tenants + tenant_list (NO deposit history page/view)
+# ✅ Receipts include deposit total (per unit) when generated
 
 from decimal import Decimal, InvalidOperation
 
@@ -13,7 +22,6 @@ from django.db import transaction
 from django.db.models import Count, DecimalField, Min, Q, Sum
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
-from django.urls import reverse
 from django.utils import timezone
 from django.utils.crypto import get_random_string
 from django.views import View
@@ -31,7 +39,17 @@ from .forms import (
     TenantProfileForm,
     UnitFormSet,
 )
-from .models import Booking, Property, PropertyImage, ReceiptHistory, Tenant, TenantCollection, Unit
+
+from .models import (
+    Booking,
+    DepositHistory,  # ✅ NEW
+    Property,
+    PropertyImage,
+    ReceiptHistory,
+    Tenant,
+    TenantCollection,
+    Unit,
+)
 
 User = get_user_model()
 
@@ -62,11 +80,15 @@ def _unit_has_active_bookings(unit: Unit) -> bool:
     return Booking.objects.filter(unit=unit, status__in=ACTIVE_BOOKING_STATUSES).exists()
 
 
+def _unit_has_tenant(unit: Unit) -> bool:
+    return Tenant.objects.filter(unit_fk=unit).exists()
+
+
 def _set_unit_vacancy(unit: Unit, vacancy: str) -> None:
     Unit.objects.filter(id=unit.id).update(vacancy=vacancy)
 
 
-def _normalize_decimal(val, default="0"):
+def _normalize_decimal(val, default="0") -> Decimal:
     try:
         return Decimal(str(val))
     except (InvalidOperation, TypeError, ValueError):
@@ -81,6 +103,50 @@ def _money(val) -> str:
 def _safe_str(s, fallback="—") -> str:
     s = (str(s).strip() if s is not None else "")
     return s if s else fallback
+
+
+def _safe_payment_amount(request) -> Decimal:
+    """
+    Reads optional payment increment from POST as "payment_amount".
+    Returns non-negative Decimal.
+    """
+    amt = _normalize_decimal(request.POST.get("payment_amount"), default="0")
+    if amt < 0:
+        amt = Decimal("0")
+    return amt
+
+
+def _safe_deposit_amount(request) -> Decimal:
+    """
+    Reads optional deposit amount from POST as "deposit_amount".
+    Returns non-negative Decimal.
+    Deposit is NOT rent and does not affect rent balances/KPIs.
+    """
+    amt = _normalize_decimal(request.POST.get("deposit_amount"), default="0")
+    if amt < 0:
+        amt = Decimal("0")
+    return amt
+
+
+def _parse_iso_date(date_str):
+    """Parse yyyy-mm-dd safely. Returns date or None."""
+    if not date_str:
+        return None
+    try:
+        return timezone.datetime.fromisoformat(date_str).date()
+    except ValueError:
+        return None
+
+
+def _get_tenant_user_fk(tenant_obj):
+    """
+    Optional: if your Tenant model has user/user_fk/tenant_user FK, return it.
+    Otherwise returns None (DepositHistory can store tenant=None).
+    """
+    for attr in ("user", "user_fk", "tenant_user"):
+        if hasattr(tenant_obj, f"{attr}_id"):
+            return getattr(tenant_obj, attr, None)
+    return None
 
 
 # ---------------------------------------------------------------------
@@ -126,10 +192,10 @@ def landlord_dashboard(request):
     units_qs = Unit.objects.filter(property__landlord=request.user, is_active=True)
 
     total_units = units_qs.count()
-    occupied_units = units_qs.filter(vacancy="occupied").count()
-    vacant_units = units_qs.filter(vacancy="vacant").count()
-    booked_units = units_qs.filter(vacancy="booked").count()
-    maintenance_units = units_qs.filter(vacancy="maintenance").count()
+    occupied_units = units_qs.filter(vacancy=Unit.OCCUPIED).count()
+    vacant_units = units_qs.filter(vacancy=Unit.VACANT).count()
+    booked_units = units_qs.filter(vacancy=Unit.BOOKED).count()
+    maintenance_units = units_qs.filter(vacancy=Unit.MAINTENANCE).count()
 
     occupancy_rate = round((occupied_units / total_units * 100), 1) if total_units else 0
 
@@ -137,7 +203,6 @@ def landlord_dashboard(request):
         units_qs.aggregate(total=Sum("price", output_field=DecimalField()))["total"] or Decimal("0")
     )
 
-    # ReceiptHistory month_paid_for must be "YYYY-MM"
     current_month = timezone.now().strftime("%Y-%m")
 
     rent_paid_month = (
@@ -177,9 +242,21 @@ def landlord_dashboard(request):
     properties = (
         properties_qs.annotate(
             total_units_count=Count("units", filter=active_units_filter, distinct=True),
-            vacant_units_count=Count("units", filter=Q(units__is_active=True, units__vacancy="vacant"), distinct=True),
-            occupied_units_count=Count("units", filter=Q(units__is_active=True, units__vacancy="occupied"), distinct=True),
-            booked_units_count=Count("units", filter=Q(units__is_active=True, units__vacancy="booked"), distinct=True),
+            vacant_units_count=Count(
+                "units",
+                filter=Q(units__is_active=True, units__vacancy=Unit.VACANT),
+                distinct=True,
+            ),
+            occupied_units_count=Count(
+                "units",
+                filter=Q(units__is_active=True, units__vacancy=Unit.OCCUPIED),
+                distinct=True,
+            ),
+            booked_units_count=Count(
+                "units",
+                filter=Q(units__is_active=True, units__vacancy=Unit.BOOKED),
+                distinct=True,
+            ),
             expected_monthly_rent=Sum("units__price", filter=active_units_filter, output_field=DecimalField()),
         )
         .prefetch_related("images")
@@ -187,7 +264,6 @@ def landlord_dashboard(request):
     )
 
     context = {
-        # unit stats
         "total_units": total_units,
         "occupied_units": occupied_units,
         "vacant_units": vacant_units,
@@ -195,13 +271,13 @@ def landlord_dashboard(request):
         "maintenance_units": maintenance_units,
         "occupancy_rate": occupancy_rate,
 
-        # ✅ names used in YOUR dashboard template
+        # ✅ keys your dashboard template uses (rent-only)
         "expected_monthly_rent": expected_monthly_rent,
         "rent_paid_month": rent_paid_month,
         "rent_remaining_month": rent_remaining_month,
         "outstanding_balance_total": outstanding_balance_total,
 
-        # keep backward-compatible keys (in case other templates rely on them)
+        # compatibility keys
         "total_monthly_rent": expected_monthly_rent,
         "rent_collected_month": rent_paid_month,
         "outstanding_balance": outstanding_balance_total,
@@ -226,7 +302,7 @@ def tenant_feed(request):
 
     county = request.GET.get("county", "")
     town = request.GET.get("town", "")
-    unit_type = request.GET.get("property_type", "")  # UI label, actually unit_type
+    unit_type = request.GET.get("property_type", "")
     min_price = request.GET.get("min_price", "")
     max_price = request.GET.get("max_price", "")
 
@@ -235,7 +311,7 @@ def tenant_feed(request):
     if town:
         properties_list = properties_list.filter(town__icontains=town)
 
-    unit_filter = Q(units__is_active=True, units__vacancy="vacant")
+    unit_filter = Q(units__is_active=True, units__vacancy=Unit.VACANT)
 
     if unit_type:
         unit_filter &= Q(units__unit_type=unit_type)
@@ -306,7 +382,7 @@ def tenant_feed(request):
 
 
 # ---------------------------------------------------------------------
-# Properties (single image + model video)
+# Properties
 # ---------------------------------------------------------------------
 
 @login_required
@@ -336,7 +412,7 @@ def add_property(request):
                     if u.price in [None, ""]:
                         u.price = prop.price
                     if not u.vacancy:
-                        u.vacancy = "vacant"
+                        u.vacancy = Unit.VACANT
                     if u.is_active is None:
                         u.is_active = True
                     u.save()
@@ -378,7 +454,7 @@ def edit_property(request, property_id):
                     u.save()
 
                 for obj in unit_formset.deleted_objects:
-                    if obj.vacancy == "occupied":
+                    if obj.vacancy == Unit.OCCUPIED:
                         messages.error(request, f"Cannot delete occupied unit {obj.unit_code}. Mark inactive instead.")
                         continue
                     obj.delete()
@@ -439,7 +515,7 @@ def book_property(request, property_id):
     with transaction.atomic():
         unit = (
             Unit.objects.select_for_update()
-            .filter(property=prop, vacancy="vacant", is_active=True)
+            .filter(property=prop, vacancy=Unit.VACANT, is_active=True)
             .order_by("id")
             .first()
         )
@@ -452,9 +528,12 @@ def book_property(request, property_id):
             return redirect("tenant_feed")
 
         Booking.objects.create(unit=unit, tenant=request.user, status="pending")
-        _set_unit_vacancy(unit, "booked")
+        _set_unit_vacancy(unit, Unit.BOOKED)
 
-    messages.success(request, f"Booking request sent! Landlord: {prop.landlord.get_full_name() or prop.landlord.username}")
+    messages.success(
+        request,
+        f"Booking request sent! Landlord: {prop.landlord.get_full_name() or prop.landlord.username}",
+    )
     return redirect("tenant_feed")
 
 
@@ -505,11 +584,8 @@ def unbook_property(request, booking_id):
 
         booking.delete()
 
-        # Only revert to vacant if:
-        # - unit is still marked booked
-        # - and there are no other active bookings
-        if unit and unit.vacancy == "booked" and not _unit_has_active_bookings(unit):
-            _set_unit_vacancy(unit, "vacant")
+        if unit and unit.vacancy == Unit.BOOKED and (not _unit_has_active_bookings(unit)) and (not _unit_has_tenant(unit)):
+            _set_unit_vacancy(unit, Unit.VACANT)
 
     messages.success(request, f"Successfully unbooked {prop_name}.")
     return redirect("tenant_bookings")
@@ -528,21 +604,34 @@ def update_booking_status(request, booking_id):
             with transaction.atomic():
                 unit = Unit.objects.select_for_update().get(id=booking.unit_id)
 
-                # Update booking
                 Booking.objects.filter(id=booking.id).update(status=new_status)
 
-                # Vacancy rules:
-                # - pending/confirmed => unit is "booked" (not occupied)
-                # - cancelled => unit becomes vacant ONLY if no other active bookings and not occupied/maintenance
                 if new_status in ("pending", "confirmed"):
-                    if unit.vacancy != "occupied":  # don't override real occupancy
-                        _set_unit_vacancy(unit, "booked")
+                    if unit.vacancy != Unit.OCCUPIED:
+                        _set_unit_vacancy(unit, Unit.BOOKED)
                 else:  # cancelled
-                    if unit.vacancy == "booked" and not _unit_has_active_bookings(unit):
-                        _set_unit_vacancy(unit, "vacant")
+                    if unit.vacancy == Unit.BOOKED and (not _unit_has_active_bookings(unit)) and (not _unit_has_tenant(unit)):
+                        _set_unit_vacancy(unit, Unit.VACANT)
 
             messages.success(request, f"Booking status updated to {new_status}.")
     return redirect("landlord_bookings")
+
+
+# ---------------------------------------------------------------------
+# ✅ Clear cancelled booking (tenant deletes cancelled booking entry)
+# ---------------------------------------------------------------------
+
+@login_required
+def clear_booking(request, booking_id):
+    booking = get_object_or_404(Booking, id=booking_id, tenant=request.user)
+
+    if booking.status != "cancelled":
+        messages.error(request, "Only cancelled bookings can be cleared.")
+        return redirect("tenant_bookings")
+
+    booking.delete()
+    messages.success(request, "Cancelled booking cleared.")
+    return redirect("tenant_bookings")
 
 
 # ---------------------------------------------------------------------
@@ -555,7 +644,7 @@ def add_to_collection(request, property_id):
     _, created = TenantCollection.objects.get_or_create(tenant=request.user, property=prop)
     messages.success(
         request,
-        "Property added to your collection!" if created else "Property is already in your collection."
+        "Property added to your collection!" if created else "Property is already in your collection.",
     )
     return redirect("tenant_feed")
 
@@ -573,7 +662,7 @@ def remove_from_collection(request, property_id):
 
 @login_required
 def view_collection(request):
-    unit_filter = Q(property__units__is_active=True, property__units__vacancy="vacant")
+    unit_filter = Q(property__units__is_active=True, property__units__vacancy=Unit.VACANT)
 
     collection = (
         TenantCollection.objects.filter(tenant=request.user)
@@ -626,7 +715,7 @@ def tenant_profile(request):
 
 
 # ---------------------------------------------------------------------
-# Tenants (booked -> occupied + correct cumulative math)
+# Tenants (booked -> occupied + correct cumulative math + payment increments + initial deposit)
 # ---------------------------------------------------------------------
 
 @login_required
@@ -634,6 +723,8 @@ def manage_tenants(request):
     if request.method == "POST":
         form = TenantForm(request.POST, user=request.user)
         if form.is_valid():
+            deposit_amount = _safe_deposit_amount(request)  # ✅ read once; used for message too
+
             with transaction.atomic():
                 tenant_obj = form.save(commit=False)
 
@@ -648,16 +739,41 @@ def manage_tenants(request):
                     return redirect("manage_tenants")
 
                 cancelled = _cancel_active_bookings_for_unit(unit)
-                _set_unit_vacancy(unit, "occupied")
+                _set_unit_vacancy(unit, Unit.OCCUPIED)
 
-                tenant_obj.rent_balance = tenant_obj.monthly_rent - tenant_obj.rent_paid
+                # ✅ Optional initial rent payment increment (rent-only)
+                payment_amount = _safe_payment_amount(request)
+                if payment_amount > 0:
+                    tenant_obj.rent_paid = _normalize_decimal(tenant_obj.rent_paid, "0") + payment_amount
+
+                tenant_obj.rent_balance = (
+                    _normalize_decimal(tenant_obj.monthly_rent, "0") - _normalize_decimal(tenant_obj.rent_paid, "0")
+                )
                 tenant_obj.cumulative_rent_balance = tenant_obj.rent_balance
                 tenant_obj.unit_fk = unit
                 tenant_obj.save()
 
+                # ✅ Deposit recorded ONLY here (on new tenant add)
+                if deposit_amount > 0:
+                    DepositHistory.objects.create(
+                        tenant=_get_tenant_user_fk(tenant_obj),  # may be None if your Tenant isn't linked to auth user
+                        unit=unit,
+                        amount=deposit_amount,
+                        date_received=_parse_iso_date(request.POST.get("deposit_date")) or timezone.now().date(),
+                        reference=(request.POST.get("deposit_reference") or "").strip(),
+                        notes=(request.POST.get("deposit_notes") or "").strip(),
+                    )
+
             if cancelled:
                 messages.info(request, f"Note: {cancelled} active booking(s) for this unit were cancelled.")
-            messages.success(request, f"Tenant {tenant_obj.name} added successfully.")
+
+            if deposit_amount > 0:
+                messages.success(
+                    request,
+                    f"Tenant {tenant_obj.name} added successfully. Deposit recorded (KES {deposit_amount:,.0f}).",
+                )
+            else:
+                messages.success(request, f"Tenant {tenant_obj.name} added successfully.")
             return redirect("tenant_list")
     else:
         form = TenantForm(user=request.user)
@@ -680,6 +796,8 @@ def edit_tenant(request, tenant_id):
     if request.method == "POST":
         form = TenantForm(request.POST, instance=tenant_obj, user=request.user)
         if form.is_valid():
+            payment_amount = _safe_payment_amount(request)
+
             with transaction.atomic():
                 updated = form.save(commit=False)
 
@@ -697,19 +815,28 @@ def edit_tenant(request, tenant_id):
                         messages.error(request, "That unit already has a tenant. Choose another unit.")
                         return redirect("tenant_list")
 
-                    # free old unit: if it has active bookings, it's booked, else vacant
-                    if _unit_has_active_bookings(old_unit):
-                        _set_unit_vacancy(old_unit, "booked")
+                    # free old unit: booked if active bookings exist else vacant
+                    if _unit_has_active_bookings(old_unit) and (not _unit_has_tenant(old_unit)):
+                        _set_unit_vacancy(old_unit, Unit.BOOKED)
                     else:
-                        _set_unit_vacancy(old_unit, "vacant")
+                        _set_unit_vacancy(old_unit, Unit.VACANT)
 
                     cancelled = _cancel_active_bookings_for_unit(new_unit)
-                    _set_unit_vacancy(new_unit, "occupied")
+                    _set_unit_vacancy(new_unit, Unit.OCCUPIED)
                 else:
-                    _set_unit_vacancy(new_unit, "occupied")
+                    _set_unit_vacancy(new_unit, Unit.OCCUPIED)
 
-                new_balance = _normalize_decimal(updated.monthly_rent, "0") - _normalize_decimal(updated.rent_paid, "0")
+                # ✅ Apply payment increment on top of the form's rent_paid value (rent-only)
+                if payment_amount > 0:
+                    updated.rent_paid = _normalize_decimal(updated.rent_paid, "0") + payment_amount
+
+                monthly_rent = _normalize_decimal(updated.monthly_rent, "0")
+                rent_paid = _normalize_decimal(updated.rent_paid, "0")
+
+                new_balance = monthly_rent - rent_paid
                 updated.rent_balance = new_balance
+
+                # Replace old month-balance with new one
                 updated.cumulative_rent_balance = (old_cum - old_rent_balance) + new_balance
 
                 updated.unit_fk = new_unit
@@ -717,7 +844,10 @@ def edit_tenant(request, tenant_id):
 
             if cancelled:
                 messages.info(request, f"Note: {cancelled} active booking(s) for this unit were cancelled.")
-            messages.success(request, f"Tenant {updated.name} updated successfully.")
+            if payment_amount > 0:
+                messages.success(request, f"Payment recorded (KES {payment_amount:,.0f}). Tenant updated successfully.")
+            else:
+                messages.success(request, f"Tenant {updated.name} updated successfully.")
             return redirect("tenant_list")
     else:
         form = TenantForm(instance=tenant_obj, user=request.user)
@@ -738,11 +868,11 @@ def delete_tenant(request, tenant_id):
         tenant_name = tenant_obj.name
         tenant_obj.delete()
 
-        # after deletion, unit should become booked if bookings exist; else vacant
+        # after deletion, unit should become booked if active bookings exist; else vacant
         if _unit_has_active_bookings(unit):
-            _set_unit_vacancy(unit, "booked")
+            _set_unit_vacancy(unit, Unit.BOOKED)
         else:
-            _set_unit_vacancy(unit, "vacant")
+            _set_unit_vacancy(unit, Unit.VACANT)
 
     messages.success(request, f"Tenant {tenant_name} deleted successfully.")
     return redirect("tenant_list")
@@ -750,12 +880,30 @@ def delete_tenant(request, tenant_id):
 
 @login_required
 def tenant_list(request):
-    tenant_list_qs = (
+    """
+    ✅ Includes deposit totals per unit (read-only) for display.
+    No separate deposit history page/view.
+    """
+    tenants = (
         Tenant.objects.filter(unit_fk__property__landlord=request.user)
         .select_related("unit_fk", "unit_fk__property")
         .order_by("-date_paid")
     )
-    return render(request, "tenant_list.html", {"tenant_list": tenant_list_qs})
+
+    unit_ids = [t.unit_fk_id for t in tenants if t.unit_fk_id]
+    deposit_totals = {}
+    if unit_ids:
+        rows = (
+            DepositHistory.objects.filter(unit_id__in=unit_ids)
+            .values("unit_id")
+            .annotate(total=Sum("amount", output_field=DecimalField()))
+        )
+        deposit_totals = {r["unit_id"]: (r["total"] or Decimal("0")) for r in rows}
+
+    for t in tenants:
+        t.deposit_total = deposit_totals.get(t.unit_fk_id, Decimal("0"))
+
+    return render(request, "tenant_list.html", {"tenant_list": tenants})
 
 
 # ---------------------------------------------------------------------
@@ -828,7 +976,7 @@ class SetNewPasswordView(View):
 
 
 # ---------------------------------------------------------------------
-# Receipts
+# Receipts (rent receipt + shows deposit total for unit)
 # ---------------------------------------------------------------------
 
 @login_required
@@ -842,6 +990,7 @@ def generate_receipt(request, tenant_id):
     issued_at = timezone.now()
     receipt_no = f"ER-{issued_at.strftime('%Y%m%d')}-{get_random_string(6, allowed_chars='ABCDEFGHJKLMNPQRSTUVWXYZ23456789')}"
 
+    # ✅ Rent-only history
     ReceiptHistory.objects.create(
         tenant=tenant_obj,
         rent_paid=tenant_obj.rent_paid,
@@ -850,6 +999,14 @@ def generate_receipt(request, tenant_id):
         monthly_rent=tenant_obj.monthly_rent,
         rent_balance=tenant_obj.rent_balance,
         cumulative_rent_balance=tenant_obj.cumulative_rent_balance,
+    )
+
+    unit = tenant_obj.unit_fk
+
+    deposit_total = (
+        DepositHistory.objects.filter(unit=unit)
+        .aggregate(total=Sum("amount", output_field=DecimalField()))["total"]
+        or Decimal("0")
     )
 
     response = HttpResponse(content_type="application/pdf")
@@ -889,7 +1046,6 @@ def generate_receipt(request, tenant_id):
     p.drawRightString(width - 8 * mm, y, f"Issued: {issued_at.strftime('%d %b %Y, %H:%M')}")
     y -= 6 * mm
 
-    unit = tenant_obj.unit_fk
     prop = unit.property
     landlord = request.user
 
@@ -911,6 +1067,7 @@ def generate_receipt(request, tenant_id):
     monthly_rent = _money(getattr(tenant_obj, "monthly_rent", 0))
     rent_balance = _money(getattr(tenant_obj, "rent_balance", 0))
     cumulative_balance = _money(getattr(tenant_obj, "cumulative_rent_balance", 0))
+    deposit_total_fmt = _money(deposit_total)
 
     def section_title(label: str, yy: float):
         p.setFillColor(brand_dark)
@@ -955,7 +1112,7 @@ def generate_receipt(request, tenant_id):
 
     y -= (prop_h + 6 * mm)
 
-    pay_h = 34 * mm
+    pay_h = 38 * mm
     box(6 * mm, y, width - 12 * mm, pay_h)
     yy = y - 5 * mm
     section_title("Payment", yy); yy -= 5 * mm
@@ -974,6 +1131,7 @@ def generate_receipt(request, tenant_id):
     amount_row("Amount Received", rent_paid, yy, bold=True, color=success); yy -= 4.2 * mm
     amount_row("Balance (This Month)", rent_balance, yy); yy -= 4.2 * mm
     amount_row("Cumulative Balance", cumulative_balance, yy); yy -= 4.2 * mm
+    amount_row("Deposit (Total)", deposit_total_fmt, yy); yy -= 4.2 * mm
 
     p.setStrokeColor(border)
     p.setLineWidth(0.7)

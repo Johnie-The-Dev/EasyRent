@@ -2,6 +2,8 @@
 # UPDATED: SINGLE IMAGE + MODEL VIDEO + BOOKED UNITS ALLOWED IN TENANT FORM
 # FIXED: first unit not selectable (remove empty "---------" choice via empty_label=None)
 # IMPROVED: unit labels show status tag; stronger unit validation
+# ✅ ADDED: Deposit fields on TenantForm (extra/non-model fields; used ONLY when adding a new tenant)
+# ✅ Deposit is NOT rent (does not affect rent fields; views handle saving to DepositHistory)
 
 import calendar
 import re
@@ -133,9 +135,7 @@ class PropertyForm(forms.ModelForm):
         return normalized
 
     def clean_property_image(self):
-        """
-        Validate single uploaded image. Saved in the view to PropertyImage.
-        """
+        """Validate single uploaded image. Saved in the view to PropertyImage."""
         f = self.files.get("property_image")
         if not f:
             return None
@@ -152,9 +152,7 @@ class PropertyForm(forms.ModelForm):
         return f
 
     def clean_video(self):
-        """
-        Optional: validate video extension + size.
-        """
+        """Optional: validate video extension + size."""
         f = self.cleaned_data.get("video")
         if not f:
             return None
@@ -193,6 +191,12 @@ class TenantProfileForm(forms.ModelForm):
 # ---------- Tenancy / Payments ----------
 
 class TenantForm(forms.ModelForm):
+    """
+    ✅ Deposit fields are extra (non-model) fields:
+      - They are displayed/posted from manage_tenants (add tenant) UI,
+      - Views read them from request.POST and write DepositHistory (NOT Tenant).
+    """
+
     current_year = datetime.now().year
     current_month = datetime.now().month
     current_month_str = f"{current_year}-{current_month:02}"
@@ -213,9 +217,37 @@ class TenantForm(forms.ModelForm):
     unit_fk = forms.ModelChoiceField(
         queryset=Unit.objects.none(),
         label="Unit",
-        empty_label=None,  # ✅ FIX: removes the blank "---------" option so first unit is selectable
+        empty_label=None,  # ✅ removes blank option so first unit is selectable
         widget=forms.Select(attrs={"class": "form-control"}),
         help_text="Select the specific unit the tenant occupies (vacant/booked/maintenance only).",
+    )
+
+    # ✅ NEW (non-model fields) — used only when adding a new tenant
+    deposit_amount = forms.DecimalField(
+        required=False,
+        min_value=0,
+        decimal_places=2,
+        max_digits=12,
+        label="Deposit Amount (optional)",
+        widget=forms.NumberInput(attrs={"class": "form-control", "placeholder": "e.g. 10000"}),
+        help_text="Deposit is NOT rent. It will be recorded separately when adding a new tenant.",
+    )
+    deposit_date = forms.DateField(
+        required=False,
+        label="Deposit Date (optional)",
+        widget=forms.DateInput(attrs={"class": "form-control", "type": "date"}),
+    )
+    deposit_reference = forms.CharField(
+        required=False,
+        max_length=120,
+        label="Deposit Reference (optional)",
+        widget=forms.TextInput(attrs={"class": "form-control", "placeholder": "MPESA code / bank ref"}),
+    )
+    deposit_notes = forms.CharField(
+        required=False,
+        max_length=255,
+        label="Deposit Notes (optional)",
+        widget=forms.Textarea(attrs={"class": "form-control", "rows": 2}),
     )
 
     class Meta:
@@ -229,6 +261,7 @@ class TenantForm(forms.ModelForm):
             "date_paid",
             "month_paid_for",
             "monthly_rent",
+            # NOTE: deposit_* fields are NOT included here (non-model fields)
         ]
         widgets = {
             "name": forms.TextInput(attrs={"class": "form-control"}),
@@ -266,6 +299,13 @@ class TenantForm(forms.ModelForm):
             raise ValidationError("This unit already has a tenant record. Choose another unit.")
 
         return unit
+
+    def clean_deposit_reference(self):
+        # keep reference tidy
+        return (self.cleaned_data.get("deposit_reference") or "").strip()
+
+    def clean_deposit_notes(self):
+        return (self.cleaned_data.get("deposit_notes") or "").strip()
 
     def __init__(self, *args, **kwargs):
         user = kwargs.pop("user", None)

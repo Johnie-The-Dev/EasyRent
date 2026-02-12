@@ -1,4 +1,4 @@
-# models.py (UNIT-FIRST / NO FALLBACK) — DJANGO 5.1 SAFE (UPDATED WITH CONSTANTS)
+# models.py (UNIT-FIRST / NO FALLBACK) — DJANGO 5.1 SAFE (UPDATED WITH CONSTANTS + DEPOSITS)
 
 from __future__ import annotations
 
@@ -116,7 +116,6 @@ class Property(models.Model):
 
     @property
     def vacant_units(self) -> int:
-        # ✅ use constants (prevents "vacant" string mismatch bugs)
         return self.units.filter(is_active=True, vacancy=Unit.VACANT).count()
 
 
@@ -151,7 +150,6 @@ class Unit(models.Model):
     price = models.DecimalField(max_digits=10, decimal_places=2, validators=[MinValueValidator(0)])
     deposit = models.DecimalField(max_digits=10, decimal_places=2, default=0, validators=[MinValueValidator(0)])
 
-    # ✅ use VACANCY_CHOICES everywhere
     vacancy = models.CharField(max_length=20, choices=VACANCY_CHOICES, default=VACANT)
     is_active = models.BooleanField(default=True)
 
@@ -310,6 +308,61 @@ class ReceiptHistory(models.Model):
     def clean(self):
         if self.month_paid_for and not _MONTH_RE.fullmatch(self.month_paid_for):
             raise ValidationError({"month_paid_for": "Month must be in YYYY-MM format."})
+        super().clean()
+
+
+# ---------------- ✅ Deposits (separate from rent) ----------------
+
+class DepositHistory(models.Model):
+    """
+    Deposit payments are NOT rent.
+    - Recorded ONLY when adding a new tenant (per your views).
+    - Linked to a Unit (always).
+    - Optionally linked to a User (tenant user account) if your Tenant model relates to auth User.
+    """
+
+    tenant = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="deposit_records",
+        help_text="Optional link to the tenant's user account (if applicable).",
+    )
+
+    unit = models.ForeignKey(
+        Unit,
+        on_delete=models.CASCADE,
+        related_name="deposit_records",
+    )
+
+    amount = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        validators=[MinValueValidator(0)],
+    )
+
+    date_received = models.DateField()
+    reference = models.CharField(max_length=120, blank=True, default="")
+    notes = models.CharField(max_length=255, blank=True, default="")
+
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-date_received", "-created_at"]
+        indexes = [
+            models.Index(fields=["unit", "date_received"]),
+            models.Index(fields=["tenant", "date_received"]),
+        ]
+
+    def __str__(self) -> str:
+        u = getattr(self.unit, "unit_code", "—")
+        p = getattr(getattr(self.unit, "property", None), "name", "—")
+        return f"Deposit KES {self.amount} for {p} - {u} on {self.date_received:%Y-%m-%d}"
+
+    def clean(self):
+        if self.amount is not None and self.amount < 0:
+            raise ValidationError({"amount": "Deposit amount cannot be negative."})
         super().clean()
 
 

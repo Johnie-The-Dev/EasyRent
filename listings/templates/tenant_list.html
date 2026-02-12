@@ -1,4 +1,4 @@
-{# tenant_list.html (UNIT-FIRST / modernized list + searchable + responsive cards) — UPDATED #}
+{# tenant_list.html (UNIT-FIRST / modernized list + searchable + responsive cards) — UPDATED WITH DEPOSIT DISPLAY ✅ #}
 {% extends 'base.html' %}
 
 {% block title %}Tenant List - EasyRent{% endblock %}
@@ -26,6 +26,7 @@
   .badge-warn { background: rgba(245,158,11,.15); color:#b45309; border:1px solid rgba(245,158,11,.25); }
   .badge-ok { background: rgba(22,163,74,.15); color:#166534; border:1px solid rgba(22,163,74,.25); }
   .badge-danger { background: rgba(239,68,68,.14); color:#991b1b; border:1px solid rgba(239,68,68,.25); }
+  .badge-deposit { background: rgba(14,165,233,.12); color:#0369a1; border:1px solid rgba(14,165,233,.25); }
 
   .sticky-actions { min-width: 260px; }
   .search-input { max-width: 420px; }
@@ -44,7 +45,7 @@
   <div class="page-head mb-4 d-flex justify-content-between align-items-start flex-wrap gap-2">
     <div>
       <h2 class="fw-bold mb-1">Tenants</h2>
-      <div class="text-muted">Unit-first tenant records, balances, and receipts.</div>
+      <div class="text-muted">Unit-first tenant records, balances, receipts, and deposits.</div>
     </div>
     <div class="d-flex gap-2 flex-wrap">
       <a href="{% url 'manage_tenants' %}" class="btn btn-primary">
@@ -70,15 +71,15 @@
       <div class="card kpi-card border-0 h-100">
         <div class="card-body">
           <div class="text-muted small fw-bold">This Page</div>
-          <div class="text-muted">Search + quick actions (edit, receipt, history)</div>
+          <div class="text-muted">Search + quick actions (edit, receipt, history).</div>
         </div>
       </div>
     </div>
     <div class="col-md-4">
       <div class="card kpi-card border-0 h-100">
         <div class="card-body">
-          <div class="text-muted small fw-bold">Tip</div>
-          <div class="text-muted">Use the search box to filter instantly (client-side).</div>
+          <div class="text-muted small fw-bold">Deposit Tip</div>
+          <div class="text-muted">Deposit is shown separately and does not change rent balances.</div>
         </div>
       </div>
     </div>
@@ -125,7 +126,8 @@
                   <div class="small text-muted">
                     Unit <strong>{{ tenant.unit_fk.unit_code }}</strong> • {{ tenant.unit_fk.unit_type }}
                   </div>
-                  <div class="small">
+
+                  <div class="small d-flex flex-wrap gap-2 align-items-center mt-1">
                     {% if tenant.unit_fk.vacancy == 'occupied' %}
                       <span class="badge badge-ok">Occupied</span>
                     {% elif tenant.unit_fk.vacancy == 'booked' %}
@@ -135,6 +137,19 @@
                     {% else %}
                       <span class="badge badge-soft">Vacant</span>
                     {% endif %}
+
+                    {# ✅ Deposit indicator: tenant.deposit_total attached by tenant_list view #}
+                    {% with dep=tenant.deposit_total|default_if_none:0 %}
+                      {% if dep|floatformat:0 != "0" %}
+                        <span class="badge badge-deposit">
+                          <i class="bi bi-safe2"></i> Deposit: KES {{ dep|floatformat:0 }}
+                        </span>
+                      {% else %}
+                        <span class="badge badge-deposit">
+                          <i class="bi bi-safe2"></i> Deposit: —
+                        </span>
+                      {% endif %}
+                    {% endwith %}
                   </div>
                 {% else %}
                   <span class="text-muted">—</span>
@@ -176,6 +191,7 @@
                       <i class="bi bi-receipt"></i>
                     </a>
                   </div>
+
                   <a href="{% url 'receipt_history' tenant.id %}" class="btn btn-sm btn-secondary">
                     <i class="bi bi-clock-history"></i> Receipt History
                   </a>
@@ -229,6 +245,20 @@
                     —
                   {% endif %}
                 </div>
+
+                <div class="mt-2">
+                  {% with dep=tenant.deposit_total|default_if_none:0 %}
+                    {% if dep|floatformat:0 != "0" %}
+                      <span class="badge badge-deposit">
+                        <i class="bi bi-safe2"></i> Deposit: KES {{ dep|floatformat:0 }}
+                      </span>
+                    {% else %}
+                      <span class="badge badge-deposit">
+                        <i class="bi bi-safe2"></i> Deposit: —
+                      </span>
+                    {% endif %}
+                  {% endwith %}
+                </div>
               </div>
 
               <div class="row g-2 mt-3">
@@ -260,9 +290,11 @@
                     <i class="bi bi-receipt"></i> Receipt
                   </a>
                 </div>
+
                 <a href="{% url 'receipt_history' tenant.id %}" class="btn btn-sm btn-secondary">
                   <i class="bi bi-clock-history"></i> Receipt History
                 </a>
+
                 <a href="{% url 'delete_tenant' tenant.id %}" class="btn btn-sm btn-outline-danger">
                   <i class="bi bi-trash"></i> Delete
                 </a>
@@ -319,7 +351,8 @@
   }
 
   document.addEventListener('DOMContentLoaded', function(){
-    updateHint(rows.length || cards.length, rows.length || cards.length);
+    const total = rows.length || cards.length;
+    updateHint(total, total);
   });
 
   input && input.addEventListener('input', function(e){

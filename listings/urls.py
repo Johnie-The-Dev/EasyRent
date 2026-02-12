@@ -8,10 +8,11 @@ urlpatterns = [
     path("", views.home, name="home"),
     path("signup/", views.signup_view, name="signup"),
 
-    # Use your CustomLoginView OR auth_views. Pick one. I'll keep your existing template.
+    # Auth (keeping your existing template)
     path("login/", auth_views.LoginView.as_view(template_name="login.html"), name="login"),
     path("logout/", views.custom_logout, name="logout"),
 
+    # Dashboards / feeds
     path("landlord/dashboard/", views.landlord_dashboard, name="landlord_dashboard"),
     path("tenant/feed/", views.tenant_feed, name="tenant_feed"),
 
@@ -26,6 +27,7 @@ urlpatterns = [
     path("collection/remove/<int:property_id>/", views.remove_from_collection, name="remove_from_collection"),
     path("collection/", views.view_collection, name="view_collection"),
 
+    # Static
     path("about/", TemplateView.as_view(template_name="about.html"), name="about"),
 
     # Password reset
@@ -53,4 +55,7 @@ urlpatterns = [
     path("booking/update/<int:booking_id>/", views.update_booking_status, name="update_booking_status"),
     path("tenant/bookings/", views.tenant_bookings, name="tenant_bookings"),
     path("booking/unbook/<int:booking_id>/", views.unbook_property, name="unbook_property"),
+
+    # ✅ Clear cancelled booking (tenant-only)
+    path("booking/clear/<int:booking_id>/", views.clear_booking, name="clear_booking"),
 ]

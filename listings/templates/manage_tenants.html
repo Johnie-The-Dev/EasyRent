@@ -1,3 +1,4 @@
+{# manage_tenants.html (UNIT-FIRST) — UPDATED WITH DEPOSIT (NON-RENT) #}
 {% extends 'base.html' %}
 
 {% block title %}Manage Tenants - EasyRent{% endblock %}
@@ -54,6 +55,15 @@
   }
 
   .req-star{ color: #ef4444; }
+
+  .section-title{
+    font-weight: 800;
+    margin: 8px 0 2px;
+  }
+  .subtle{
+    color: rgba(17,24,39,.75);
+    font-size: .9rem;
+  }
 </style>
 
 <div class="container py-4 page-wrap">
@@ -171,6 +181,53 @@
             </div>
           </div>
 
+          {# ✅ NEW: Deposit section (NOT rent) #}
+          <div class="col-12 mt-2">
+            <div class="hint-card">
+              <div class="d-flex justify-content-between align-items-start gap-2 flex-wrap">
+                <div>
+                  <div class="section-title">
+                    <i class="bi bi-safe2"></i> Deposit (Optional)
+                  </div>
+                  <div class="subtle">
+                    Deposit is <strong>not rent</strong>. It is recorded separately and does not change rent balances/KPIs.
+                    Deposit is recorded <strong>only when adding a new tenant</strong>.
+                  </div>
+                </div>
+                <span class="meta-pill">
+                  <i class="bi bi-shield-check"></i> Separate ledger
+                </span>
+              </div>
+
+              <div class="row g-3 mt-1">
+                <div class="col-md-4">
+                  <label class="form-label mb-1">Deposit Amount (KES)</label>
+                  {{ form.deposit_amount }}
+                  {% if form.deposit_amount.errors %}<div class="text-danger small mt-1">{{ form.deposit_amount.errors }}</div>{% endif %}
+                  {% if form.deposit_amount.help_text %}<div class="form-text small">{{ form.deposit_amount.help_text }}</div>{% endif %}
+                </div>
+
+                <div class="col-md-4">
+                  <label class="form-label mb-1">Deposit Date</label>
+                  {{ form.deposit_date }}
+                  {% if form.deposit_date.errors %}<div class="text-danger small mt-1">{{ form.deposit_date.errors }}</div>{% endif %}
+                </div>
+
+                <div class="col-md-4">
+                  <label class="form-label mb-1">Deposit Reference</label>
+                  {{ form.deposit_reference }}
+                  {% if form.deposit_reference.errors %}<div class="text-danger small mt-1">{{ form.deposit_reference.errors }}</div>{% endif %}
+                </div>
+
+                <div class="col-12">
+                  <label class="form-label mb-1">Deposit Notes</label>
+                  {{ form.deposit_notes }}
+                  {% if form.deposit_notes.errors %}<div class="text-danger small mt-1">{{ form.deposit_notes.errors }}</div>{% endif %}
+                </div>
+              </div>
+            </div>
+          </div>
+
           <div class="col-12">
             <div class="d-flex gap-2">
               <button type="submit" class="btn btn-primary flex-grow-1">
@@ -203,6 +260,10 @@
 
   const rentBalanceEl = document.getElementById('rent_balance');
 
+  // Deposit fields (optional)
+  const depositAmountEl = form.querySelector('[name="deposit_amount"]');
+  const depositDateEl = form.querySelector('[name="deposit_date"]');
+
   function recalcBalances() {
     const monthlyRent = parseFloat(monthlyRentEl?.value || "0") || 0;
     const rentPaid = parseFloat(rentPaidEl?.value || "0") || 0;
@@ -233,15 +294,37 @@
     }
   }
 
+  function todayISO() {
+    const d = new Date();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${d.getFullYear()}-${m}-${day}`;
+  }
+
+  function maybeAutofillDepositDate() {
+    // If landlord types a deposit amount and no date is set, default to today for convenience
+    const amt = parseFloat(depositAmountEl?.value || "0") || 0;
+    if (amt > 0 && depositDateEl && !depositDateEl.value) {
+      depositDateEl.value = todayISO();
+    }
+    // If amount cleared, leave date as-is (don't delete user input)
+  }
+
   document.addEventListener('DOMContentLoaded', function() {
     recalcBalances();
     showUnitMeta();
+    maybeAutofillDepositDate();
   });
 
   form.addEventListener('input', function(e) {
     if (!e.target) return;
+
     if (e.target.name === "monthly_rent" || e.target.name === "rent_paid") {
       recalcBalances();
+    }
+
+    if (e.target.name === "deposit_amount") {
+      maybeAutofillDepositDate();
     }
   });
 
