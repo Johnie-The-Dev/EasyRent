@@ -1,5 +1,4 @@
-# models.py (UNIT-FIRST / NO FALLBACK) — DJANGO 5.1 SAFE (UPDATED WITH CONSTANTS + DEPOSITS)
-
+# listings/models.py (UNIT-FIRST / NO FALLBACK) — DJANGO 5.1 SAFE
 from __future__ import annotations
 
 import re
@@ -12,6 +11,7 @@ from django.core.exceptions import ValidationError
 from django.core.validators import FileExtensionValidator, MinValueValidator
 from django.db import models
 from django.db.models import Q
+from django.utils import timezone
 
 
 # ---------------- Users ----------------
@@ -30,15 +30,54 @@ class User(AbstractUser):
         return self.role == "landlord"
 
 
+# ---------------- Notifications (navbar) ----------------
+
+class Notification(models.Model):
+    LEVEL_INFO = "info"
+    LEVEL_SUCCESS = "success"
+    LEVEL_WARNING = "warning"
+    LEVEL_DANGER = "danger"
+
+    LEVEL_CHOICES = [
+        (LEVEL_INFO, "Info"),
+        (LEVEL_SUCCESS, "Success"),
+        (LEVEL_WARNING, "Warning"),
+        (LEVEL_DANGER, "Danger"),
+    ]
+
+    recipient = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="notifications",
+    )
+    actor = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="notifications_sent",
+    )
+
+    message = models.CharField(max_length=255)
+    level = models.CharField(max_length=10, choices=LEVEL_CHOICES, default=LEVEL_INFO)
+    url = models.CharField(max_length=500, blank=True, default="")
+
+    is_read = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+        indexes = [
+            models.Index(fields=["recipient", "is_read", "created_at"]),
+        ]
+
+    def __str__(self) -> str:
+        return f"To {self.recipient.username}: {self.message}"
+
+
 # ---------------- Property (container/listing) ----------------
 
 class Property(models.Model):
-    """
-    Property = container/listing (building/compound).
-    Units are the actual rentable inventory.
-    property_type/price are defaults for unit creation + listing display.
-    """
-
     PROPERTY_TYPE_CHOICES = [
         ("Single Room", "Single Room"),
         ("Bed Sitter", "Bed Sitter"),
@@ -85,7 +124,6 @@ class Property(models.Model):
         return self.name
 
     # ---- WhatsApp helpers ----
-
     @property
     def whatsapp_number(self) -> str:
         digits = re.sub(r"\D", "", self.landlord_phone or "")
@@ -108,8 +146,6 @@ class Property(models.Model):
         message = f'Hi {landlord_name}, I\'m interested in your listing "{self.name}" (ID {self.id}).'
         return f"https://wa.me/{number}?text={quote(message)}"
 
-    # NOTE: READ-ONLY convenience properties.
-    # Do not annotate/assign into these names in views.
     @property
     def total_units(self) -> int:
         return self.units.filter(is_active=True).count()
@@ -122,14 +158,8 @@ class Property(models.Model):
 # ---------------- Unit (inventory) ----------------
 
 class Unit(models.Model):
-    """
-    Unit = actual rentable inventory item.
-    Bookings and occupancy attach here.
-    """
-
     UNIT_TYPE_CHOICES = Property.PROPERTY_TYPE_CHOICES
 
-    # ✅ Canonical vacancy constants
     VACANT = "vacant"
     OCCUPIED = "occupied"
     BOOKED = "booked"
@@ -143,8 +173,7 @@ class Unit(models.Model):
     ]
 
     property = models.ForeignKey(Property, on_delete=models.CASCADE, related_name="units")
-
-    unit_code = models.CharField(max_length=50)  # e.g. A1, B2, 101, Shop-03
+    unit_code = models.CharField(max_length=50)  # e.g. A1, B2, 101
     unit_type = models.CharField(max_length=50, choices=UNIT_TYPE_CHOICES)
 
     price = models.DecimalField(max_digits=10, decimal_places=2, validators=[MinValueValidator(0)])
@@ -214,7 +243,7 @@ class PropertyImage(models.Model):
 # ---------------- Tenant collection (saved properties) ----------------
 
 class TenantCollection(models.Model):
-    tenant = models.ForeignKey(User, on_delete=models.CASCADE, related_name="collections")
+    tenant = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="collections")
     property = models.ForeignKey(Property, on_delete=models.CASCADE, related_name="saved_by")
     added_at = models.DateTimeField(auto_now_add=True)
 
@@ -235,7 +264,8 @@ class TenantCollection(models.Model):
 # ---------------- Tenancy / payments ----------------
 
 def get_current_month() -> str:
-    return datetime.now().strftime("%Y-%m")
+    # timezone-aware and Django-friendly
+    return timezone.now().strftime("%Y-%m")
 
 
 _MONTH_RE = re.compile(r"^\d{4}-\d{2}$")
@@ -245,11 +275,7 @@ class Tenant(models.Model):
     name = models.CharField(max_length=100)
     phone = models.CharField(max_length=20)
 
-    unit_fk = models.ForeignKey(
-        Unit,
-        on_delete=models.CASCADE,
-        related_name="tenancies",
-    )
+    unit_fk = models.ForeignKey(Unit, on_delete=models.CASCADE, related_name="tenancies")
 
     date_occupied = models.DateField()
     rent_paid = models.DecimalField(max_digits=10, decimal_places=2, validators=[MinValueValidator(0)])
@@ -311,16 +337,9 @@ class ReceiptHistory(models.Model):
         super().clean()
 
 
-# ---------------- ✅ Deposits (separate from rent) ----------------
+# ---------------- Deposits (separate from rent) ----------------
 
 class DepositHistory(models.Model):
-    """
-    Deposit payments are NOT rent.
-    - Recorded ONLY when adding a new tenant (per your views).
-    - Linked to a Unit (always).
-    - Optionally linked to a User (tenant user account) if your Tenant model relates to auth User.
-    """
-
     tenant = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.SET_NULL,
@@ -330,22 +349,13 @@ class DepositHistory(models.Model):
         help_text="Optional link to the tenant's user account (if applicable).",
     )
 
-    unit = models.ForeignKey(
-        Unit,
-        on_delete=models.CASCADE,
-        related_name="deposit_records",
-    )
+    unit = models.ForeignKey(Unit, on_delete=models.CASCADE, related_name="deposit_records")
 
-    amount = models.DecimalField(
-        max_digits=12,
-        decimal_places=2,
-        validators=[MinValueValidator(0)],
-    )
+    amount = models.DecimalField(max_digits=12, decimal_places=2, validators=[MinValueValidator(0)])
 
     date_received = models.DateField()
     reference = models.CharField(max_length=120, blank=True, default="")
     notes = models.CharField(max_length=255, blank=True, default="")
-
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -369,18 +379,22 @@ class DepositHistory(models.Model):
 # ---------------- Bookings ----------------
 
 class Booking(models.Model):
+    STATUS_PENDING = "pending"
+    STATUS_CONFIRMED = "confirmed"
+    STATUS_CANCELLED = "cancelled"
+
     STATUS_CHOICES = [
-        ("pending", "Pending"),
-        ("confirmed", "Confirmed"),
-        ("cancelled", "Cancelled"),
+        (STATUS_PENDING, "Pending"),
+        (STATUS_CONFIRMED, "Confirmed"),
+        (STATUS_CANCELLED, "Cancelled"),
     ]
 
     unit = models.ForeignKey(Unit, on_delete=models.CASCADE, related_name="bookings")
-    tenant = models.ForeignKey(User, on_delete=models.CASCADE, related_name="bookings")
+    tenant = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="bookings")
 
     move_in_date = models.DateField(null=True, blank=True)
 
-    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="pending")
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default=STATUS_PENDING)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -393,6 +407,7 @@ class Booking(models.Model):
         constraints = [
             models.UniqueConstraint(
                 fields=["tenant", "unit"],
+                # ✅ IMPORTANT: use raw strings in constraint condition to avoid NameError at import-time
                 condition=Q(status__in=["pending", "confirmed"]),
                 name="uniq_active_booking_per_tenant_unit",
             )

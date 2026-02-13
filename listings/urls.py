@@ -1,3 +1,4 @@
+# listings/urls.py
 from django.urls import path
 from django.contrib.auth import views as auth_views
 from django.views.generic import TemplateView
@@ -8,7 +9,7 @@ urlpatterns = [
     path("", views.home, name="home"),
     path("signup/", views.signup_view, name="signup"),
 
-    # Auth (keeping your existing template)
+    # Auth
     path("login/", auth_views.LoginView.as_view(template_name="login.html"), name="login"),
     path("logout/", views.custom_logout, name="logout"),
 
@@ -55,7 +56,11 @@ urlpatterns = [
     path("booking/update/<int:booking_id>/", views.update_booking_status, name="update_booking_status"),
     path("tenant/bookings/", views.tenant_bookings, name="tenant_bookings"),
     path("booking/unbook/<int:booking_id>/", views.unbook_property, name="unbook_property"),
-
-    # ✅ Clear cancelled booking (tenant-only)
     path("booking/clear/<int:booking_id>/", views.clear_booking, name="clear_booking"),
+
+    # ✅ Notifications
+    path("notifications/", views.notifications_center, name="notifications_center"),
+    path("notifications/mark-read/<int:notification_id>/", views.notification_mark_read, name="notification_mark_read"),
+    path("notifications/dismiss/<int:notification_id>/", views.notification_dismiss, name="notification_dismiss"),
+    path("notifications/clear/", views.notifications_clear_all, name="notifications_clear_all"),
 ]
