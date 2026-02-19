@@ -1,0 +1,196 @@
+{% extends "admin/base_site.html" %}
+
+{% block extrastyle %}
+{{ block.super }}
+<style>
+  .ops-grid { display: grid; grid-template-columns: repeat(4, minmax(220px, 1fr)); gap: 12px; margin: 14px 0; }
+  @media (max-width: 1100px) { .ops-grid { grid-template-columns: repeat(2, minmax(220px, 1fr)); } }
+  @media (max-width: 700px)  { .ops-grid { grid-template-columns: 1fr; } }
+
+  .ops-card { padding: 12px 14px; }
+  .ops-card h2 { margin: 0 0 10px; font-size: 14px; }
+  .ops-kpi { display: grid; grid-template-columns: 1fr auto; gap: 6px 10px; margin: 0; }
+  .ops-kpi dt { color: var(--body-quiet-color, #666); }
+  .ops-kpi dd { margin: 0; font-weight: 600; }
+
+  .ops-actions { display:flex; flex-wrap: wrap; gap: 8px; }
+  .ops-actions a.button { margin: 0; }
+
+  .ops-two { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 12px; }
+  @media (max-width: 900px) { .ops-two { grid-template-columns: 1fr; } }
+
+  .ops-table { width: 100%; border-collapse: collapse; }
+  .ops-table th, .ops-table td { padding: 8px 10px; border-top: 1px solid var(--hairline-color, #e5e5e5); vertical-align: top; }
+  .ops-table thead th { border-top: none; color: var(--body-quiet-color, #666); font-weight: 600; text-transform: none; }
+  .ops-muted { color: var(--body-quiet-color, #666); }
+  .ops-badge { display:inline-block; padding: 2px 8px; border-radius: 999px; font-size: 11px; border: 1px solid var(--hairline-color, #e5e5e5); }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="content">
+  <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:12px; flex-wrap:wrap;">
+    <div>
+      <h1 style="margin-bottom:4px;">EasyRent Ops Dashboard</h1>
+      <div class="ops-muted">Platform-wide monitoring & downloadable reports (superuser-only).</div>
+    </div>
+
+    <div class="ops-actions">
+      <a class="button" href="{% url 'ops:market_overview_pdf' %}?days=7">Market (7d)</a>
+      <a class="button" href="{% url 'ops:market_overview_pdf' %}?days=30">Market (30d)</a>
+      <a class="button" href="{% url 'ops:receipts_ledger_pdf' %}?days=30">Receipts (30d)</a>
+      <a class="button" href="{% url 'ops:deposits_ledger_pdf' %}?days=30">Deposits (30d)</a>
+      <a class="button" href="{% url 'ops:user_registry_pdf' %}?days=30&role=all">Users (30d)</a>
+    </div>
+  </div>
+
+  <div class="ops-grid">
+    <div class="module ops-card">
+      <h2>Users</h2>
+      <dl class="ops-kpi">
+        <dt>Landlords</dt><dd>{{ cards.total_landlords }}</dd>
+        <dt>Tenants</dt><dd>{{ cards.total_tenants }}</dd>
+        <dt>New (7 days)</dt><dd>{{ cards.new_users_7d }}</dd>
+      </dl>
+    </div>
+
+    <div class="module ops-card">
+      <h2>Inventory</h2>
+      <dl class="ops-kpi">
+        <dt>Properties</dt><dd>{{ cards.total_properties }}</dd>
+        <dt>Active units</dt><dd>{{ cards.total_units }}</dd>
+        <dt>Occupancy</dt><dd>{{ cards.occupancy_rate }}%</dd>
+      </dl>
+    </div>
+
+    <div class="module ops-card">
+      <h2>Vacancy snapshot</h2>
+      <dl class="ops-kpi">
+        <dt>Vacant</dt><dd>{{ cards.vacant_units }}</dd>
+        <dt>Booked</dt><dd>{{ cards.booked_units }}</dd>
+        <dt>Occupied</dt><dd>{{ cards.occupied_units }}</dd>
+        <dt>Maintenance</dt><dd>{{ cards.maintenance_units }}</dd>
+      </dl>
+    </div>
+
+    <div class="module ops-card">
+      <h2>Bookings</h2>
+      <dl class="ops-kpi">
+        <dt>Pending</dt><dd>{{ cards.pending_count }}</dd>
+        <dt>Confirmed</dt><dd>{{ cards.confirmed_count }}</dd>
+        <dt>Cancelled</dt><dd>{{ cards.cancelled_count }}</dd>
+        <dt>Oldest pending</dt>
+        <dd>
+          {% if oldest_pending %}
+            {{ oldest_pending.created_at|date:"Y-m-d" }}
+          {% else %}
+            —
+          {% endif %}
+        </dd>
+      </dl>
+    </div>
+  </div>
+
+  <div class="module" style="padding: 12px 14px;">
+    <h2 style="margin-top:0;">Money throughput (platform-wide)</h2>
+    <div class="ops-muted" style="margin-bottom:10px;">Not your revenue — this reflects rent/deposit flows recorded in the system.</div>
+    <dl class="ops-kpi" style="max-width:700px;">
+      <dt>Expected monthly rent capacity</dt><dd>KES {{ cards.expected_monthly_rent|floatformat:0 }}</dd>
+      <dt>Rent collected (this month)</dt><dd>KES {{ cards.rent_collected_month|floatformat:0 }}</dd>
+      <dt>Deposits received (this month)</dt><dd>KES {{ cards.deposits_month|floatformat:0 }}</dd>
+      <dt>Outstanding balance total</dt><dd>KES {{ cards.outstanding_balance_total|floatformat:0 }}</dd>
+    </dl>
+  </div>
+
+  <div class="ops-two">
+    <div class="module" style="padding: 12px 14px;">
+      <h2 style="margin-top:0;">Pending bookings (latest)</h2>
+      <table class="ops-table">
+        <thead>
+          <tr>
+            <th>When</th>
+            <th>Tenant</th>
+            <th>Property / Unit</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for b in pending_queue %}
+            <tr>
+              <td class="ops-muted">{{ b.created_at|date:"Y-m-d H:i" }}</td>
+              <td>{{ b.tenant.username }}</td>
+              <td>{{ b.unit.property.name }} / {{ b.unit.unit_code }}</td>
+              <td><span class="ops-badge">{{ b.status|upper }}</span></td>
+            </tr>
+          {% empty %}
+            <tr><td colspan="4" class="ops-muted">No pending bookings.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    <div class="module" style="padding: 12px 14px;">
+      <h2 style="margin-top:0;">Top saved properties</h2>
+      <table class="ops-table">
+        <thead>
+          <tr>
+            <th>Property</th>
+            <th>Town</th>
+            <th>Saves</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for r in top_saved %}
+            <tr>
+              <td>{{ r.property__name }}</td>
+              <td class="ops-muted">{{ r.property__town }}</td>
+              <td><b>{{ r.saves }}</b></td>
+            </tr>
+          {% empty %}
+            <tr><td colspan="3" class="ops-muted">No saves yet.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="ops-two">
+    <div class="module" style="padding: 12px 14px;">
+      <h2 style="margin-top:0;">Data integrity</h2>
+      <div class="ops-muted" style="margin-bottom:10px;">These indicate inconsistent states worth investigating.</div>
+
+      <h3 style="margin: 10px 0 6px; font-size: 13px;">BOOKED but no active booking</h3>
+      <ul>
+        {% for u in booked_without_booking %}
+          <li>{{ u.property.name }} / {{ u.unit_code }}</li>
+        {% empty %}
+          <li class="ops-muted">None</li>
+        {% endfor %}
+      </ul>
+
+      <h3 style="margin: 12px 0 6px; font-size: 13px;">OCCUPIED but no tenant record</h3>
+      <ul>
+        {% for u in occupied_without_tenant %}
+          <li>{{ u.property.name }} / {{ u.unit_code }}</li>
+        {% empty %}
+          <li class="ops-muted">None</li>
+        {% endfor %}
+      </ul>
+    </div>
+
+    <div class="module" style="padding: 12px 14px;">
+      <h2 style="margin-top:0;">Quick links</h2>
+      <ul>
+        <li><a href="/admin/">Admin home</a></li>
+        <li><a href="/admin/listings/property/">Properties</a></li>
+        <li><a href="/admin/listings/unit/">Units</a></li>
+        <li><a href="/admin/listings/booking/">Bookings</a></li>
+        <li><a href="/admin/listings/receipthistory/">Receipts</a></li>
+        <li><a href="/admin/listings/deposithistory/">Deposits</a></li>
+        <li><a href="/admin/listings/user/">Users</a></li>
+      </ul>
+      <div class="ops-muted">These URLs assume your app label is <b>listings</b> (it is).</div>
+    </div>
+  </div>
+</div>
+{% endblock %}
