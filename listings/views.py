@@ -1,4 +1,4 @@
-# listings/views.py (UNIT-FIRST / NO FALLBACK) — UPDATED ✅
+# listings/views.py (UNIT-FIRST / NO FALLBACK) — UPDATED ✅ (Apartment removed everywhere)
 from decimal import Decimal, InvalidOperation
 
 from django.conf import settings
@@ -30,7 +30,6 @@ from .forms import (
     TenantProfileForm,
     UnitFormSet,
 )
-
 from .models import (
     Booking,
     DepositHistory,
@@ -151,8 +150,16 @@ def _next_or_referer(request, fallback_name="home"):
     return request.POST.get("next") or request.GET.get("next") or request.META.get("HTTP_REFERER") or fallback_name
 
 
+def _valid_unit_types_set():
+    """
+    Server-side safety for filters:
+    since 'Apartment' is removed, ignore it if someone still passes it.
+    """
+    return {k for (k, _label) in getattr(Unit, "UNIT_TYPE_CHOICES", [])}
+
+
 # ---------------------------------------------------------------------
-# Notifications (URLs in your updated urls.py)
+# Notifications
 # ---------------------------------------------------------------------
 
 @login_required
@@ -336,27 +343,37 @@ def landlord_dashboard(request):
 
 
 # ---------------------------------------------------------------------
-# Tenant Feed
+# Tenant Feed (filter is UNIT TYPE only; Apartment removed & ignored if provided)
 # ---------------------------------------------------------------------
 
 def tenant_feed(request):
-    properties_list = Property.objects.all().select_related("landlord").prefetch_related("images")
+    properties_list = (
+        Property.objects.all()
+        .select_related("landlord")
+        .prefetch_related("images")
+    )
 
-    county = request.GET.get("county", "")
-    town = request.GET.get("town", "")
-    unit_type = request.GET.get("property_type", "")
-    min_price = request.GET.get("min_price", "")
-    max_price = request.GET.get("max_price", "")
+    county = request.GET.get("county", "").strip()
+    town = request.GET.get("town", "").strip()
+    unit_type = request.GET.get("property_type", "").strip()  # still named property_type in query for compatibility
+    min_price = request.GET.get("min_price", "").strip()
+    max_price = request.GET.get("max_price", "").strip()
 
     if county:
         properties_list = properties_list.filter(county__icontains=county)
     if town:
         properties_list = properties_list.filter(town__icontains=town)
 
+    # Always show properties with at least one VACANT active unit
     unit_filter = Q(units__is_active=True, units__vacancy=Unit.VACANT)
 
-    if unit_type:
+    # ✅ Only apply unit_type if it's a valid choice (ignores legacy 'Apartment' or random strings)
+    valid_unit_types = _valid_unit_types_set()
+    if unit_type and unit_type in valid_unit_types:
         unit_filter &= Q(units__unit_type=unit_type)
+    else:
+        # if invalid, treat as "All Types" (prevents "Apartment" causing empty results)
+        unit_type = ""
 
     if min_price:
         unit_filter &= Q(units__price__gte=_normalize_decimal(min_price, default="0"))
@@ -403,7 +420,7 @@ def tenant_feed(request):
         "properties": properties,
         "selected_county": county,
         "selected_town": town,
-        "selected_type": unit_type,
+        "selected_type": unit_type,  # now guaranteed to be "" or a valid Unit choice
         "selected_min_price": min_price,
         "selected_max_price": max_price,
         "user_bookings": [],
@@ -450,6 +467,7 @@ def add_property(request):
                     if not (u.unit_code or "").strip():
                         continue
                     if not u.unit_type:
+                        # default unit type follows property type (Apartment already removed in model choices)
                         u.unit_type = prop.property_type
                     if u.price in [None, ""]:
                         u.price = prop.price
@@ -693,10 +711,6 @@ def update_booking_status(request, booking_id):
             messages.success(request, f"Booking status updated to {new_status}.")
     return redirect("landlord_bookings")
 
-
-# ---------------------------------------------------------------------
-# Clear cancelled booking (tenant deletes cancelled booking entry)
-# ---------------------------------------------------------------------
 
 @login_required
 def clear_booking(request, booking_id):

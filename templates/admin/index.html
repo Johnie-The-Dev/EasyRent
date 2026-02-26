@@ -1,0 +1,10 @@
+{% extends "admin/base_site.html" %}
+
+{% block content %}
+<div class="module" style="padding: 12px 14px; margin-bottom: 12px;">
+  <h2 style="margin-top:0;">Ops</h2>
+  <p><a class="button" href="{% url 'ops:dashboard' %}">Open Ops Dashboard</a></p>
+</div>
+
+{{ block.super }}
+{% endblock %}

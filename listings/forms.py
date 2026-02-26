@@ -2,7 +2,7 @@
 # UPDATED: SINGLE IMAGE + MODEL VIDEO + BOOKED UNITS ALLOWED IN TENANT FORM
 # FIXED: first unit not selectable (remove empty "---------" choice via empty_label=None)
 # IMPROVED: unit labels show status tag; stronger unit validation
-# ✅ ADDED: Deposit fields on TenantForm (extra/non-model fields; used ONLY when adding a new tenant)
+# ✅ Deposit fields on TenantForm (extra/non-model fields; used ONLY when adding a new tenant)
 # ✅ Deposit is NOT rent (does not affect rent fields; views handle saving to DepositHistory)
 
 import calendar
@@ -60,10 +60,6 @@ VIDEO_EXT_VALIDATOR = FileExtensionValidator(["mp4", "mov", "m4v", "webm"])
 
 
 def _unit_status_values():
-    """
-    Prefer Unit constants if they exist; otherwise fallback to string literals.
-    Keeps compatibility if your Unit model doesn't define constants.
-    """
     vacant = getattr(Unit, "VACANT", "vacant")
     booked = getattr(Unit, "BOOKED", "booked")
     maintenance = getattr(Unit, "MAINTENANCE", "maintenance")
@@ -103,13 +99,13 @@ class PropertyForm(forms.ModelForm):
             "price",
             "landlord_phone",
             "description",
-            "video",  # ✅ model field name
+            "video",
         ]
         widgets = {
             "name": forms.TextInput(attrs={"class": "form-control"}),
             "county": forms.TextInput(attrs={"class": "form-control"}),
             "town": forms.TextInput(attrs={"class": "form-control"}),
-            "property_type": forms.Select(attrs={"class": "form-control"}),
+            "property_type": forms.Select(attrs={"class": "form-control"}),  # ✅ uses updated choices from model
             "price": forms.NumberInput(attrs={"class": "form-control"}),
             "landlord_phone": forms.TextInput(
                 attrs={
@@ -128,14 +124,12 @@ class PropertyForm(forms.ModelForm):
         normalized = _normalize_kenyan_phone(phone)
         digits = re.sub(r"\D", "", normalized)
 
-        # +2547XXXXXXXX => 12 digits total
         if not digits or len(digits) != 12 or not digits.startswith("2547"):
             raise forms.ValidationError("Enter a valid Kenyan mobile number (e.g. 07XXXXXXXX).")
 
         return normalized
 
     def clean_property_image(self):
-        """Validate single uploaded image. Saved in the view to PropertyImage."""
         f = self.files.get("property_image")
         if not f:
             return None
@@ -152,7 +146,6 @@ class PropertyForm(forms.ModelForm):
         return f
 
     def clean_video(self):
-        """Optional: validate video extension + size."""
         f = self.cleaned_data.get("video")
         if not f:
             return None
@@ -192,9 +185,9 @@ class TenantProfileForm(forms.ModelForm):
 
 class TenantForm(forms.ModelForm):
     """
-    ✅ Deposit fields are extra (non-model) fields:
-      - They are displayed/posted from manage_tenants (add tenant) UI,
-      - Views read them from request.POST and write DepositHistory (NOT Tenant).
+    Deposit fields are extra (non-model) fields:
+    - displayed/posted from manage_tenants UI
+    - view reads and creates DepositHistory
     """
 
     current_year = datetime.now().year
@@ -217,12 +210,11 @@ class TenantForm(forms.ModelForm):
     unit_fk = forms.ModelChoiceField(
         queryset=Unit.objects.none(),
         label="Unit",
-        empty_label=None,  # ✅ removes blank option so first unit is selectable
+        empty_label=None,
         widget=forms.Select(attrs={"class": "form-control"}),
         help_text="Select the specific unit the tenant occupies (vacant/booked/maintenance only).",
     )
 
-    # ✅ NEW (non-model fields) — used only when adding a new tenant
     deposit_amount = forms.DecimalField(
         required=False,
         min_value=0,
@@ -261,7 +253,6 @@ class TenantForm(forms.ModelForm):
             "date_paid",
             "month_paid_for",
             "monthly_rent",
-            # NOTE: deposit_* fields are NOT included here (non-model fields)
         ]
         widgets = {
             "name": forms.TextInput(attrs={"class": "form-control"}),
@@ -280,28 +271,20 @@ class TenantForm(forms.ModelForm):
         return phone
 
     def clean_unit_fk(self):
-        """
-        Guardrails:
-        - allow 'booked' units (convert booking -> tenant)
-        - block units that already have a Tenant record (prevents double assignment)
-        """
         unit = self.cleaned_data.get("unit_fk")
         if not unit:
             return unit
 
-        # If editing, allow keeping the same unit
         current_unit_id = getattr(self.instance, "unit_fk_id", None)
         if self.instance and self.instance.pk and current_unit_id == unit.id:
             return unit
 
-        # Prevent selecting a unit that already has a tenant record
         if Tenant.objects.filter(unit_fk=unit).exists():
             raise ValidationError("This unit already has a tenant record. Choose another unit.")
 
         return unit
 
     def clean_deposit_reference(self):
-        # keep reference tidy
         return (self.cleaned_data.get("deposit_reference") or "").strip()
 
     def clean_deposit_notes(self):
@@ -311,16 +294,14 @@ class TenantForm(forms.ModelForm):
         user = kwargs.pop("user", None)
         super().__init__(*args, **kwargs)
 
-        vacant, booked, maintenance, occupied = _unit_status_values()
+        vacant, booked, maintenance, _occupied = _unit_status_values()
         allowed_statuses = [vacant, booked, maintenance]
 
         qs = Unit.objects.filter(is_active=True).select_related("property")
 
-        # landlord sees only their units
         if user and getattr(user, "is_authenticated", False) and hasattr(user, "is_landlord") and user.is_landlord():
             qs = qs.filter(property__landlord=user)
 
-        # Hide occupied units by default; keep current unit visible when editing
         if self.instance and self.instance.pk and getattr(self.instance, "unit_fk_id", None):
             qs = qs.filter(Q(vacancy__in=allowed_statuses) | Q(pk=self.instance.unit_fk_id))
         else:
@@ -328,7 +309,6 @@ class TenantForm(forms.ModelForm):
 
         self.fields["unit_fk"].queryset = qs
 
-        # Label shows property, unit, type, price, and status (lets UI warn on BOOKED)
         def _label(u: Unit) -> str:
             prop_name = getattr(getattr(u, "property", None), "name", "—")
             code = getattr(u, "unit_code", "—")
@@ -348,7 +328,7 @@ class UnitForm(forms.ModelForm):
         fields = ["unit_code", "unit_type", "price", "deposit", "vacancy", "is_active"]
         widgets = {
             "unit_code": forms.TextInput(attrs={"class": "form-control", "placeholder": "e.g. A1"}),
-            "unit_type": forms.Select(attrs={"class": "form-control"}),
+            "unit_type": forms.Select(attrs={"class": "form-control"}),  # ✅ uses updated choices from model
             "price": forms.NumberInput(attrs={"class": "form-control"}),
             "deposit": forms.NumberInput(attrs={"class": "form-control"}),
             "vacancy": forms.Select(attrs={"class": "form-control"}),
