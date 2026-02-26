@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import re
-from datetime import datetime
 from urllib.parse import quote
 
 from django.conf import settings
@@ -78,13 +77,13 @@ class Notification(models.Model):
 # ---------------- Property (container/listing) ----------------
 
 class Property(models.Model):
+    # ✅ Apartment removed (redundant)
     PROPERTY_TYPE_CHOICES = [
         ("Single Room", "Single Room"),
         ("Bed Sitter", "Bed Sitter"),
         ("One Bedroom", "One Bedroom"),
         ("Two Bedroom", "Two Bedroom"),
         ("Three Bedroom", "Three Bedroom"),
-        ("Apartment", "Apartment"),
     ]
 
     name = models.CharField(max_length=255)
@@ -158,6 +157,7 @@ class Property(models.Model):
 # ---------------- Unit (inventory) ----------------
 
 class Unit(models.Model):
+    # ✅ stays aligned with Property types (Apartment removed automatically)
     UNIT_TYPE_CHOICES = Property.PROPERTY_TYPE_CHOICES
 
     VACANT = "vacant"
@@ -264,7 +264,6 @@ class TenantCollection(models.Model):
 # ---------------- Tenancy / payments ----------------
 
 def get_current_month() -> str:
-    # timezone-aware and Django-friendly
     return timezone.now().strftime("%Y-%m")
 
 
@@ -407,7 +406,6 @@ class Booking(models.Model):
         constraints = [
             models.UniqueConstraint(
                 fields=["tenant", "unit"],
-                # ✅ IMPORTANT: use raw strings in constraint condition to avoid NameError at import-time
                 condition=Q(status__in=["pending", "confirmed"]),
                 name="uniq_active_booking_per_tenant_unit",
             )

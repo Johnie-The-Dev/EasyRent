@@ -24,6 +24,10 @@
   .ops-table thead th { border-top: none; color: var(--body-quiet-color, #666); font-weight: 600; text-transform: none; }
   .ops-muted { color: var(--body-quiet-color, #666); }
   .ops-badge { display:inline-block; padding: 2px 8px; border-radius: 999px; font-size: 11px; border: 1px solid var(--hairline-color, #e5e5e5); }
+  .ops-note { margin-top: -6px; margin-bottom: 10px; }
+
+  .ops-slim-list { margin: 0; padding-left: 18px; }
+  .ops-slim-list li { margin: 2px 0; }
 </style>
 {% endblock %}
 
@@ -44,6 +48,7 @@
     </div>
   </div>
 
+  <!-- KPI row -->
   <div class="ops-grid">
     <div class="module ops-card">
       <h2>Users</h2>
@@ -91,9 +96,10 @@
     </div>
   </div>
 
+  <!-- Money throughput -->
   <div class="module" style="padding: 12px 14px;">
     <h2 style="margin-top:0;">Money throughput (platform-wide)</h2>
-    <div class="ops-muted" style="margin-bottom:10px;">Not your revenue — this reflects rent/deposit flows recorded in the system.</div>
+    <div class="ops-muted ops-note">Not your revenue — reflects rent/deposit flows recorded in the system.</div>
     <dl class="ops-kpi" style="max-width:700px;">
       <dt>Expected monthly rent capacity</dt><dd>KES {{ cards.expected_monthly_rent|floatformat:0 }}</dd>
       <dt>Rent collected (this month)</dt><dd>KES {{ cards.rent_collected_month|floatformat:0 }}</dd>
@@ -102,35 +108,11 @@
     </dl>
   </div>
 
+  <!-- Demand signals -->
   <div class="ops-two">
     <div class="module" style="padding: 12px 14px;">
-      <h2 style="margin-top:0;">Pending bookings (latest)</h2>
-      <table class="ops-table">
-        <thead>
-          <tr>
-            <th>When</th>
-            <th>Tenant</th>
-            <th>Property / Unit</th>
-            <th>Status</th>
-          </tr>
-        </thead>
-        <tbody>
-          {% for b in pending_queue %}
-            <tr>
-              <td class="ops-muted">{{ b.created_at|date:"Y-m-d H:i" }}</td>
-              <td>{{ b.tenant.username }}</td>
-              <td>{{ b.unit.property.name }} / {{ b.unit.unit_code }}</td>
-              <td><span class="ops-badge">{{ b.status|upper }}</span></td>
-            </tr>
-          {% empty %}
-            <tr><td colspan="4" class="ops-muted">No pending bookings.</td></tr>
-          {% endfor %}
-        </tbody>
-      </table>
-    </div>
-
-    <div class="module" style="padding: 12px 14px;">
       <h2 style="margin-top:0;">Top saved properties</h2>
+      <div class="ops-muted ops-note">Demand proxy based on tenant saves.</div>
       <table class="ops-table">
         <thead>
           <tr>
@@ -152,15 +134,67 @@
         </tbody>
       </table>
     </div>
+
+    <div class="module" style="padding: 12px 14px;">
+      <h2 style="margin-top:0;">Top towns by bookings (30d)</h2>
+      <div class="ops-muted ops-note">Where booking demand is concentrated.</div>
+      <table class="ops-table">
+        <thead>
+          <tr>
+            <th>Town</th>
+            <th>Bookings</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for r in top_towns_by_bookings %}
+            <tr>
+              <td>{{ r.unit__property__town|default:"—" }}</td>
+              <td><b>{{ r.bookings }}</b></td>
+            </tr>
+          {% empty %}
+            <tr><td colspan="2" class="ops-muted">No bookings in the last 30 days.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
   </div>
 
+  <!-- Ops queue -->
+  <div class="module" style="padding: 12px 14px; margin-top: 12px;">
+    <h2 style="margin-top:0;">Pending bookings (latest)</h2>
+    <div class="ops-muted ops-note">These are waiting on landlord action.</div>
+    <table class="ops-table">
+      <thead>
+        <tr>
+          <th>When</th>
+          <th>Tenant</th>
+          <th>Property / Unit</th>
+          <th>Status</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for b in pending_queue %}
+          <tr>
+            <td class="ops-muted">{{ b.created_at|date:"Y-m-d H:i" }}</td>
+            <td>{{ b.tenant.username }}</td>
+            <td>{{ b.unit.property.name }} / {{ b.unit.unit_code }}</td>
+            <td><span class="ops-badge">{{ b.status|upper }}</span></td>
+          </tr>
+        {% empty %}
+          <tr><td colspan="4" class="ops-muted">No pending bookings.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Integrity + links -->
   <div class="ops-two">
     <div class="module" style="padding: 12px 14px;">
       <h2 style="margin-top:0;">Data integrity</h2>
-      <div class="ops-muted" style="margin-bottom:10px;">These indicate inconsistent states worth investigating.</div>
+      <div class="ops-muted ops-note">These indicate inconsistent states worth investigating.</div>
 
       <h3 style="margin: 10px 0 6px; font-size: 13px;">BOOKED but no active booking</h3>
-      <ul>
+      <ul class="ops-slim-list">
         {% for u in booked_without_booking %}
           <li>{{ u.property.name }} / {{ u.unit_code }}</li>
         {% empty %}
@@ -169,18 +203,48 @@
       </ul>
 
       <h3 style="margin: 12px 0 6px; font-size: 13px;">OCCUPIED but no tenant record</h3>
-      <ul>
+      <ul class="ops-slim-list">
         {% for u in occupied_without_tenant %}
           <li>{{ u.property.name }} / {{ u.unit_code }}</li>
         {% empty %}
           <li class="ops-muted">None</li>
         {% endfor %}
       </ul>
+
+      <h3 style="margin: 12px 0 6px; font-size: 13px;">
+        Tenants with negative balances
+        <span class="ops-muted">(count: <b>{{ negative_balances_count }}</b>)</span>
+      </h3>
+
+      <table class="ops-table">
+        <thead>
+          <tr>
+            <th>Tenant</th>
+            <th>Property / Unit</th>
+            <th>Landlord</th>
+            <th>Rent bal</th>
+            <th>Cum bal</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for t in negative_balances %}
+            <tr>
+              <td>{{ t.name }}</td>
+              <td>{{ t.unit_fk.property.name }} / {{ t.unit_fk.unit_code }}</td>
+              <td class="ops-muted">{{ t.unit_fk.property.landlord.username }}</td>
+              <td><b>{{ t.rent_balance|floatformat:0 }}</b></td>
+              <td><b>{{ t.cumulative_rent_balance|floatformat:0 }}</b></td>
+            </tr>
+          {% empty %}
+            <tr><td colspan="5" class="ops-muted">None</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
     </div>
 
     <div class="module" style="padding: 12px 14px;">
       <h2 style="margin-top:0;">Quick links</h2>
-      <ul>
+      <ul class="ops-slim-list">
         <li><a href="/admin/">Admin home</a></li>
         <li><a href="/admin/listings/property/">Properties</a></li>
         <li><a href="/admin/listings/unit/">Units</a></li>
@@ -189,7 +253,9 @@
         <li><a href="/admin/listings/deposithistory/">Deposits</a></li>
         <li><a href="/admin/listings/user/">Users</a></li>
       </ul>
-      <div class="ops-muted">These URLs assume your app label is <b>listings</b> (it is).</div>
+      <div class="ops-muted" style="margin-top:10px;">
+        These URLs assume your app label is <b>listings</b>.
+      </div>
     </div>
   </div>
 </div>

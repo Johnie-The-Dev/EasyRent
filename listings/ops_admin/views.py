@@ -39,6 +39,7 @@ def ops_dashboard(request):
     now = timezone.now()
     current_month = now.strftime("%Y-%m")
     since_7d = now - timedelta(days=7)
+    since_30d = now - timedelta(days=30)
 
     # Users
     total_landlords = User.objects.filter(role="landlord").count()
@@ -77,9 +78,26 @@ def ops_dashboard(request):
     # Demand: top saved properties
     top_saved = (
         TenantCollection.objects
-        .values("property__name", "property__town")
+        .values("property_id", "property__name", "property__town")
         .annotate(saves=Count("id"))
         .order_by("-saves")[:10]
+    )
+
+    # Demand: top towns by bookings (last 30 days)
+    top_towns_by_bookings = (
+        Booking.objects.filter(created_at__gte=since_30d)
+        .values("unit__property__town")
+        .annotate(bookings=Count("id"))
+        .order_by("-bookings")[:10]
+    )
+
+    # Data integrity: tenants with negative balances
+    negative_balances_filter = Q(rent_balance__lt=0) | Q(cumulative_rent_balance__lt=0)
+    negative_balances_count = Tenant.objects.filter(negative_balances_filter).count()
+    negative_balances = (
+        Tenant.objects.filter(negative_balances_filter)
+        .select_related("unit_fk", "unit_fk__property", "unit_fk__property__landlord")
+        .order_by("cumulative_rent_balance", "rent_balance")[:25]
     )
 
     # Money throughput (platform-wide)
@@ -148,7 +166,16 @@ def ops_dashboard(request):
         },
         "oldest_pending": oldest_pending,
         "pending_queue": pending_queue,
+
+        # Demand
         "top_saved": top_saved,
+        "top_towns_by_bookings": top_towns_by_bookings,
+
+        # Integrity
+        "negative_balances_count": negative_balances_count,
+        "negative_balances": negative_balances,
+
+        # Existing integrity checks
         "booked_without_booking": booked_without_booking,
         "occupied_without_tenant": occupied_without_tenant,
     }
