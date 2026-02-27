@@ -1,8 +1,8 @@
 services:
   db:
-    image: postgres
+    image: postgres:16
     container_name: postgres-db
-    restart: always
+    restart: unless-stopped
     environment:
       POSTGRES_USER: cooltech
       POSTGRES_PASSWORD: easyhouse
@@ -10,7 +10,8 @@ services:
     ports:
       - "5433:5432"
     volumes:
-      - postgres_data:/var/lib/postgresql
+      # ✅ Correct PGDATA path
+      - postgres_data:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U cooltech -d easy_rent"]
       interval: 5s
@@ -20,19 +21,37 @@ services:
   web:
     build: .
     container_name: django-app
-    restart: always
+    restart: unless-stopped
     depends_on:
-      - db
+      db:
+        condition: service_healthy
     ports:
       - "8000:8000"
     environment:
-      DATABASE_NAME: easy_rent
-      DATABASE_USER: cooltech
-      DATABASE_PASSWORD: easyhouse
-      DATABASE_HOST: db
-      DATABASE_PORT: 5432
-      DEBUG: 'True'
-      ALLOWED_HOSTS: 'localhost,127.0.0.1'
+      # Django core
+      DEBUG: "True"
+      DJANGO_SECRET_KEY: "dev-only-unsafe-secret-key"
+      ALLOWED_HOSTS: "localhost,127.0.0.1,0.0.0.0"
+      TIME_ZONE: "Africa/Nairobi"
+      CSRF_TRUSTED_ORIGINS: "http://localhost:8000,http://127.0.0.1:8000,http://0.0.0.0:8000"
+
+      # Database
+      DATABASE_NAME: "easy_rent"
+      DATABASE_USER: "cooltech"
+      DATABASE_PASSWORD: "easyhouse"
+      DATABASE_HOST: "db"
+      DATABASE_PORT: "5432"
+      DB_CONN_MAX_AGE: "60"
+
+      # ✅ Email (DEV): settings.py will use console backend automatically when DEBUG=True
+      # If you later set DEBUG=False, then these SMTP vars matter:
+      DEFAULT_FROM_EMAIL: "no-reply@easyrent.local"
+      EMAIL_HOST: ""
+      EMAIL_PORT: "587"
+      EMAIL_USE_TLS: "True"
+      EMAIL_HOST_USER: ""
+      EMAIL_HOST_PASSWORD: ""
+
     volumes:
       - .:/app
 

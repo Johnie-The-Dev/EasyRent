@@ -1,5 +1,10 @@
 # listings/views.py (UNIT-FIRST / NO FALLBACK) — UPDATED ✅ (Apartment removed everywhere)
+from __future__ import annotations
+
+from datetime import timedelta
 from decimal import Decimal, InvalidOperation
+import hashlib
+import hmac
 
 from django.conf import settings
 from django.contrib import messages
@@ -34,6 +39,7 @@ from .models import (
     Booking,
     DepositHistory,
     Notification,
+    PasswordResetCode,
     Property,
     PropertyImage,
     ReceiptHistory,
@@ -156,6 +162,21 @@ def _valid_unit_types_set():
     since 'Apartment' is removed, ignore it if someone still passes it.
     """
     return {k for (k, _label) in getattr(Unit, "UNIT_TYPE_CHOICES", [])}
+
+
+def _safe_from_email() -> str:
+    """
+    Ensure we always have a usable from email.
+    """
+    return (
+        getattr(settings, "DEFAULT_FROM_EMAIL", None)
+        or getattr(settings, "EMAIL_HOST_USER", None)
+        or "no-reply@easyrent.local"
+    )
+
+
+def _normalize_email(raw: str) -> str:
+    return (raw or "").strip().lower()
 
 
 # ---------------------------------------------------------------------
@@ -320,22 +341,18 @@ def landlord_dashboard(request):
         "booked_units": booked_units,
         "maintenance_units": maintenance_units,
         "occupancy_rate": occupancy_rate,
-
         "expected_monthly_rent": expected_monthly_rent,
         "rent_paid_month": rent_paid_month,
         "rent_remaining_month": rent_remaining_month,
         "outstanding_balance_total": outstanding_balance_total,
-
         # compatibility keys
         "total_monthly_rent": expected_monthly_rent,
         "rent_collected_month": rent_paid_month,
         "outstanding_balance": outstanding_balance_total,
-
         "pending_bookings": pending_bookings,
         "pending_count": pending_bookings.count(),
         "recent_tenants": recent_tenants,
         "recent_payments": recent_payments,
-
         "properties": properties,
         "total_properties": properties.count(),
     }
@@ -364,15 +381,12 @@ def tenant_feed(request):
     if town:
         properties_list = properties_list.filter(town__icontains=town)
 
-    # Always show properties with at least one VACANT active unit
     unit_filter = Q(units__is_active=True, units__vacancy=Unit.VACANT)
 
-    # ✅ Only apply unit_type if it's a valid choice (ignores legacy 'Apartment' or random strings)
     valid_unit_types = _valid_unit_types_set()
     if unit_type and unit_type in valid_unit_types:
         unit_filter &= Q(units__unit_type=unit_type)
     else:
-        # if invalid, treat as "All Types" (prevents "Apartment" causing empty results)
         unit_type = ""
 
     if min_price:
@@ -420,7 +434,7 @@ def tenant_feed(request):
         "properties": properties,
         "selected_county": county,
         "selected_town": town,
-        "selected_type": unit_type,  # now guaranteed to be "" or a valid Unit choice
+        "selected_type": unit_type,
         "selected_min_price": min_price,
         "selected_max_price": max_price,
         "user_bookings": [],
@@ -467,7 +481,6 @@ def add_property(request):
                     if not (u.unit_code or "").strip():
                         continue
                     if not u.unit_type:
-                        # default unit type follows property type (Apartment already removed in model choices)
                         u.unit_type = prop.property_type
                     if u.price in [None, ""]:
                         u.price = prop.price
@@ -691,7 +704,11 @@ def update_booking_status(request, booking_id):
                     if unit.vacancy != Unit.OCCUPIED:
                         _set_unit_vacancy(unit, Unit.BOOKED)
                 else:
-                    if unit.vacancy == Unit.BOOKED and (not _unit_has_active_bookings(unit)) and (not _unit_has_tenant(unit)):
+                    if (
+                        unit.vacancy == Unit.BOOKED
+                        and (not _unit_has_active_bookings(unit))
+                        and (not _unit_has_tenant(unit))
+                    ):
                         _set_unit_vacancy(unit, Unit.VACANT)
 
             level = Notification.LEVEL_INFO
@@ -1020,10 +1037,29 @@ def tenant_list(request):
 
 
 # ---------------------------------------------------------------------
-# Password Reset
+# Password Reset (DB-backed: PasswordResetCode has code_hash/expires_at/used_at)
 # ---------------------------------------------------------------------
 
-reset_codes = {}
+RESET_CODE_LENGTH = 6
+RESET_CODE_TTL_MINUTES = 10
+
+
+def _hash_reset_code(email: str, code: str) -> str:
+    """
+    HMAC-SHA256(secret, "email|code") => hex digest
+    """
+    secret = (settings.SECRET_KEY or "").encode("utf-8")
+    msg = f"{_normalize_email(email)}|{(code or '').strip()}".encode("utf-8")
+    return hmac.new(secret, msg, hashlib.sha256).hexdigest()
+
+
+def _mask_email(email: str) -> str:
+    email = (email or "").strip()
+    if "@" not in email:
+        return email
+    name, dom = email.split("@", 1)
+    shown = (name[:2] if len(name) >= 2 else (name[:1] if name else ""))
+    return f"{shown}***@{dom}"
 
 
 class RequestPasswordResetCodeView(View):
@@ -1031,24 +1067,71 @@ class RequestPasswordResetCodeView(View):
         return render(request, "password_reset_request.html")
 
     def post(self, request):
-        email = request.POST.get("email")
-        user = User.objects.filter(email=email).first()
+        email = (request.POST.get("email") or "").strip()
+        if not email:
+            messages.error(request, "Please enter your email.")
+            return redirect("password_reset")
 
-        if user:
-            code = get_random_string(6, allowed_chars="0123456789")
-            reset_codes[email] = code
+        # Always respond generically to avoid account enumeration
+        generic_ok = "If an account exists for that email, a reset code has been sent."
+
+        user = User.objects.filter(email__iexact=email).first()
+        if not user:
+            messages.success(request, generic_ok)
+            return redirect("password_reset_verify")
+
+        now = timezone.now()
+        expires_at = now + timedelta(minutes=RESET_CODE_TTL_MINUTES)
+
+        code = get_random_string(RESET_CODE_LENGTH, allowed_chars="0123456789")
+        code_hash = _hash_reset_code(email, code)
+
+        with transaction.atomic():
+            # Invalidate any active codes for this email
+            PasswordResetCode.objects.filter(
+                email__iexact=email,
+                used_at__isnull=True,
+                expires_at__gt=now,
+            ).update(used_at=now)
+
+            PasswordResetCode.objects.create(
+                email=email,
+                code_hash=code_hash,
+                created_at=now,
+                expires_at=expires_at,
+                used_at=None,
+            )
+
+        subject = "Your Password Reset Code"
+        body = (
+            f"Your password reset code is: {code}\n\n"
+            f"This code expires in {RESET_CODE_TTL_MINUTES} minutes.\n"
+            f"If you didn’t request this, ignore this email."
+        )
+
+        try:
             send_mail(
-                "Your Password Reset Code",
-                f"Your password reset code is: {code}",
-                settings.DEFAULT_FROM_EMAIL,
+                subject,
+                body,
+                _safe_from_email(),
                 [email],
                 fail_silently=False,
             )
-            messages.success(request, "A reset code has been sent to your email.")
-            return redirect("password_reset_verify")
+        except Exception as e:
+            if getattr(settings, "DEBUG", False):
+                # keep dev flow working even without SMTP
+                print(f"[DEV] Password reset code for {email}: {code} ({e.__class__.__name__})")
+                messages.warning(
+                    request,
+                    "SMTP not configured in DEBUG. Check console logs for the code or configure SMTP.",
+                )
+                return redirect("password_reset_verify")
 
-        messages.error(request, "No account found with this email.")
-        return redirect("password_reset")
+            messages.error(request, "We couldn't send an email right now. Please try again later.")
+            return redirect("password_reset")
+
+        messages.success(request, f"A reset code has been sent to {_mask_email(email)}.")
+        return redirect("password_reset_verify")
 
 
 class VerifyResetCodeView(View):
@@ -1056,15 +1139,36 @@ class VerifyResetCodeView(View):
         return render(request, "password_reset_verify.html")
 
     def post(self, request):
-        email = request.POST.get("email")
-        code = request.POST.get("code")
+        email = (request.POST.get("email") or "").strip()
+        code = (request.POST.get("code") or "").strip()
 
-        if reset_codes.get(email) == code:
-            request.session["reset_email"] = email
-            return redirect("password_reset_new_password")
+        if not email or not code:
+            messages.error(request, "Enter your email and the code.")
+            return redirect("password_reset_verify")
 
-        messages.error(request, "Invalid code. Please try again.")
-        return redirect("password_reset_verify")
+        now = timezone.now()
+        code_hash = _hash_reset_code(email, code)
+
+        prc = (
+            PasswordResetCode.objects.filter(
+                email__iexact=email,
+                code_hash=code_hash,
+                used_at__isnull=True,
+                expires_at__gt=now,
+            )
+            .order_by("-created_at")
+            .first()
+        )
+
+        if not prc:
+            messages.error(request, "Invalid or expired code. Please request a new one.")
+            return redirect("password_reset_verify")
+
+        prc.used_at = now
+        prc.save(update_fields=["used_at"])
+
+        request.session["reset_email"] = email
+        return redirect("password_reset_new_password")
 
 
 class SetNewPasswordView(View):
@@ -1072,20 +1176,29 @@ class SetNewPasswordView(View):
         return render(request, "password_reset_new_password.html")
 
     def post(self, request):
-        email = request.session.get("reset_email")
-        password = request.POST.get("password")
+        email = (request.session.get("reset_email") or "").strip()
+        password = (request.POST.get("password") or "").strip()
 
-        if email:
-            user = User.objects.filter(email=email).first()
-            if user:
-                user.set_password(password)
-                user.save()
-                reset_codes.pop(email, None)
-                messages.success(request, "Password reset successfully. You can now log in.")
-                return redirect("login")
+        if not email:
+            messages.error(request, "Your reset session expired. Please request a new code.")
+            return redirect("password_reset")
 
-        messages.error(request, "Something went wrong. Please try again.")
-        return redirect("password_reset")
+        if not password or len(password) < 8:
+            messages.error(request, "Password must be at least 8 characters.")
+            return redirect("password_reset_new_password")
+
+        user = User.objects.filter(email__iexact=email).first()
+        if not user:
+            messages.error(request, "No account found for that email.")
+            return redirect("password_reset")
+
+        user.set_password(password)
+        user.save(update_fields=["password"])
+
+        request.session.pop("reset_email", None)
+
+        messages.success(request, "Password reset successfully. You can now log in.")
+        return redirect("login")
 
 
 # ---------------------------------------------------------------------

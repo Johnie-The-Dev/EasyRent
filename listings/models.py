@@ -1,6 +1,7 @@
 # listings/models.py (UNIT-FIRST / NO FALLBACK) — DJANGO 5.1 SAFE
 from __future__ import annotations
 
+import hashlib
 import re
 from urllib.parse import quote
 
@@ -27,6 +28,42 @@ class User(AbstractUser):
 
     def is_landlord(self) -> bool:
         return self.role == "landlord"
+
+
+# ---------------- Password Reset Codes ----------------
+# DB-backed (works across restarts and multiple containers/workers)
+
+class PasswordResetCode(models.Model):
+    """
+    Stores a one-time password reset code for an email address.
+
+    - We store a SHA256 hash (not the raw code).
+    - `expires_at` enforces TTL.
+    - `used_at` marks the code as spent.
+    """
+
+    email = models.EmailField(db_index=True)
+    code_hash = models.CharField(max_length=64)  # sha256 hex digest
+    created_at = models.DateTimeField(auto_now_add=True)
+    expires_at = models.DateTimeField(db_index=True)
+    used_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+        indexes = [
+            models.Index(fields=["email", "used_at", "expires_at"]),
+        ]
+
+    def __str__(self) -> str:
+        state = "used" if self.used_at else "active"
+        return f"PasswordResetCode({self.email}, {state}, expires={self.expires_at:%Y-%m-%d %H:%M})"
+
+    @staticmethod
+    def hash_code(code: str) -> str:
+        return hashlib.sha256((code or "").encode("utf-8")).hexdigest()
+
+    def is_valid(self) -> bool:
+        return (self.used_at is None) and (timezone.now() <= self.expires_at)
 
 
 # ---------------- Notifications (navbar) ----------------
@@ -237,7 +274,10 @@ class PropertyImage(models.Model):
     def save(self, *args, **kwargs):
         super().save(*args, **kwargs)
         if self.is_primary:
-            PropertyImage.objects.filter(property=self.property, is_primary=True).exclude(pk=self.pk).update(is_primary=False)
+            # Ensure only one primary (guard against admin edits / race-y saves)
+            PropertyImage.objects.filter(property=self.property, is_primary=True).exclude(pk=self.pk).update(
+                is_primary=False
+            )
 
 
 # ---------------- Tenant collection (saved properties) ----------------

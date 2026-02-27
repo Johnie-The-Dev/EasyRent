@@ -1,15 +1,18 @@
 # EasyRent/settings.py
 from __future__ import annotations
 
-from pathlib import Path
 import os
+from pathlib import Path
+
 from dotenv import load_dotenv
 
 load_dotenv()
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-# ---------------- Security / Core ----------------
+# -------------------------------------------------------------------
+# Security / Core
+# -------------------------------------------------------------------
 
 SECRET_KEY = os.getenv("DJANGO_SECRET_KEY", "dev-only-unsafe-secret-key")
 DEBUG = os.getenv("DEBUG", "False").lower() in ("true", "1", "yes")
@@ -18,16 +21,16 @@ ALLOWED_HOSTS = [h.strip() for h in os.getenv("ALLOWED_HOSTS", "").split(",") if
 
 # ✅ Local/dev safety defaults (works with Docker too)
 if DEBUG:
-    # Add common dev hosts if none provided
     if not ALLOWED_HOSTS:
         ALLOWED_HOSTS = ["127.0.0.1", "localhost", "0.0.0.0"]
     else:
-        # Ensure docker binding host is allowed when running behind compose
         for h in ("127.0.0.1", "localhost", "0.0.0.0"):
             if h not in ALLOWED_HOSTS:
                 ALLOWED_HOSTS.append(h)
 
-# ---------------- Applications ----------------
+# -------------------------------------------------------------------
+# Applications
+# -------------------------------------------------------------------
 
 INSTALLED_APPS = [
     "django.contrib.admin",
@@ -36,20 +39,19 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
-
     "django_bootstrap5",
     "listings",
 ]
 
-# ---------------- Middleware ----------------
+# -------------------------------------------------------------------
+# Middleware
+# -------------------------------------------------------------------
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
-
     "django.middleware.csrf.CsrfViewMiddleware",
-
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
@@ -57,7 +59,9 @@ MIDDLEWARE = [
 
 ROOT_URLCONF = "EasyRent.urls"
 
-# ---------------- Templates ----------------
+# -------------------------------------------------------------------
+# Templates
+# -------------------------------------------------------------------
 
 TEMPLATES = [
     {
@@ -70,7 +74,6 @@ TEMPLATES = [
                 "django.template.context_processors.request",
                 "django.contrib.auth.context_processors.auth",
                 "django.contrib.messages.context_processors.messages",
-
                 # ✅ Navbar notifications variables:
                 # nav_notifications, nav_notifications_unread
                 "listings.context_processors.notifications_context",
@@ -81,7 +84,9 @@ TEMPLATES = [
 
 WSGI_APPLICATION = "EasyRent.wsgi.application"
 
-# ---------------- Database ----------------
+# -------------------------------------------------------------------
+# Database
+# -------------------------------------------------------------------
 
 DATABASES = {
     "default": {
@@ -91,10 +96,13 @@ DATABASES = {
         "PASSWORD": os.getenv("DATABASE_PASSWORD"),
         "HOST": os.getenv("DATABASE_HOST"),
         "PORT": os.getenv("DATABASE_PORT", "5432"),
+        "CONN_MAX_AGE": int(os.getenv("DB_CONN_MAX_AGE", "60")),  # nice for docker/dev
     }
 }
 
-# ---------------- Auth ----------------
+# -------------------------------------------------------------------
+# Auth
+# -------------------------------------------------------------------
 
 AUTH_USER_MODEL = "listings.User"
 
@@ -102,7 +110,9 @@ LOGIN_URL = "/login/"
 LOGIN_REDIRECT_URL = "/"
 LOGOUT_REDIRECT_URL = "/login/"
 
-# ---------------- Password validation ----------------
+# -------------------------------------------------------------------
+# Password validation
+# -------------------------------------------------------------------
 
 AUTH_PASSWORD_VALIDATORS = [
     {"NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator"},
@@ -111,42 +121,70 @@ AUTH_PASSWORD_VALIDATORS = [
     {"NAME": "django.contrib.auth.password_validation.NumericPasswordValidator"},
 ]
 
-# ---------------- I18N ----------------
+# -------------------------------------------------------------------
+# I18N
+# -------------------------------------------------------------------
 
 LANGUAGE_CODE = "en-us"
 TIME_ZONE = os.getenv("TIME_ZONE", "UTC")
 USE_I18N = True
 USE_TZ = True
 
-# ---------------- Static ----------------
+# -------------------------------------------------------------------
+# Static
+# -------------------------------------------------------------------
 
 STATIC_URL = "/static/"
 STATICFILES_DIRS = [BASE_DIR / "static"]
 STATIC_ROOT = BASE_DIR / "staticfiles"
 
-# ---------------- Media ----------------
+# -------------------------------------------------------------------
+# Media
+# -------------------------------------------------------------------
 
 MEDIA_URL = "/media/"
 MEDIA_ROOT = BASE_DIR / "media"
 
-# ---------------- Email ----------------
+# -------------------------------------------------------------------
+# Email
+# -------------------------------------------------------------------
+# ✅ Fix for your password reset dev flow:
+# - In DEBUG: use console backend so no SMTP connection is required.
+# - In production: use SMTP backend via env vars.
 
-EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
-EMAIL_HOST = os.getenv("EMAIL_HOST")
-EMAIL_PORT = int(os.getenv("EMAIL_PORT", "587"))
-EMAIL_USE_TLS = os.getenv("EMAIL_USE_TLS", "True").lower() in ("true", "1", "yes")
-EMAIL_HOST_USER = os.getenv("EMAIL_HOST_USER")
-EMAIL_HOST_PASSWORD = os.getenv("EMAIL_HOST_PASSWORD")
-DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
+if DEBUG:
+    EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
+    DEFAULT_FROM_EMAIL = os.getenv("DEFAULT_FROM_EMAIL", "no-reply@easyrent.local")
+    EMAIL_HOST = os.getenv("EMAIL_HOST", "")
+    EMAIL_PORT = int(os.getenv("EMAIL_PORT", "587"))
+    EMAIL_USE_TLS = os.getenv("EMAIL_USE_TLS", "True").lower() in ("true", "1", "yes")
+    EMAIL_HOST_USER = os.getenv("EMAIL_HOST_USER", "")
+    EMAIL_HOST_PASSWORD = os.getenv("EMAIL_HOST_PASSWORD", "")
+else:
+    EMAIL_BACKEND = os.getenv("EMAIL_BACKEND", "django.core.mail.backends.smtp.EmailBackend")
+    EMAIL_HOST = os.getenv("EMAIL_HOST", "")
+    EMAIL_PORT = int(os.getenv("EMAIL_PORT", "587"))
+    EMAIL_USE_TLS = os.getenv("EMAIL_USE_TLS", "True").lower() in ("true", "1", "yes")
+    EMAIL_USE_SSL = os.getenv("EMAIL_USE_SSL", "False").lower() in ("true", "1", "yes")
+    EMAIL_HOST_USER = os.getenv("EMAIL_HOST_USER", "")
+    EMAIL_HOST_PASSWORD = os.getenv("EMAIL_HOST_PASSWORD", "")
 
-# ---------------- CSRF / Security ----------------
+    # Prefer explicit DEFAULT_FROM_EMAIL, else fall back to host user, else safe placeholder
+    DEFAULT_FROM_EMAIL = (
+        os.getenv("DEFAULT_FROM_EMAIL")
+        or EMAIL_HOST_USER
+        or "no-reply@easyrent.local"
+    )
+
+# -------------------------------------------------------------------
+# CSRF / Security
+# -------------------------------------------------------------------
 
 CSRF_TRUSTED_ORIGINS = [
     o.strip() for o in os.getenv("CSRF_TRUSTED_ORIGINS", "").split(",") if o.strip()
 ]
 
 if DEBUG:
-    # ✅ include the common dev origins (docker + local)
     for origin in (
         "http://127.0.0.1:8000",
         "http://localhost:8000",
@@ -161,11 +199,19 @@ CSRF_COOKIE_SECURE = not DEBUG
 # If behind proxy/load balancer:
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 
-# ---------------- Default PK type ----------------
+# Optional hardening toggles (safe defaults)
+SECURE_CONTENT_TYPE_NOSNIFF = True
+X_FRAME_OPTIONS = "DENY"
+
+# -------------------------------------------------------------------
+# Default PK type
+# -------------------------------------------------------------------
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
-# ---------------- Optional dev helpers ----------------
+# -------------------------------------------------------------------
+# Optional dev helpers
+# -------------------------------------------------------------------
 
 if DEBUG:
     INTERNAL_IPS = ["127.0.0.1", "localhost"]
