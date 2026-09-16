@@ -1,9 +1,10 @@
-# Use official Python image
-FROM python:3.12.3
+# Use a small official Python image
+FROM python:3.12-slim
 
 # Set environment variables
-ENV PYTHONDONTWRITEBYTECODE=1
-ENV PYTHONUNBUFFERED=1
+ENV PYTHONDONTWRITEBYTECODE=1 \
+	PYTHONUNBUFFERED=1 \
+	PIP_NO_CACHE_DIR=1
 
 # Set the working directory in the container
 WORKDIR /app
@@ -12,8 +13,8 @@ WORKDIR /app
 COPY requirements.txt /app/
 
 # Install dependencies
-RUN pip install --upgrade pip
-RUN pip install -r requirements.txt
+RUN python -m pip install --upgrade pip \
+	&& python -m pip install -r requirements.txt
 
 # Copy the rest of the project
 COPY . /app/

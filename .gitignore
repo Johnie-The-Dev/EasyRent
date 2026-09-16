@@ -11,6 +11,7 @@ __pycache__/
 *.sqlite3
 
 # Virtualenvs
+.venv/
 venv/
 EasyRent-env/
 
