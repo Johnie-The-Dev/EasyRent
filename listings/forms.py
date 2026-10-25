@@ -16,7 +16,7 @@ from django.core.validators import FileExtensionValidator
 from django.db.models import Q
 from django.forms import inlineformset_factory
 
-from .models import Property, Tenant, Unit, User
+from .models import Booking, Property, Tenant, Unit, User
 
 
 # ---------- Auth ----------
@@ -224,6 +224,14 @@ class TenantForm(forms.ModelForm):
         widget=forms.NumberInput(attrs={"class": "form-control", "placeholder": "e.g. 10000"}),
         help_text="Deposit is NOT rent. It will be recorded separately when adding a new tenant.",
     )
+    payment_amount = forms.DecimalField(
+        required=False,
+        min_value=0,
+        decimal_places=2,
+        max_digits=12,
+        label="Payment Received Now",
+        widget=forms.NumberInput(attrs={"class": "form-control", "placeholder": "e.g. 5000"}),
+    )
     deposit_date = forms.DateField(
         required=False,
         label="Deposit Date (optional)",
@@ -279,7 +287,7 @@ class TenantForm(forms.ModelForm):
         if self.instance and self.instance.pk and current_unit_id == unit.id:
             return unit
 
-        if Tenant.objects.filter(unit_fk=unit).exists():
+        if Tenant.objects.filter(unit_fk=unit, is_active=True).exclude(pk=self.instance.pk).exists():
             raise ValidationError("This unit already has a tenant record. Choose another unit.")
 
         return unit
@@ -293,6 +301,12 @@ class TenantForm(forms.ModelForm):
     def __init__(self, *args, **kwargs):
         user = kwargs.pop("user", None)
         super().__init__(*args, **kwargs)
+
+        if self.instance and self.instance.pk:
+            self.fields["rent_paid"].disabled = True
+            self.fields["rent_paid"].label = "Total Paid This Month"
+        else:
+            self.fields.pop("rent_paid")
 
         vacant, booked, maintenance, _occupied = _unit_status_values()
         allowed_statuses = [vacant, booked, maintenance]
@@ -323,29 +337,99 @@ class TenantForm(forms.ModelForm):
 # ---------- Units ----------
 
 class UnitForm(forms.ModelForm):
+    unit_code = forms.CharField(
+        required=False,
+        widget=forms.TextInput(attrs={"class": "form-control", "placeholder": "e.g. A1"}),
+    )
+    deposit = forms.DecimalField(
+        required=False,
+        min_value=0,
+        max_digits=10,
+        decimal_places=2,
+        widget=forms.NumberInput(attrs={"class": "form-control"}),
+    )
+    unit_type = forms.ChoiceField(
+        choices=Unit.UNIT_TYPE_CHOICES,
+        required=False,
+        widget=forms.Select(attrs={"class": "form-control"}),
+    )
+    price = forms.DecimalField(
+        required=False,
+        min_value=0,
+        max_digits=10,
+        decimal_places=2,
+        widget=forms.NumberInput(attrs={"class": "form-control"}),
+    )
+    vacancy = forms.ChoiceField(
+        choices=Unit.VACANCY_CHOICES,
+        required=False,
+        widget=forms.Select(attrs={"class": "form-control"}),
+    )
     class Meta:
         model = Unit
         fields = ["unit_code", "unit_type", "price", "deposit", "vacancy", "is_active"]
         widgets = {
-            "unit_code": forms.TextInput(attrs={"class": "form-control", "placeholder": "e.g. A1"}),
-            "unit_type": forms.Select(attrs={"class": "form-control"}),  # ✅ uses updated choices from model
-            "price": forms.NumberInput(attrs={"class": "form-control"}),
-            "deposit": forms.NumberInput(attrs={"class": "form-control"}),
-            "vacancy": forms.Select(attrs={"class": "form-control"}),
-            "is_active": forms.CheckboxInput(attrs={"class": "form-check-input"}),
         }
 
-    def clean_unit_code(self):
-        code = (self.cleaned_data.get("unit_code") or "").strip().upper()
-        if not code:
-            raise forms.ValidationError("Unit code is required (e.g. A1, B3).")
-        return code
+    def has_changed(self):
+        if self.instance.pk:
+            return super().has_changed()
+
+        meaningful_fields = ("unit_code", "unit_type", "price", "deposit", "vacancy")
+        return any(self.data.get(self.add_prefix(field)) for field in meaningful_fields)
+
+    def clean(self):
+        cleaned_data = super().clean()
+        unit_code = (cleaned_data.get("unit_code") or "").strip().upper()
+        if not unit_code:
+            row_fields = (
+                self.data.get(f"{self.prefix}-unit_type"),
+                self.data.get(f"{self.prefix}-price"),
+                self.data.get(f"{self.prefix}-deposit"),
+                self.data.get(f"{self.prefix}-vacancy"),
+                self.data.get(f"{self.prefix}-is_active"),
+            )
+            if self.data.get(f"{self.prefix}-DELETE") or not any(row_fields):
+                return cleaned_data
+            raise ValidationError({"unit_code": "Unit code is required (e.g. A1, B3)."})
+
+        cleaned_data["unit_code"] = unit_code
+        if not cleaned_data.get("unit_code"):
+            return cleaned_data
+
+        if not cleaned_data.get("unit_type") and self.instance.pk:
+            cleaned_data["unit_type"] = self.instance.unit_type
+        if cleaned_data.get("price") in (None, "") and self.instance.pk:
+            cleaned_data["price"] = self.instance.price
+        if not cleaned_data.get("vacancy"):
+            cleaned_data["vacancy"] = self.instance.vacancy or Unit.VACANT
+        if cleaned_data.get("is_active") is None:
+            cleaned_data["is_active"] = self.instance.is_active if self.instance.pk else True
+
+        if self.data.get(f"{self.prefix}-DELETE"):
+            return cleaned_data
+
+        vacancy = cleaned_data.get("vacancy")
+        is_active = cleaned_data.get("is_active")
+
+        if self.instance.pk and Tenant.objects.filter(unit_fk=self.instance, is_active=True).exists():
+            if vacancy != Unit.OCCUPIED or not is_active:
+                raise ValidationError("A unit with an active tenant must remain active and occupied.")
+
+        if self.instance.pk and Booking.objects.filter(
+            unit=self.instance,
+            status__in=[Booking.STATUS_PENDING, Booking.STATUS_CONFIRMED],
+        ).exists():
+            if vacancy != Unit.BOOKED or not is_active:
+                raise ValidationError("A unit with an active booking must remain active and booked.")
+
+        return cleaned_data
 
 
 UnitFormSet = inlineformset_factory(
     parent_model=Property,
     model=Unit,
     form=UnitForm,
-    extra=3,
+    extra=1,
     can_delete=True,
 )

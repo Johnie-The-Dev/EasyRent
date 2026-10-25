@@ -71,8 +71,13 @@
   <div class="header-band mb-4">
     <div class="d-flex justify-content-between align-items-start flex-wrap gap-2">
       <div>
-        <h2>Manage Tenants</h2>
-        <p class="mb-0">Add an occupying tenant to a specific unit.</p>
+        {% if booking %}
+          <h2>Create Tenancy</h2>
+          <p class="mb-0">Complete the move-in for this confirmed booking.</p>
+        {% else %}
+          <h2>Add Tenant</h2>
+          <p class="mb-0">Record a walk-in or existing tenant for one of your units.</p>
+        {% endif %}
       </div>
       <div class="d-flex gap-2">
         <a href="{% url 'tenant_list' %}" class="btn btn-light btn-sm">
@@ -88,8 +93,9 @@
   <div class="form-shell">
     <div class="body">
 
-      <form id="tenantForm" method="post" action="{% url 'manage_tenants' %}" novalidate>
+      <form id="tenantForm" method="post" action="{% url 'manage_tenants' %}{% if booking %}?booking={{ booking.id }}{% endif %}" novalidate>
         {% csrf_token %}
+        {% if booking %}<input type="hidden" name="booking_id" value="{{ booking.id }}">{% endif %}
 
         {% if form.non_field_errors %}
           <div class="alert alert-danger">
@@ -98,6 +104,18 @@
           </div>
         {% endif %}
 
+        {% if booking %}
+          <div class="hint-card mb-3">
+            <div class="d-flex justify-content-between align-items-start flex-wrap gap-2">
+              <div>
+                <div class="section-title mt-0">Confirmed booking</div>
+                <div class="subtle">{{ booking.tenant.get_full_name|default:booking.tenant.username }} · {{ booking.tenant.email|default:"No email" }}</div>
+                <div class="subtle">{{ booking.unit.property.name }} · Unit {{ booking.unit.unit_code }} · KES {{ booking.unit.price|floatformat:0 }}/month</div>
+              </div>
+              <span class="meta-pill"><i class="bi bi-check-circle"></i> Ready to move in</span>
+            </div>
+          </div>
+        {% else %}
         <div class="hint-card mb-3">
           <div class="d-flex gap-2 align-items-start">
             <i class="bi bi-info-circle" style="font-size:1.1rem;"></i>
@@ -111,6 +129,7 @@
             </div>
           </div>
         </div>
+        {% endif %}
 
         <div class="row g-3">
           <div class="col-md-6">
@@ -136,7 +155,11 @@
             <div id="unitStatusWarn" class="alert alert-warning py-2 px-3 mt-2 mb-0" style="display:none;">
               <small>
                 <i class="bi bi-exclamation-triangle"></i>
-                This unit is currently <strong>BOOKED</strong>. Saving will cancel the booking and set it to <strong>OCCUPIED</strong>.
+                {% if booking %}
+                  This booking will be marked <strong>MOVED IN</strong> and the unit set to <strong>OCCUPIED</strong>.
+                {% else %}
+                  This booked unit will have its active booking cancelled and be set to <strong>OCCUPIED</strong>.
+                {% endif %}
               </small>
             </div>
           </div>
@@ -166,9 +189,10 @@
           </div>
 
           <div class="col-md-6">
-            <label class="form-label">Rent Paid (KES) <span class="req-star">*</span></label>
-            {{ form.rent_paid }}
-            {% if form.rent_paid.errors %}<div class="text-danger small mt-1">{{ form.rent_paid.errors }}</div>{% endif %}
+            <label class="form-label">Payment Received Now (KES)</label>
+            {{ form.payment_amount }}
+            {% if form.payment_amount.errors %}<div class="text-danger small mt-1">{{ form.payment_amount.errors }}</div>{% endif %}
+            <div class="form-text small">Recorded as a separate payment for the selected month.</div>
           </div>
 
           <div class="col-md-6">
@@ -231,7 +255,7 @@
           <div class="col-12">
             <div class="d-flex gap-2">
               <button type="submit" class="btn btn-primary flex-grow-1">
-                <i class="bi bi-person-plus"></i> Add Tenant
+                {% if booking %}<i class="bi bi-house-check"></i> Confirm Move-in{% else %}<i class="bi bi-person-plus"></i> Add Tenant{% endif %}
               </button>
               <a href="{% url 'tenant_list' %}" class="btn btn-outline-secondary">
                 <i class="bi bi-arrow-left"></i> Back
@@ -256,7 +280,7 @@
   const unitStatusWarn = document.getElementById('unitStatusWarn');
 
   const monthlyRentEl = form.querySelector('[name="monthly_rent"]');
-  const rentPaidEl = form.querySelector('[name="rent_paid"]');
+  const paymentNowEl = form.querySelector('[name="payment_amount"]');
 
   const rentBalanceEl = document.getElementById('rent_balance');
 
@@ -266,8 +290,8 @@
 
   function recalcBalances() {
     const monthlyRent = parseFloat(monthlyRentEl?.value || "0") || 0;
-    const rentPaid = parseFloat(rentPaidEl?.value || "0") || 0;
-    rentBalanceEl.value = (monthlyRent - rentPaid);
+    const paymentNow = parseFloat(paymentNowEl?.value || "0") || 0;
+    rentBalanceEl.value = (monthlyRent - paymentNow);
   }
 
   function showUnitMeta() {
@@ -319,7 +343,7 @@
   form.addEventListener('input', function(e) {
     if (!e.target) return;
 
-    if (e.target.name === "monthly_rent" || e.target.name === "rent_paid") {
+    if (["monthly_rent", "payment_amount"].includes(e.target.name)) {
       recalcBalances();
     }
 

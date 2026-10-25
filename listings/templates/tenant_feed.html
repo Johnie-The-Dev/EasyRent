@@ -6,9 +6,9 @@
 {% block content %}
 <style>
   .page-header {
-    background: linear-gradient(135deg, #667eea 0%, #2563eb 50%, #0ea5e9 100%);
+    background: linear-gradient(120deg, var(--primary-dark) 0%, var(--primary-color) 68%, #268b78 100%);
     color: white;
-    padding: 42px 20px;
+    padding: 34px 20px;
     margin: -1rem -12px 2rem;
   }
   .page-header h1 { font-size: 2.35rem; font-weight: 800; margin-bottom: 10px; }
@@ -16,7 +16,7 @@
 
   .filter-form {
     background: #fff;
-    border-radius: 14px;
+    border-radius: 8px;
     border: 1px solid rgba(0,0,0,0.06);
     box-shadow: 0 10px 28px rgba(0,0,0,0.06);
   }
@@ -24,13 +24,13 @@
   .property-card {
     transition: transform .25s ease, box-shadow .25s ease, border-color .25s ease;
     border: 1px solid rgba(0,0,0,0.06);
-    border-radius: 14px;
+    border-radius: 8px;
     overflow: hidden;
     box-shadow: 0 10px 28px rgba(0,0,0,0.06);
   }
   .property-card:hover{
-    transform: translateY(-6px);
-    box-shadow: 0 14px 34px rgba(0,0,0,0.12);
+    transform: translateY(-3px);
+    box-shadow: 0 12px 28px rgba(20, 59, 49, 0.12);
     border-color: rgba(37, 99, 235, .25);
   }
 
@@ -58,7 +58,7 @@
 
 <div class="container py-3">
 
-  {% if user.is_authenticated %}
+  {% if user.is_authenticated and user.is_tenant %}
     <div class="mb-4 d-flex justify-content-end gap-2 flex-wrap">
       <a href="{% url 'view_collection' %}" class="btn btn-outline-light"
          style="border-color: rgba(255,255,255,.45); background: rgba(255,255,255,.10);">
@@ -193,9 +193,6 @@
                   <span class="badge" style="background: var(--secondary-color);">{{ selected_type }}</span>
                 {% else %}
                   <span class="badge" style="background: var(--secondary-color);">{{ property.property_type }}</span>
-                  <span class="badge bg-light text-dark ms-1" style="border:1px solid rgba(0,0,0,0.06);">
-                    Multiple units
-                  </span>
                 {% endif %}
               </div>
 
@@ -266,27 +263,36 @@
             </div>
 
             <div class="d-grid gap-2">
-              {% if user.is_authenticated %}
+              {% if user.is_authenticated and user.is_tenant %}
                 {% if property.id in saved_properties %}
-                  <a href="{% url 'remove_from_collection' property.id %}" class="btn btn-danger btn-sm">
+                  <form method="post" action="{% url 'remove_from_collection' property.id %}">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-danger btn-sm">
                     <i class="bi bi-heart-fill"></i> Remove from Collection
-                  </a>
+                    </button>
+                  </form>
                 {% else %}
-                  <a href="{% url 'add_to_collection' property.id %}" class="btn btn-outline-secondary btn-sm">
+                  <form method="post" action="{% url 'add_to_collection' property.id %}">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-outline-secondary btn-sm">
                     <i class="bi bi-heart"></i> Save / Hifadhi
-                  </a>
+                    </button>
+                  </form>
                 {% endif %}
               {% endif %}
 
               {% if user.is_authenticated and user.is_tenant %}
                 {% if property.id in user_bookings %}
-                  <button class="btn btn-warning btn-sm" disabled title="You have an active booking in this property">
-                    <i class="bi bi-check-circle-fill"></i> Booked
+                  <button class="btn btn-outline-success btn-sm" disabled title="You have an active booking in this property">
+                    <i class="bi bi-check-circle-fill"></i> Active booking
                   </button>
                 {% else %}
-                  <a href="{% url 'book_property' property.id %}" class="btn btn-primary btn-sm">
-                    <i class="bi bi-calendar-check"></i> Book Unit / Book
-                  </a>
+                  <form method="post" action="{% url 'book_property' property.id %}">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-primary btn-sm">
+                    <i class="bi bi-send-check"></i> Request Unit
+                    </button>
+                  </form>
                 {% endif %}
               {% endif %}
 

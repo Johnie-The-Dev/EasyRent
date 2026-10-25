@@ -146,20 +146,27 @@
                 <div class="d-grid gap-2">
                   {% if user.is_authenticated and user.is_tenant %}
                     {% if prop and prop.id in user_bookings %}
-                      <button class="btn btn-warning btn-sm" disabled title="You have booked a unit in this property">
-                        <i class="bi bi-check-circle-fill"></i> Booked
+                      <button class="btn btn-outline-success btn-sm" disabled title="You have an active booking in this property">
+                        <i class="bi bi-check-circle-fill"></i> Active booking
                       </button>
                     {% else %}
-                      <a href="{% url 'book_property' prop.id %}" class="btn btn-primary btn-sm">
-                        <i class="bi bi-calendar-check"></i> Book Unit
-                      </a>
+                      <form method="post" action="{% url 'book_property' prop.id %}">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-primary btn-sm">
+                        <i class="bi bi-send-check"></i> Request Unit
+                        </button>
+                      </form>
                     {% endif %}
                   {% endif %}
 
                   {% if prop %}
-                    <a href="{% url 'remove_from_collection' prop.id %}" class="btn btn-outline-danger btn-sm">
+                    <form method="post" action="{% url 'remove_from_collection' prop.id %}">
+                      {% csrf_token %}
+                      <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                      <button type="submit" class="btn btn-outline-danger btn-sm">
                       <i class="bi bi-heart-fill"></i> Remove from Collection
-                    </a>
+                      </button>
+                    </form>
                   {% endif %}
                 </div>
 

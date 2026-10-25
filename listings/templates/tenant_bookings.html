@@ -43,7 +43,7 @@
   </div>
 
   <div class="row g-3 mb-4">
-    <div class="col-md-4">
+    <div class="col-6 col-lg-3">
       <div class="card kpi-card">
         <div class="card-body">
           <div class="text-muted small fw-bold">Total</div>
@@ -51,7 +51,7 @@
         </div>
       </div>
     </div>
-    <div class="col-md-4">
+    <div class="col-6 col-lg-3">
       <div class="card kpi-card">
         <div class="card-body">
           <div class="text-muted small fw-bold">Confirmed</div>
@@ -61,12 +61,22 @@
         </div>
       </div>
     </div>
-    <div class="col-md-4">
+    <div class="col-6 col-lg-3">
       <div class="card kpi-card">
         <div class="card-body">
           <div class="text-muted small fw-bold">Pending</div>
           <div class="fw-bold" style="font-size:1.8rem;color:var(--warning-color)">
             {{ pending_count|default:0 }}
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="col-6 col-lg-3">
+      <div class="card kpi-card">
+        <div class="card-body">
+          <div class="text-muted small fw-bold">Moved in</div>
+          <div class="fw-bold" style="font-size:1.8rem;color:var(--primary-color)">
+            {{ moved_in_count|default:0 }}
           </div>
         </div>
       </div>
@@ -115,6 +125,10 @@
                     {% elif booking.status == 'cancelled' %}
                       <span class="badge" style="background: var(--danger-color)">
                         <i class="bi bi-x-circle-fill"></i> Cancelled
+                      </span>
+                    {% elif booking.status == 'moved_in' %}
+                      <span class="badge" style="background: var(--primary-color)">
+                        <i class="bi bi-house-check-fill"></i> Moved in
                       </span>
                     {% else %}
                       <span class="badge bg-secondary">Unknown</span>
@@ -176,7 +190,7 @@
                 </div>
 
                 {# Actions #}
-                {% if booking.status != 'cancelled' %}
+                {% if booking.status == 'pending' or booking.status == 'confirmed' %}
                   <div class="d-grid gap-2 pt-2 border-top border-light">
                     <button type="button" class="btn btn-danger btn-sm"
                             data-bs-toggle="modal"
@@ -185,16 +199,25 @@
                     </button>
                   </div>
                 {% else %}
+                  {% if booking.status == 'moved_in' %}
+                    <div class="pt-2 border-top border-light">
+                      <small class="text-success"><i class="bi bi-check-circle"></i> Move-in completed.</small>
+                    </div>
+                  {% else %}
                   {# ✅ Cancelled bookings can be cleared/removed by tenant #}
                   <div class="pt-2 border-top border-light">
                     <div class="d-flex justify-content-between align-items-center mb-0">
                       <small class="text-muted"><i class="bi bi-info-circle"></i> This booking has been cancelled.</small>
 
-                      <a href="{% url 'clear_booking' booking.id %}" class="btn btn-outline-danger btn-sm">
+                      <form method="post" action="{% url 'clear_booking' booking.id %}">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-outline-danger btn-sm">
                         <i class="bi bi-trash"></i> Clear
-                      </a>
+                        </button>
+                      </form>
                     </div>
                   </div>
+                  {% endif %}
                 {% endif %}
 
               {% else %}
@@ -205,9 +228,12 @@
                 {# If relation is missing but status is cancelled, still allow clearing #}
                 {% if booking.status == 'cancelled' %}
                   <div class="pt-2 border-top border-light">
-                    <a href="{% url 'clear_booking' booking.id %}" class="btn btn-outline-danger btn-sm w-100">
+                    <form method="post" action="{% url 'clear_booking' booking.id %}">
+                      {% csrf_token %}
+                      <button type="submit" class="btn btn-outline-danger btn-sm w-100">
                       <i class="bi bi-trash"></i> Clear booking
-                    </a>
+                      </button>
+                    </form>
                   </div>
                 {% endif %}
               {% endif %}
@@ -218,7 +244,8 @@
       </div>
 
       {# Cancel modal only for active bookings (pending/confirmed) #}
-      {% if booking.status != 'cancelled' and booking.unit and booking.unit.property %}
+        {% if booking.status == 'pending' or booking.status == 'confirmed' %}
+          {% if booking.unit and booking.unit.property %}
         <div class="modal fade" id="unbookModal{{ booking.id }}" tabindex="-1"
              aria-labelledby="unbookModalLabel{{ booking.id }}" aria-hidden="true">
           <div class="modal-dialog modal-sm">
@@ -237,13 +264,17 @@
               </div>
               <div class="modal-footer border-top bg-light">
                 <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Keep It</button>
-                <a href="{% url 'unbook_property' booking.id %}" class="btn btn-danger btn-sm">
+                <form method="post" action="{% url 'unbook_property' booking.id %}">
+                  {% csrf_token %}
+                  <button type="submit" class="btn btn-danger btn-sm">
                   Yes, Cancel Booking
-                </a>
+                  </button>
+                </form>
               </div>
             </div>
           </div>
         </div>
+          {% endif %}
       {% endif %}
 
     {% empty %}

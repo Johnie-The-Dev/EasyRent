@@ -53,7 +53,7 @@
   {% if bookings %}
 
     <div class="row g-3 mb-4">
-      <div class="col-md-3">
+      <div class="col-6 col-lg">
         <div class="card kpi-card h-100" style="border-left:4px solid var(--primary-color);">
           <div class="card-body">
             <div class="text-muted small fw-bold">Total</div>
@@ -63,7 +63,7 @@
           </div>
         </div>
       </div>
-      <div class="col-md-3">
+      <div class="col-6 col-lg">
         <div class="card kpi-card h-100" style="border-left:4px solid var(--warning-color);">
           <div class="card-body">
             <div class="text-muted small fw-bold">Pending</div>
@@ -73,7 +73,7 @@
           </div>
         </div>
       </div>
-      <div class="col-md-3">
+      <div class="col-6 col-lg">
         <div class="card kpi-card h-100" style="border-left:4px solid var(--success-color);">
           <div class="card-body">
             <div class="text-muted small fw-bold">Confirmed</div>
@@ -83,12 +83,22 @@
           </div>
         </div>
       </div>
-      <div class="col-md-3">
+      <div class="col-6 col-lg">
         <div class="card kpi-card h-100" style="border-left:4px solid var(--danger-color);">
           <div class="card-body">
             <div class="text-muted small fw-bold">Cancelled</div>
             <div class="fw-bold" style="font-size:1.75rem;color:var(--danger-color);">
               {{ cancelled_count|default:0 }}
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="col-6 col-lg">
+        <div class="card kpi-card h-100" style="border-left:4px solid var(--primary-color);">
+          <div class="card-body">
+            <div class="text-muted small fw-bold">Moved in</div>
+            <div class="fw-bold" style="font-size:1.75rem;color:var(--primary-color);">
+              {{ moved_in_count|default:0 }}
             </div>
           </div>
         </div>
@@ -160,6 +170,10 @@
                     <span class="badge" style="background: var(--danger-color);">
                       <i class="bi bi-x-circle-fill"></i> Cancelled
                     </span>
+                  {% elif booking.status == 'moved_in' %}
+                    <span class="badge" style="background: var(--primary-color);">
+                      <i class="bi bi-house-check-fill"></i> Moved in
+                    </span>
                   {% else %}
                     <span class="badge bg-secondary">Unknown</span>
                   {% endif %}
@@ -183,12 +197,21 @@
                       </div>
                     </form>
                   {% elif booking.status == 'confirmed' %}
-                    <form method="POST" action="{% url 'update_booking_status' booking.id %}" class="d-inline">
-                      {% csrf_token %}
-                      <button type="submit" name="status" value="cancelled" class="btn btn-sm btn-outline-danger" title="Cancel this booking">
-                        <i class="bi bi-x-circle"></i> Cancel
-                      </button>
-                    </form>
+                    <div class="d-flex justify-content-center gap-2 flex-wrap">
+                      <a href="{% url 'manage_tenants' %}?booking={{ booking.id }}" class="btn btn-sm btn-primary">
+                        <i class="bi bi-house-check"></i> Create tenancy
+                      </a>
+                      <form method="POST" action="{% url 'update_booking_status' booking.id %}" class="d-inline">
+                        {% csrf_token %}
+                        <button type="submit" name="status" value="cancelled" class="btn btn-sm btn-outline-danger" title="Cancel this booking">
+                          <i class="bi bi-x-circle"></i> Cancel
+                        </button>
+                      </form>
+                    </div>
+                  {% elif booking.status == 'moved_in' %}
+                    <a href="{% url 'tenant_list' %}" class="btn btn-sm btn-outline-secondary">
+                      <i class="bi bi-person-vcard"></i> View tenant
+                    </a>
                   {% else %}
                     <span class="pill text-muted"><i class="bi bi-dash-circle"></i> No actions</span>
                   {% endif %}

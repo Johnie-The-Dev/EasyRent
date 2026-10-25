@@ -17,17 +17,17 @@
 
     <style>
       :root {
-        --primary-color: #667eea;
-        --primary-dark: #764ba2;
-        --secondary-color: #4eca6e;
-        --accent-color: #667eea;
+        --primary-color: #176b5b;
+        --primary-dark: #10483f;
+        --secondary-color: #e1a83a;
+        --accent-color: #17816d;
         --danger-color: #e74c3c;
-        --success-color: #4eca6e;
-        --warning-color: #f39c12;
-        --light-bg: #f8f9fa;
-        --border-color: #e0e0e0;
-        --text-dark: #333;
-        --text-muted: #666;
+        --success-color: #27845f;
+        --warning-color: #c7841b;
+        --light-bg: #f3f6f4;
+        --border-color: #dce5e1;
+        --text-dark: #202b28;
+        --text-muted: #687570;
       }
 
       * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -106,18 +106,18 @@
       }
 
       .btn-primary {
-        background: linear-gradient(135deg, var(--accent-color) 0%, #3e72b2 100%);
+        background: linear-gradient(135deg, var(--accent-color) 0%, var(--primary-color) 100%);
         color: #fff;
       }
       .btn-primary:hover {
-        background: linear-gradient(135deg, #3e72b2 0%, #2e5a9a 100%);
+        background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-dark) 100%);
         transform: translateY(-2px);
         box-shadow: 0 4px 12px rgba(74, 144, 226, 0.3);
       }
 
-      .btn-secondary { background: var(--secondary-color); color: #fff; }
+      .btn-secondary { background: var(--secondary-color); color: #202b28; }
       .btn-secondary:hover {
-        background: #3fa9a3;
+        background: #c78d25;
         transform: translateY(-2px);
         box-shadow: 0 4px 12px rgba(80, 201, 195, 0.3);
       }
@@ -132,7 +132,7 @@
 
       .card {
         border: 1px solid var(--border-color);
-        border-radius: 10px;
+        border-radius: 8px;
         transition: all 0.3s ease;
         box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
       }
@@ -145,7 +145,7 @@
         background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-dark) 100%);
         color: #fff;
         border-bottom: none;
-        border-radius: 10px 10px 0 0;
+        border-radius: 8px 8px 0 0;
         font-weight: 600;
       }
 
@@ -370,6 +370,16 @@
     </nav>
 
     <main class="app-container">
+      {% if messages %}
+        <div class="mb-3" aria-live="polite">
+          {% for message in messages %}
+            <div class="alert alert-{{ message.tags|default:'info' }} alert-dismissible fade show" role="alert">
+              {{ message }}
+              <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+          {% endfor %}
+        </div>
+      {% endif %}
       {% block content %}{% endblock %}
     </main>
 

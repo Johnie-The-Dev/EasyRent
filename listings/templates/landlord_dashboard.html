@@ -4,7 +4,7 @@
 {% block content %}
 <style>
   .dash-hero{
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: linear-gradient(120deg, var(--primary-dark) 0%, var(--primary-color) 70%, #268b78 100%);
     color:#fff; padding:32px 18px; border-radius:14px;
     box-shadow: 0 8px 24px rgba(0,0,0,.12);
     margin-bottom: 22px;
@@ -12,28 +12,28 @@
   .dash-hero h1{font-weight:800; font-size: 2rem; margin:0 0 6px;}
   .dash-hero p{margin:0; opacity:.95}
 
-  .kpi{background:#fff;border-radius:14px;padding:18px;border:1px solid rgba(0,0,0,.06);
+  .kpi{background:#fff;border-radius:8px;padding:18px;border:1px solid rgba(0,0,0,.06);
     box-shadow: 0 2px 14px rgba(0,0,0,.06); height:100%;}
   .kpi .label{font-size:.82rem;color:#7a7a7a;font-weight:700;text-transform:uppercase;letter-spacing:.5px;}
   .kpi .value{font-size:1.65rem;font-weight:800;margin-top:6px;}
   .kpi .sub{font-size:.85rem;color:#666;margin-top:4px}
-  .kpi.expected{border-left:5px solid #667eea;}
+  .kpi.expected{border-left:5px solid var(--primary-color);}
   .kpi.collected{border-left:5px solid #2ecc71;}
-  .kpi.remaining{border-left:5px solid #00bcd4;}
-  .kpi.outstanding{border-left:5px solid #f39c12;}
+  .kpi.remaining{border-left:5px solid #398c91;}
+  .kpi.outstanding{border-left:5px solid var(--warning-color);}
 
   .quick-actions a{border-radius:12px; padding:12px 14px; font-weight:700;}
-  .cardx{background:#fff;border-radius:14px;border:1px solid rgba(0,0,0,.06);box-shadow: 0 2px 14px rgba(0,0,0,.06);}
+  .cardx{background:#fff;border-radius:8px;border:1px solid rgba(0,0,0,.06);box-shadow: 0 2px 14px rgba(0,0,0,.06);}
   .cardx .cardx-h{padding:14px 16px;border-bottom:1px solid rgba(0,0,0,.06);display:flex;align-items:center;justify-content:space-between}
   .cardx .cardx-b{padding:16px;}
 
-  .pill{display:inline-flex;gap:6px;align-items:center;padding:6px 10px;border-radius:999px;font-size:.82rem;font-weight:700;}
+  .pill{display:inline-flex;gap:6px;align-items:center;padding:6px 10px;border-radius:6px;font-size:.82rem;font-weight:700;}
   .pill.pending{background:#fff3cd;color:#856404;}
   .pill.full{background:#d4edda;color:#155724;}
   .pill.vacant{background:#f8d7da;color:#721c24;}
   .pill.booked{background:#d1ecf1;color:#0c5460;}
 
-  .prop-row{display:flex;gap:12px;align-items:flex-start;padding:12px;border:1px solid rgba(0,0,0,.06);border-radius:12px;}
+  .prop-row{display:flex;gap:12px;align-items:flex-start;padding:12px;border:1px solid rgba(0,0,0,.06);border-radius:8px;}
   .prop-thumb{width:64px;height:64px;border-radius:12px;overflow:hidden;background:#f2f2f2;flex:0 0 64px;display:flex;align-items:center;justify-content:center}
   .prop-thumb img{width:100%;height:100%;object-fit:cover}
   .prop-meta{flex:1}
@@ -54,12 +54,6 @@
     <div class="quick-actions d-flex gap-2 flex-wrap">
       <a href="{% url 'add_property' %}" class="btn btn-light">
         <i class="bi bi-plus-lg"></i> Add Property
-      </a>
-      <a href="{% url 'manage_tenants' %}" class="btn btn-outline-light">
-        <i class="bi bi-person-plus"></i> Add Tenant
-      </a>
-      <a href="{% url 'tenant_list' %}" class="btn btn-outline-light">
-        <i class="bi bi-people-fill"></i> Tenant List
       </a>
       <a href="{% url 'landlord_bookings' %}" class="btn btn-outline-light">
         <i class="bi bi-calendar2-check"></i> Bookings
@@ -83,14 +77,14 @@
       <div class="kpi collected">
         <div class="label">Paid This Month</div>
         <div class="value">Ksh {{ rent_paid_month|floatformat:0 }}</div>
-        <div class="sub">{{ recent_payments|length }} receipt(s) logged</div>
+        <div class="sub">{{ recent_payments|length }} recent payment(s)</div>
       </div>
     </div>
     <div class="col-md-3">
       <div class="kpi remaining">
         <div class="label">Remaining This Month</div>
         <div class="value">Ksh {{ rent_remaining_month|floatformat:0 }}</div>
-        <div class="sub">Expected minus receipts</div>
+        <div class="sub">Expected minus recorded payments</div>
       </div>
     </div>
     <div class="col-md-3">
@@ -192,14 +186,8 @@
                   </div>
 
                   <div class="prop-actions">
-                    <a href="{% url 'edit_property' prop.id %}" class="btn btn-sm btn-outline-secondary" title="View / Manage Property">
-                      <i class="bi bi-eye"></i> View
-                    </a>
                     <a href="{% url 'edit_property' prop.id %}" class="btn btn-sm btn-primary" title="Edit Property">
-                      <i class="bi bi-pencil"></i> Edit
-                    </a>
-                    <a href="{% url 'delete_property' prop.id %}" class="btn btn-sm btn-outline-danger" title="Delete Property">
-                      <i class="bi bi-trash"></i> Delete
+                      <i class="bi bi-sliders"></i> Manage
                     </a>
                   </div>
                 </div>
@@ -276,9 +264,14 @@
                     <a href="{% url 'edit_tenant' t.id %}" class="btn btn-sm btn-outline-primary">
                       <i class="bi bi-pencil"></i> Edit
                     </a>
-                    <a href="{% url 'generate_receipt' t.id %}" class="btn btn-sm btn-outline-success">
-                      <i class="bi bi-receipt"></i> Receipt
-                    </a>
+                    {% if t.payments.all.0 %}
+                      <form method="post" action="{% url 'generate_receipt' t.id %}">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-sm btn-outline-success">
+                          <i class="bi bi-receipt"></i> Receipt
+                        </button>
+                      </form>
+                    {% endif %}
                     <a href="{% url 'receipt_history' t.id %}" class="btn btn-sm btn-outline-secondary">
                       <i class="bi bi-clock"></i> History
                     </a>

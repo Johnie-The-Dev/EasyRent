@@ -184,12 +184,18 @@
                     <a href="{% url 'edit_tenant' tenant.id %}" class="btn btn-sm btn-outline-primary" title="Edit">
                       <i class="bi bi-pencil-square"></i>
                     </a>
-                    <a href="{% url 'delete_tenant' tenant.id %}" class="btn btn-sm btn-outline-danger" title="Delete">
+                    <form method="post" action="{% url 'delete_tenant' tenant.id %}">
+                      {% csrf_token %}
+                      <button type="submit" class="btn btn-sm btn-outline-danger" title="End tenancy">
                       <i class="bi bi-trash"></i>
-                    </a>
-                    <a href="{% url 'generate_receipt' tenant.id %}" class="btn btn-sm btn-outline-success" title="Generate Receipt">
+                      </button>
+                    </form>
+                    <form method="post" action="{% url 'generate_receipt' tenant.id %}">
+                      {% csrf_token %}
+                      <button type="submit" class="btn btn-sm btn-outline-success" title="Generate Receipt">
                       <i class="bi bi-receipt"></i>
-                    </a>
+                      </button>
+                    </form>
                   </div>
 
                   <a href="{% url 'receipt_history' tenant.id %}" class="btn btn-sm btn-secondary">
@@ -286,18 +292,24 @@
                   <a href="{% url 'edit_tenant' tenant.id %}" class="btn btn-sm btn-outline-primary">
                     <i class="bi bi-pencil-square"></i> Edit
                   </a>
-                  <a href="{% url 'generate_receipt' tenant.id %}" class="btn btn-sm btn-outline-success">
+                  <form method="post" action="{% url 'generate_receipt' tenant.id %}">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-sm btn-outline-success">
                     <i class="bi bi-receipt"></i> Receipt
-                  </a>
+                    </button>
+                  </form>
                 </div>
 
                 <a href="{% url 'receipt_history' tenant.id %}" class="btn btn-sm btn-secondary">
                   <i class="bi bi-clock-history"></i> Receipt History
                 </a>
 
-                <a href="{% url 'delete_tenant' tenant.id %}" class="btn btn-sm btn-outline-danger">
-                  <i class="bi bi-trash"></i> Delete
-                </a>
+                <form method="post" action="{% url 'delete_tenant' tenant.id %}">
+                  {% csrf_token %}
+                  <button type="submit" class="btn btn-sm btn-outline-danger">
+                  <i class="bi bi-box-arrow-right"></i> End tenancy
+                  </button>
+                </form>
               </div>
             </div>
           </div>

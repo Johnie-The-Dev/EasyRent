@@ -106,77 +106,21 @@
           </div>
 
           <div class="col-md-6">
-            <label class="form-label fw-semibold">Total Paid This Month (KES)</label>
+            <label class="form-label fw-semibold">Total Paid This Month (KES, read only)</label>
             {{ form.rent_paid }}
             {% if form.rent_paid.errors %}<div class="text-danger small mt-1">{{ form.rent_paid.errors }}</div>{% endif %}
-            <div class="form-hint mt-1">This field stores the running total paid for the selected month.</div>
+            <div class="form-hint mt-1">Use “Payment Received Now” below to add a payment. The total is calculated from payment records.</div>
           </div>
 
-          {# ✅ NEW: payment increment field (not a model/form field) #}
           <div class="col-12">
-            <div class="p-3 rounded-3" style="background: rgba(14,165,233,.06); border: 1px solid rgba(14,165,233,.14);">
-              <div class="d-flex align-items-center gap-2 mb-2">
-                <i class="bi bi-cash-coin"></i>
-                <div class="fw-bold">Record a payment now (optional)</div>
-              </div>
-
-              <div class="row g-3">
-                <div class="col-md-6">
-                  <label class="form-label fw-semibold">Payment Received Now (KES)</label>
-                  <input
-                    type="number"
-                    name="payment_amount"
-                    id="payment_amount"
-                    class="form-control"
-                    min="0"
-                    step="1"
-                    value="0"
-                    placeholder="e.g. 5000"
-                  >
-                  <div class="form-hint mt-1">
-                    Enter the amount paid now. On save, this is added to “Total Paid This Month” and balances update.
-                  </div>
-                </div>
-
-                <div class="col-md-6">
-                  <label class="form-label fw-semibold">What happens on Save?</label>
-                  <div class="form-hint">
-                    • rent_paid becomes: <strong>current rent_paid + payment_received_now</strong><br>
-                    • rent_balance becomes: <strong>monthly_rent − new rent_paid</strong><br>
-                    • cumulative updates accordingly.
-                  </div>
-                </div>
+            <div class="row g-3">
+              <div class="col-md-6">
+                <label class="form-label fw-semibold">Payment Received Now (KES)</label>
+                {{ form.payment_amount }}
+                {% if form.payment_amount.errors %}<div class="text-danger small mt-1">{{ form.payment_amount.errors }}</div>{% endif %}
+                <div class="form-hint mt-1">Recorded separately for the selected month.</div>
               </div>
             </div>
-          </div>
-
-          <div class="col-12">
-            <hr class="my-2">
-          </div>
-
-          {# Display-only computed fields (server still calculates/saves) #}
-          <div class="col-md-6">
-            <label class="form-label fw-semibold">Rent Balance (preview)</label>
-            <input
-              type="number"
-              id="rent_balance"
-              class="form-control"
-              value="{{ tenant.rent_balance }}"
-              readonly
-            >
-            <div class="form-hint mt-1">Monthly Rent − (Total Paid This Month + Payment Received Now)</div>
-          </div>
-
-          <div class="col-md-6">
-            <label class="form-label fw-semibold">Cumulative Balance (preview)</label>
-            <input
-              type="number"
-              id="total_rent_balance"
-              class="form-control"
-              value="{{ tenant.cumulative_rent_balance }}"
-              readonly
-            >
-            <div class="form-hint mt-1">Preview only; server will store the authoritative total.</div>
           </div>
 
           <div class="col-12 d-flex gap-2 flex-wrap mt-2">
@@ -193,53 +137,4 @@
     </div>
   </div>
 </div>
-
-<script>
-(function() {
-  const form = document.getElementById('tenantForm');
-  if (!form) return;
-
-  const monthlyRentEl = form.querySelector('[name="monthly_rent"]');
-  const rentPaidEl = form.querySelector('[name="rent_paid"]');
-  const paymentNowEl = document.getElementById('payment_amount');
-
-  const rentBalanceEl = document.getElementById('rent_balance');
-  const totalBalanceEl = document.getElementById('total_rent_balance');
-
-  function storeInitials() {
-    totalBalanceEl.dataset.initialTotal = totalBalanceEl.value || "0";
-    rentBalanceEl.dataset.initialRentBal = rentBalanceEl.value || "0";
-    rentPaidEl.dataset.initialPaid = rentPaidEl.value || "0";
-  }
-
-  function recalc() {
-    const monthlyRent = parseFloat(monthlyRentEl?.value || "0") || 0;
-    const paidBase = parseFloat(rentPaidEl?.value || "0") || 0;
-    const paidNow = parseFloat(paymentNowEl?.value || "0") || 0;
-
-    const effectivePaid = paidBase + paidNow;
-    const newRentBalance = monthlyRent - effectivePaid;
-    rentBalanceEl.value = newRentBalance;
-
-    const initialTotal = parseFloat(totalBalanceEl.dataset.initialTotal || "0") || 0;
-    const initialRentBal = parseFloat(rentBalanceEl.dataset.initialRentBal || "0") || 0;
-
-    // replace old month-balance with new month-balance (matches server logic)
-    const newTotal = (initialTotal - initialRentBal) + newRentBalance;
-    totalBalanceEl.value = newTotal;
-  }
-
-  document.addEventListener('DOMContentLoaded', function() {
-    storeInitials();
-    recalc();
-  });
-
-  form.addEventListener('input', function(e) {
-    if (!e.target) return;
-    if (["monthly_rent", "rent_paid"].includes(e.target.name) || e.target.id === "payment_amount") {
-      recalc();
-    }
-  });
-})();
-</script>
 {% endblock %}

@@ -165,9 +165,10 @@
                           {% if img.is_primary %}
                             <span class="badge bg-success mb-2">Primary</span>
                           {% endif %}
-                          <a href="{% url 'delete_property_image' img.id %}" class="btn btn-danger btn-sm w-100">
+                          <button type="submit" form="delete-property-image-{{ img.id }}"
+                                  class="btn btn-danger btn-sm w-100">
                             Delete
-                          </a>
+                          </button>
                         </div>
                       </div>
                     </div>
@@ -200,6 +201,13 @@
               <i class="bi bi-save"></i> Update Property
             </button>
           </form>
+
+          {% for img in form.instance.images.all %}
+            <form id="delete-property-image-{{ img.id }}" method="post"
+                  action="{% url 'delete_property_image' img.id %}">
+              {% csrf_token %}
+            </form>
+          {% endfor %}
 
           <hr class="my-4">
 

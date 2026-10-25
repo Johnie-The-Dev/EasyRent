@@ -314,7 +314,15 @@ class Tenant(models.Model):
     name = models.CharField(max_length=100)
     phone = models.CharField(max_length=20)
 
-    unit_fk = models.ForeignKey(Unit, on_delete=models.CASCADE, related_name="tenancies")
+    unit_fk = models.ForeignKey(Unit, on_delete=models.PROTECT, related_name="tenancies")
+    booking = models.OneToOneField(
+        "Booking",
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="tenancy",
+    )
+    is_active = models.BooleanField(default=True)
 
     date_occupied = models.DateField()
     rent_paid = models.DecimalField(max_digits=10, decimal_places=2, validators=[MinValueValidator(0)])
@@ -347,8 +355,43 @@ class Tenant(models.Model):
         super().clean()
 
 
+class RentPayment(models.Model):
+    tenant = models.ForeignKey(Tenant, on_delete=models.PROTECT, related_name="payments")
+    amount = models.DecimalField(max_digits=12, decimal_places=2, validators=[MinValueValidator(0)])
+    date_paid = models.DateField()
+    month_paid_for = models.CharField(max_length=7)
+    monthly_rent = models.DecimalField(max_digits=10, decimal_places=2, validators=[MinValueValidator(0)])
+    rent_balance = models.DecimalField(max_digits=10, decimal_places=2)
+    cumulative_rent_balance = models.DecimalField(max_digits=10, decimal_places=2)
+    is_legacy_snapshot = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+        indexes = [
+            models.Index(fields=["tenant", "month_paid_for"]),
+            models.Index(fields=["month_paid_for", "date_paid"]),
+        ]
+
+    def __str__(self) -> str:
+        return f"Rent payment KES {self.amount} for {self.tenant.name} on {self.date_paid:%Y-%m-%d}"
+
+    @property
+    def rent_paid(self):
+        return self.amount
+
+    @property
+    def date_generated(self):
+        return self.created_at
+
+    def clean(self):
+        if self.month_paid_for and not _MONTH_RE.fullmatch(self.month_paid_for):
+            raise ValidationError({"month_paid_for": "Month must be in YYYY-MM format."})
+        super().clean()
+
+
 class ReceiptHistory(models.Model):
-    tenant = models.ForeignKey(Tenant, on_delete=models.CASCADE, related_name="receipts")
+    tenant = models.ForeignKey(Tenant, on_delete=models.PROTECT, related_name="receipts")
     date_generated = models.DateTimeField(auto_now_add=True)
 
     rent_paid = models.DecimalField(max_digits=10, decimal_places=2, validators=[MinValueValidator(0)])
@@ -388,7 +431,14 @@ class DepositHistory(models.Model):
         help_text="Optional link to the tenant's user account (if applicable).",
     )
 
-    unit = models.ForeignKey(Unit, on_delete=models.CASCADE, related_name="deposit_records")
+    unit = models.ForeignKey(Unit, on_delete=models.PROTECT, related_name="deposit_records")
+    tenancy = models.ForeignKey(
+        Tenant,
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="deposits",
+    )
 
     amount = models.DecimalField(max_digits=12, decimal_places=2, validators=[MinValueValidator(0)])
 
@@ -421,14 +471,16 @@ class Booking(models.Model):
     STATUS_PENDING = "pending"
     STATUS_CONFIRMED = "confirmed"
     STATUS_CANCELLED = "cancelled"
+    STATUS_MOVED_IN = "moved_in"
 
     STATUS_CHOICES = [
         (STATUS_PENDING, "Pending"),
         (STATUS_CONFIRMED, "Confirmed"),
         (STATUS_CANCELLED, "Cancelled"),
+        (STATUS_MOVED_IN, "Moved in"),
     ]
 
-    unit = models.ForeignKey(Unit, on_delete=models.CASCADE, related_name="bookings")
+    unit = models.ForeignKey(Unit, on_delete=models.PROTECT, related_name="bookings")
     tenant = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="bookings")
 
     move_in_date = models.DateField(null=True, blank=True)

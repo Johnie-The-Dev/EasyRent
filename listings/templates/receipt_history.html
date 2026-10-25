@@ -26,7 +26,10 @@
                         {% for receipt in history %}
                         <tr>
                             <td data-label="Date Generated">{{ receipt.date_generated }}</td>
-                            <td data-label="Rent Paid">Ksh {{ receipt.rent_paid }}</td>
+                            <td data-label="Rent Paid">
+                                Ksh {{ receipt.rent_paid }}
+                                {% if receipt.is_legacy_snapshot %}<small class="text-muted d-block">Imported running total</small>{% endif %}
+                            </td>
                             <td data-label="Date Paid">{{ receipt.date_paid }}</td>
                             <td data-label="Month Paid For">{{ receipt.month_paid_for }}</td>
                             <td data-label="Monthly Rent">Ksh {{ receipt.monthly_rent }}</td>
