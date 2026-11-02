@@ -314,6 +314,13 @@ class Tenant(models.Model):
     name = models.CharField(max_length=100)
     phone = models.CharField(max_length=20)
 
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="tenant_records",
+    )
     unit_fk = models.ForeignKey(Unit, on_delete=models.PROTECT, related_name="tenancies")
     booking = models.OneToOneField(
         "Booking",

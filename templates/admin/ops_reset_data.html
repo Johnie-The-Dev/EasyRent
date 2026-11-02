@@ -1,0 +1,23 @@
+{% extends "admin/base_site.html" %}
+
+{% block content %}
+<div class="content">
+  <p><a href="{% url 'ops:dashboard' %}">← Back to manager dashboard</a></p>
+  <h1>Reset all site data</h1>
+  {% if error %}<p class="errornote">{{ error }}</p>{% endif %}
+  <div class="module" style="max-width:760px;padding:18px">
+    <p>This permanently removes all Django-managed data from database <strong>{{ database_name }}</strong>, including every user account, property, unit, booking, tenancy, payment, receipt, notification, and login session.</p>
+    <p>The database tables and migration history remain. You will need to create a new superuser after the reset to access the manager area again.</p>
+    <p><strong>This cannot be undone. Export or back up anything you may need before continuing.</strong></p>
+    <form method="post">
+      {% csrf_token %}
+      <p><label for="confirm-database">Enter the database name <strong>{{ database_name }}</strong>:</label><br>
+        <input id="confirm-database" name="confirm_database" type="text" required autocomplete="off"></p>
+      <p><label for="confirm-action">Then type <strong>DELETE ALL DATA</strong>:</label><br>
+        <input id="confirm-action" name="confirm_action" type="text" required autocomplete="off"></p>
+      <button class="button" type="submit" style="background:#ba2121">Permanently reset all site data</button>
+      <a class="button" href="{% url 'ops:dashboard' %}">Cancel</a>
+    </form>
+  </div>
+</div>
+{% endblock %}

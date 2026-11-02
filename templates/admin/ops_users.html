@@ -1,0 +1,89 @@
+{% extends "admin/base_site.html" %}
+
+{% block extrastyle %}
+{{ block.super }}
+<style>
+  .ops-page { max-width: 1200px; }
+  .ops-toolbar, .ops-filters, .ops-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+  .ops-toolbar { justify-content: space-between; margin-bottom: 16px; }
+  .ops-filters { padding: 14px; margin-bottom: 16px; }
+  .ops-filters label { display: grid; gap: 4px; font-weight: 600; }
+  .ops-filters input, .ops-filters select { min-width: 150px; }
+  .ops-table { width: 100%; border-collapse: collapse; }
+  .ops-table th, .ops-table td { padding: 9px 10px; border-top: 1px solid var(--hairline-color, #ddd); text-align: left; vertical-align: middle; }
+  .ops-table th { color: var(--body-quiet-color, #666); }
+  .ops-badge { border: 1px solid var(--hairline-color, #ccc); border-radius: 999px; padding: 2px 8px; white-space: nowrap; }
+  .ops-muted { color: var(--body-quiet-color, #666); }
+  .ops-danger { color: #ba2121 !important; }
+  .ops-pagination { display: flex; justify-content: space-between; margin-top: 14px; }
+  @media (max-width: 700px) { .ops-table { display: block; overflow-x: auto; } }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="content ops-page">
+  <div class="ops-toolbar">
+    <div>
+      <h1>People</h1>
+      <p class="ops-muted">Search and review landlord and tenant accounts. Deletion permanently removes linked EasyRent records.</p>
+    </div>
+    <div class="ops-actions">
+      <a class="button" href="{% url 'ops:dashboard' %}">Dashboard</a>
+      <a class="button" href="/admin/listings/user/add/">Create account</a>
+    </div>
+  </div>
+
+  <form method="get" class="module ops-filters">
+    <label>Search
+      <input type="search" name="q" value="{{ search }}" placeholder="Name, username, or email">
+    </label>
+    <label>Account type
+      <select name="role">
+        <option value="all" {% if role == "all" %}selected{% endif %}>All accounts</option>
+        <option value="landlord" {% if role == "landlord" %}selected{% endif %}>Landlords</option>
+        <option value="tenant" {% if role == "tenant" %}selected{% endif %}>Tenants</option>
+      </select>
+    </label>
+    <label>Status
+      <select name="status">
+        <option value="all" {% if status == "all" %}selected{% endif %}>All statuses</option>
+        <option value="active" {% if status == "active" %}selected{% endif %}>Active</option>
+        <option value="inactive" {% if status == "inactive" %}selected{% endif %}>Suspended</option>
+      </select>
+    </label>
+    <button class="button" type="submit">Filter</button>
+    <a href="{% url 'ops:users' %}">Clear</a>
+  </form>
+
+  <div class="module">
+    <table class="ops-table">
+      <thead>
+        <tr><th>Account</th><th>Type</th><th>Status</th><th>Joined</th><th>Last login</th><th>Actions</th></tr>
+      </thead>
+      <tbody>
+        {% for account in page %}
+          <tr>
+            <td><strong>{{ account.get_full_name|default:account.username }}</strong><br><span class="ops-muted">{{ account.email|default:"No email" }}</span></td>
+            <td>{{ account.get_role_display }}</td>
+            <td><span class="ops-badge">{% if account.is_active %}Active{% else %}Suspended{% endif %}</span></td>
+            <td>{{ account.date_joined|date:"Y-m-d" }}</td>
+            <td>{{ account.last_login|date:"Y-m-d H:i"|default:"Never" }}</td>
+            <td><a href="{% url 'ops:user_detail' account.pk %}">Review</a></td>
+          </tr>
+        {% empty %}
+          <tr><td colspan="6" class="ops-muted">No matching accounts.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <div class="ops-pagination">
+    <span class="ops-muted">{{ total_users }} matching account{{ total_users|pluralize }}</span>
+    <span>
+      {% if page.has_previous %}<a href="?q={{ search|urlencode }}&role={{ role }}&status={{ status }}&page={{ page.previous_page_number }}">Previous</a>{% endif %}
+      <span> Page {{ page.number }} of {{ page.paginator.num_pages }} </span>
+      {% if page.has_next %}<a href="?q={{ search|urlencode }}&role={{ role }}&status={{ status }}&page={{ page.next_page_number }}">Next</a>{% endif %}
+    </span>
+  </div>
+</div>
+{% endblock %}

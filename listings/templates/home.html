@@ -147,22 +147,22 @@
 
 <div class="hero-section">
     <div class="hero-content">
-        <h1>Find Your Perfect Home — Karibu!</h1>
-        <p>Quick rentals for students and young pros. Real homes, clear prices — hakuna malipo ya siri.</p>
+        <h1>Find a place that feels like home</h1>
+        <p>Find quality rentals with clear pricing and a simpler way to connect with landlords.</p>
 
         {% if user.is_authenticated %}
             <div class="hero-ctas">
                 {% if user.is_landlord %}
-                    <a href="{% url 'landlord_dashboard' %}" class="hero-ctas btn btn-white">Go to Dashboard — Dash</a>
+                    <a href="{% url 'landlord_dashboard' %}" class="hero-ctas btn btn-white">Go to dashboard</a>
                 {% else %}
-                    <a href="{% url 'tenant_feed' %}" class="hero-ctas btn btn-white">Browse Properties — Tazama</a>
-                    <a href="{% url 'view_collection' %}" class="hero-ctas btn btn-outline-white">My Collection — Orodha</a>
+                    <a href="{% url 'tenant_feed' %}" class="hero-ctas btn btn-white">Browse properties</a>
+                    <a href="{% url 'view_collection' %}" class="hero-ctas btn btn-outline-white">Saved properties</a>
                 {% endif %}
             </div>
         {% else %}
             <div class="hero-ctas">
-                <a href="{% url 'signup' %}" class="hero-ctas btn btn-white">Get Started — Jiunge</a>
-                <a href="{% url 'login' %}" class="hero-ctas btn btn-outline-white">Login — Ingia</a>
+                <a href="{% url 'signup' %}" class="hero-ctas btn btn-white">Create an account</a>
+                <a href="{% url 'login' %}" class="hero-ctas btn btn-outline-white">Log in</a>
             </div>
         {% endif %}
     </div>
@@ -174,12 +174,12 @@
         <div class="info-card">
             <div class="info-card-icon">🎓</div>
             <h3>For Students</h3>
-            <p>Find affordable housing near campus. Fast filters, honest prices — karibu upate room yako.</p>
+            <p>Find affordable housing near campus with quick filters and transparent pricing.</p>
         </div>
         <div class="info-card">
             <div class="info-card-icon">💼</div>
             <h3>For Young Professionals</h3>
-            <p>Short commute? Good network? Find starter homes and small flats with clear pricing — hakuna shock.</p>
+            <p>Find starter homes and comfortable flats with clear, upfront pricing.</p>
         </div>
         <div class="info-card">
             <div class="info-card-icon">🏠</div>

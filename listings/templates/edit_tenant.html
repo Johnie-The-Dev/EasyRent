@@ -66,6 +66,13 @@
           </div>
 
           <div class="col-12">
+            <label class="form-label fw-semibold">{{ form.user.label }}</label>
+            {{ form.user }}
+            {% if form.user.errors %}<div class="text-danger small mt-1">{{ form.user.errors }}</div>{% endif %}
+            {% if form.user.help_text %}<div class="form-hint mt-1">{{ form.user.help_text }}</div>{% endif %}
+          </div>
+
+          <div class="col-12">
             <label class="form-label fw-semibold">Unit Occupied</label>
             {{ form.unit_fk }}
             {% if form.unit_fk.errors %}<div class="text-danger small mt-1">{{ form.unit_fk.errors }}</div>{% endif %}

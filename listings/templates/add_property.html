@@ -84,57 +84,17 @@
             <div class="d-flex justify-content-between align-items-center mb-2">
               <h5 class="mb-0 fw-bold">Units</h5>
               <span class="badge bg-light text-dark" style="border:1px solid rgba(0,0,0,0.08);">
-                Add unit codes like A1, B3, 101, Shop-02
+                Use unique unit codes like A1, B3, 101, Shop-02
               </span>
             </div>
 
             {{ formset.management_form }}
-
-            {% for uf in formset %}
-              <div class="border rounded p-3 mb-3" style="background: rgba(255,255,255,0.9);">
-                {% if uf.non_field_errors %}
-                  <div class="alert alert-danger mb-2">{{ uf.non_field_errors }}</div>
-                {% endif %}
-
-                <div class="row g-2">
-                  <div class="col-md-3">
-                    <label class="form-label">Unit Code</label>
-                    {{ uf.unit_code }}
-                    {% if uf.unit_code.errors %}<div class="text-danger small">{{ uf.unit_code.errors }}</div>{% endif %}
-                  </div>
-                  <div class="col-md-3">
-                    <label class="form-label">Unit Type</label>
-                    {{ uf.unit_type }}
-                    {% if uf.unit_type.errors %}<div class="text-danger small">{{ uf.unit_type.errors }}</div>{% endif %}
-                  </div>
-                  <div class="col-md-3">
-                    <label class="form-label">Price</label>
-                    {{ uf.price }}
-                    {% if uf.price.errors %}<div class="text-danger small">{{ uf.price.errors }}</div>{% endif %}
-                  </div>
-                  <div class="col-md-3">
-                    <label class="form-label">Deposit</label>
-                    {{ uf.deposit }}
-                    {% if uf.deposit.errors %}<div class="text-danger small">{{ uf.deposit.errors }}</div>{% endif %}
-                  </div>
-                </div>
-
-                <div class="row g-2 mt-2 align-items-end">
-                  <div class="col-md-4">
-                    <label class="form-label">Vacancy</label>
-                    {{ uf.vacancy }}
-                    {% if uf.vacancy.errors %}<div class="text-danger small">{{ uf.vacancy.errors }}</div>{% endif %}
-                  </div>
-                  <div class="col-md-4">
-                    <div class="form-check mt-4">
-                      {{ uf.is_active }}
-                      <label class="form-check-label ms-1">Active</label>
-                    </div>
-                    {% if uf.is_active.errors %}<div class="text-danger small">{{ uf.is_active.errors }}</div>{% endif %}
-                  </div>
-                </div>
-              </div>
-            {% endfor %}
+            <div id="unit-formset-forms">
+              {% for uf in formset %}
+                {% include "listings/_unit_form.html" with uf=uf %}
+              {% endfor %}
+            </div>
+            {% include "listings/_unit_formset_controls.html" with unit_formset=formset %}
 
             <hr class="my-4">
 

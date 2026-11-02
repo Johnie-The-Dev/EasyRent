@@ -1,0 +1,11 @@
+{% extends "admin/base_site.html" %}
+
+{% block content %}
+<div class="content">
+  <h1>Account deleted</h1>
+  <div class="module" style="max-width:760px;padding:18px">
+    <p>The account <strong>{{ username }}</strong> and its linked EasyRent data were deleted.</p>
+    <p><a class="button" href="{% url 'ops:users' %}">Back to people</a></p>
+  </div>
+</div>
+{% endblock %}

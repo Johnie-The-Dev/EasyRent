@@ -1,0 +1,145 @@
+{% extends "admin/base_site.html" %}
+
+{% block extrastyle %}
+{{ block.super }}
+<style>
+  .ops-page { max-width: 1200px; }
+  .ops-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 12px; margin: 14px 0; }
+  .ops-card { padding: 14px; }
+  .ops-card h2 { margin-top: 0; }
+  .ops-muted { color: var(--body-quiet-color, #666); }
+  .ops-actions { display:flex; flex-wrap:wrap; gap:8px; }
+  .ops-actions form { display:inline; }
+  .ops-danger { color: #ba2121 !important; }
+  .ops-table { width:100%; border-collapse:collapse; }
+  .ops-table th,.ops-table td { padding:8px 10px; border-top:1px solid var(--hairline-color,#ddd); text-align:left; vertical-align:top; }
+  .ops-table th { color:var(--body-quiet-color,#666); }
+  @media(max-width:700px){.ops-table{display:block;overflow-x:auto;}}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="content ops-page">
+  <p><a href="{% url 'ops:users' %}">← Back to people</a></p>
+  <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap">
+    <div>
+      <h1>{{ managed_user.get_full_name|default:managed_user.username }}</h1>
+      <p class="ops-muted">{{ managed_user.email|default:"No email" }} · {{ managed_user.get_role_display }} · {% if managed_user.is_active %}Active{% else %}Suspended{% endif %}</p>
+      <p class="ops-muted">Joined {{ managed_user.date_joined|date:"Y-m-d H:i" }} · Last login {{ managed_user.last_login|date:"Y-m-d H:i"|default:"Never" }}</p>
+    </div>
+    <div class="ops-actions">
+      {% if not managed_user.is_superuser and managed_user.pk != request.user.pk %}
+        <form method="post" action="{% url 'ops:toggle_user_active' managed_user.pk %}">
+          {% csrf_token %}
+          <button class="button" type="submit">{% if managed_user.is_active %}Suspend account{% else %}Reactivate account{% endif %}</button>
+        </form>
+        <a class="button ops-danger" href="{% url 'ops:delete_user' managed_user.pk %}">Delete account</a>
+      {% endif %}
+      <a class="button" href="/admin/listings/user/{{ managed_user.pk }}/change/">Edit account</a>
+    </div>
+  </div>
+
+  {% if messages %}
+    {% for message in messages %}<div class="messagelist"><div class="{{ message.tags }}">{{ message }}</div></div>{% endfor %}
+  {% endif %}
+
+  <div class="ops-grid">
+    <div class="module ops-card"><h2>Properties</h2><strong>{{ properties_count }}</strong><p><a href="/admin/listings/property/?landlord__id__exact={{ managed_user.pk }}">Open in admin</a></p></div>
+    <div class="module ops-card"><h2>Units</h2><strong>{{ units_count }}</strong></div>
+    <div class="module ops-card"><h2>Tenancies</h2><strong>{{ tenancies_count }}</strong></div>
+    <div class="module ops-card"><h2>Bookings</h2><strong>{{ bookings_count }}</strong></div>
+    <div class="module ops-card"><h2>Rent payments</h2><strong>{{ payments_count }}</strong></div>
+    <div class="module ops-card"><h2>Receipts</h2><strong>{{ receipts_count }}</strong></div>
+    <div class="module ops-card"><h2>Deposits</h2><strong>{{ deposits_count }}</strong></div>
+    <div class="module ops-card"><h2>Saved listings</h2><strong>{{ collections_count }}</strong></div>
+  </div>
+
+  {% if properties %}
+    <div class="module" style="padding:14px;margin-bottom:14px">
+      <h2>Landlord properties{% if properties_count > 100 %} (latest 100 of {{ properties_count }}){% endif %}</h2>
+      <table class="ops-table"><thead><tr><th>Property</th><th>Location</th><th>Units</th><th>Created</th></tr></thead>
+        <tbody>{% for property in properties %}<tr>
+          <td><a href="/admin/listings/property/{{ property.pk }}/change/">{{ property.name }}</a></td>
+          <td>{{ property.town }}{% if property.county %}, {{ property.county }}{% endif %}</td>
+          <td>{{ property.units.count }}</td><td>{{ property.created_at|date:"Y-m-d" }}</td>
+        </tr>{% endfor %}</tbody>
+      </table>
+    </div>
+  {% endif %}
+
+  {% if bookings %}
+    <div class="module" style="padding:14px;margin-bottom:14px">
+      <h2>Bookings{% if bookings_count > 100 %} (latest 100 of {{ bookings_count }}){% endif %}</h2>
+      <table class="ops-table"><thead><tr><th>Property / unit</th><th>Status</th><th>Created</th></tr></thead>
+        <tbody>{% for booking in bookings %}<tr>
+          <td>{{ booking.unit.property.name }} / {{ booking.unit.unit_code }}</td>
+          <td>{{ booking.get_status_display }}</td><td>{{ booking.created_at|date:"Y-m-d H:i" }}</td>
+        </tr>{% endfor %}</tbody>
+      </table>
+    </div>
+  {% endif %}
+
+  {% if tenancies %}
+    <div class="module" style="padding:14px;margin-bottom:14px">
+      <h2>Tenancy records{% if tenancies_count > 100 %} (latest 100 of {{ tenancies_count }}){% endif %}</h2>
+      <table class="ops-table"><thead><tr><th>Tenant record</th><th>Property / unit</th><th>Status</th><th>Rent balance</th></tr></thead>
+        <tbody>{% for tenancy in tenancies %}<tr>
+          <td>{{ tenancy.name }} · {{ tenancy.phone }}</td>
+          <td>{{ tenancy.unit_fk.property.name }} / {{ tenancy.unit_fk.unit_code }}</td>
+          <td>{% if tenancy.is_active %}Active{% else %}Ended{% endif %}</td>
+          <td>{{ tenancy.cumulative_rent_balance }}</td>
+        </tr>{% endfor %}</tbody>
+      </table>
+    </div>
+  {% endif %}
+
+  {% if payments %}
+    <div class="module" style="padding:14px;margin-bottom:14px">
+      <h2>Rent payments{% if payments_count > 100 %} (latest 100 of {{ payments_count }}){% endif %}</h2>
+      <table class="ops-table"><thead><tr><th>Tenant record</th><th>Date paid</th><th>Month</th><th>Amount</th><th>Balance</th></tr></thead>
+        <tbody>{% for payment in payments %}<tr>
+          <td>{{ payment.tenant.name }}</td>
+          <td>{{ payment.date_paid|date:"Y-m-d" }}</td>
+          <td>{{ payment.month_paid_for }}</td>
+          <td>{{ payment.amount }}</td>
+          <td>{{ payment.cumulative_rent_balance }}</td>
+        </tr>{% endfor %}</tbody>
+      </table>
+    </div>
+  {% endif %}
+
+  {% if receipts %}
+    <div class="module" style="padding:14px;margin-bottom:14px">
+      <h2>Receipts{% if receipts_count > 100 %} (latest 100 of {{ receipts_count }}){% endif %}</h2>
+      <table class="ops-table"><thead><tr><th>Tenant record</th><th>Generated</th><th>Month</th><th>Paid</th></tr></thead>
+        <tbody>{% for receipt in receipts %}<tr>
+          <td>{{ receipt.tenant.name }}</td>
+          <td>{{ receipt.date_generated|date:"Y-m-d H:i" }}</td>
+          <td>{{ receipt.month_paid_for }}</td>
+          <td>{{ receipt.rent_paid }}</td>
+        </tr>{% endfor %}</tbody>
+      </table>
+    </div>
+  {% endif %}
+
+  {% if collections %}
+    <div class="module" style="padding:14px;margin-bottom:14px">
+      <h2>Saved properties{% if collections_count > 100 %} (latest 100 of {{ collections_count }}){% endif %}</h2>
+      <ul>{% for saved in collections %}<li>{{ saved.property.name }} · saved {{ saved.added_at|date:"Y-m-d" }}</li>{% endfor %}</ul>
+    </div>
+  {% endif %}
+
+  {% if deposits %}
+    <div class="module" style="padding:14px;margin-bottom:14px">
+      <h2>Deposit records{% if deposits_count > 100 %} (latest 100 of {{ deposits_count }}){% endif %}</h2>
+      <table class="ops-table"><thead><tr><th>Date</th><th>Property / unit</th><th>Amount</th><th>Reference</th></tr></thead>
+        <tbody>{% for deposit in deposits %}<tr>
+          <td>{{ deposit.date_received|date:"Y-m-d" }}</td>
+          <td>{{ deposit.unit.property.name }} / {{ deposit.unit.unit_code }}</td>
+          <td>{{ deposit.amount }}</td><td>{{ deposit.reference|default:"—" }}</td>
+        </tr>{% endfor %}</tbody>
+      </table>
+    </div>
+  {% endif %}
+</div>
+{% endblock %}

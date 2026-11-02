@@ -17,7 +17,7 @@ from django.core.mail import send_mail
 from django.core.paginator import Paginator
 from django.db import transaction
 from django.db.models import Count, DecimalField, Min, Q, Sum
-from django.http import HttpResponse
+from django.http import HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.utils.http import url_has_allowed_host_and_scheme
@@ -26,9 +26,11 @@ from django.views import View
 from django.views.decorators.http import require_POST
 
 from reportlab.lib.colors import HexColor
-from reportlab.lib.pagesizes import A6
+from reportlab.lib.pagesizes import A5
 from reportlab.lib.units import mm
+from reportlab.lib.utils import simpleSplit
 from reportlab.pdfgen import canvas
+from django.utils.text import slugify
 
 from .forms import (
     LandlordProfileForm,
@@ -207,6 +209,27 @@ def _available_unit_filter(prefix="units"):
             f"{prefix}__vacancy": Unit.VACANT,
         }
     ) & ~Q(**{f"{prefix}__tenancies__is_active": True})
+
+
+def _is_ajax_request(request):
+    return request.headers.get("x-requested-with") == "XMLHttpRequest"
+
+
+def _available_units_summary(prop):
+    available_units = prop.units.filter(
+        is_active=True,
+        vacancy=Unit.VACANT,
+    ).exclude(tenancies__is_active=True)
+    summary = available_units.aggregate(
+        count=Count("id", distinct=True),
+        min_price=Min("price"),
+    )
+    return {
+        "vacant_units": summary["count"] or 0,
+        "min_vacant_price": (
+            str(summary["min_price"]) if summary["min_price"] is not None else None
+        ),
+    }
 
 
 def _safe_from_email() -> str:
@@ -593,6 +616,14 @@ def edit_property(request, property_id):
                 for u in units:
                     if not (u.unit_code or "").strip():
                         continue
+                    if not u.unit_type:
+                        u.unit_type = prop.property_type
+                    if u.price in [None, ""]:
+                        u.price = prop.price
+                    if not u.vacancy:
+                        u.vacancy = Unit.VACANT
+                    if u.pk is None and not u.is_active:
+                        u.is_active = True
                     u.save()
 
                 for obj in unit_formset.deleted_objects:
@@ -657,6 +688,7 @@ def delete_property_image(request, image_id):
 @tenant_required
 @require_POST
 def book_property(request, property_id):
+    is_ajax = _is_ajax_request(request)
     with transaction.atomic():
         prop = get_object_or_404(Property.objects.select_for_update(), id=property_id)
         if Booking.objects.filter(
@@ -664,6 +696,11 @@ def book_property(request, property_id):
             unit__property=prop,
             status__in=ACTIVE_BOOKING_STATUSES,
         ).exists():
+            if is_ajax:
+                return JsonResponse(
+                    {"success": False, "message": "You already have an active booking in this property."},
+                    status=409,
+                )
             messages.info(request, "You already have an active booking in this property.")
             return redirect("tenant_feed")
 
@@ -675,6 +712,11 @@ def book_property(request, property_id):
             .first()
         )
         if not unit:
+            if is_ajax:
+                return JsonResponse(
+                    {"success": False, "message": "No vacant units available for this property."},
+                    status=409,
+                )
             messages.error(request, "No vacant units available for this property.")
             return redirect("tenant_feed")
 
@@ -688,6 +730,13 @@ def book_property(request, property_id):
         actor=request.user,
         url="",
     )
+
+    if is_ajax:
+        return JsonResponse({
+            "success": True,
+            "message": "Booking request sent. Track it under My Bookings.",
+            **_available_units_summary(prop),
+        })
 
     messages.success(request, "Booking request sent. Track it under My Bookings.")
     return redirect("tenant_feed")
@@ -860,6 +909,17 @@ def clear_booking(request, booking_id):
 def add_to_collection(request, property_id):
     prop = get_object_or_404(Property, id=property_id)
     _, created = TenantCollection.objects.get_or_create(tenant=request.user, property=prop)
+    if _is_ajax_request(request):
+        return JsonResponse({
+            "success": True,
+            "saved": True,
+            "created": created,
+            "message": (
+                "Property added to your collection!"
+                if created
+                else "Property is already in your collection."
+            ),
+        })
     messages.success(
         request,
         "Property added to your collection!" if created else "Property is already in your collection.",
@@ -872,6 +932,13 @@ def add_to_collection(request, property_id):
 def remove_from_collection(request, property_id):
     prop = get_object_or_404(Property, id=property_id)
     TenantCollection.objects.filter(tenant=request.user, property=prop).delete()
+
+    if _is_ajax_request(request):
+        return JsonResponse({
+            "success": True,
+            "saved": False,
+            "message": "Property removed from your collection.",
+        })
 
     next_url = request.POST.get("next") or request.GET.get("next")
     if next_url and url_has_allowed_host_and_scheme(
@@ -960,6 +1027,7 @@ def manage_tenants(request):
         today = timezone.localdate()
         initial = {
             "name": booking.tenant.get_full_name() or booking.tenant.username,
+            "user": booking.tenant_id,
             "unit_fk": booking.unit_id,
             "date_occupied": booking.move_in_date or today,
             "date_paid": today,
@@ -971,6 +1039,7 @@ def manage_tenants(request):
         form = TenantForm(request.POST, user=request.user, initial=initial)
         if booking:
             form.fields["unit_fk"].disabled = True
+            form.fields["user"].disabled = True
         if form.is_valid():
             deposit_amount = _safe_deposit_amount(form)
             payment_amount = _safe_payment_amount(form)
@@ -1042,6 +1111,7 @@ def manage_tenants(request):
                 tenant_obj.cumulative_rent_balance = tenant_obj.rent_balance
                 tenant_obj.unit_fk = unit
                 tenant_obj.booking = source_booking
+                tenant_obj.user = source_booking.tenant if source_booking else tenant_obj.user
                 tenant_obj.save()
 
                 if tenant_obj.rent_paid > 0:
@@ -1102,6 +1172,7 @@ def manage_tenants(request):
         form = TenantForm(user=request.user, initial=initial)
         if booking:
             form.fields["unit_fk"].disabled = True
+            form.fields["user"].disabled = True
 
     return render(request, "manage_tenants.html", {"form": form, "booking": booking})
 
@@ -1180,6 +1251,9 @@ def edit_tenant(request, tenant_id):
 
                 updated.unit_fk = new_unit
                 updated.save()
+                DepositHistory.objects.filter(tenancy=updated).exclude(
+                    tenant=updated.user
+                ).update(tenant=updated.user)
 
                 if payment_amount > 0:
                     RentPayment.objects.create(
@@ -1234,6 +1308,7 @@ def tenant_list(request):
     tenants = (
         Tenant.objects.filter(unit_fk__property__landlord=request.user, is_active=True)
         .select_related("unit_fk", "unit_fk__property")
+        .prefetch_related("payments")
         .order_by("-date_paid")
     )
 
@@ -1432,7 +1507,16 @@ def generate_receipt(request, tenant_id):
         return redirect("tenant_list")
 
     issued_at = timezone.now()
-    payment = tenant_obj.payments.order_by("-created_at", "-id").first()
+    payment_id = request.POST.get("payment_id")
+    payment_query = tenant_obj.payments.order_by("-created_at", "-id")
+    if payment_id and not payment_id.isdecimal():
+        messages.error(request, "The selected payment receipt could not be found.")
+        return redirect("receipt_history", tenant_id=tenant_obj.id)
+    payment = (
+        get_object_or_404(payment_query, id=payment_id)
+        if payment_id
+        else payment_query.first()
+    )
     if not payment:
         messages.error(request, "No recorded payment is available for a receipt.")
         return redirect("tenant_list")
@@ -1447,146 +1531,158 @@ def generate_receipt(request, tenant_id):
     )
 
     response = HttpResponse(content_type="application/pdf")
-    response["Content-Disposition"] = f'attachment; filename="receipt_{tenant_obj.name}.pdf"'
+    tenant_slug = slugify(tenant_obj.name) or "tenant"
+    response["Content-Disposition"] = (
+        f'attachment; filename="easyrent-receipt-{tenant_slug}-{receipt_no}.pdf"'
+    )
 
-    p = canvas.Canvas(response, pagesize=A6)
-    width, height = A6
+    p = canvas.Canvas(response, pagesize=A5)
+    width, height = A5
+    margin = 12 * mm
+    content_width = width - 2 * margin
 
-    brand = HexColor("#2F5BEA")
-    brand_dark = HexColor("#1F3FB8")
-    bg = HexColor("#FFFFFF")
-    light_bg = HexColor("#F5F7FB")
-    text = HexColor("#111827")
-    muted = HexColor("#6B7280")
-    border = HexColor("#E5E7EB")
-    success = HexColor("#16A34A")
+    brand = HexColor("#176B5B")
+    brand_dark = HexColor("#10483F")
+    mint = HexColor("#EAF4EF")
+    text = HexColor("#1C2A25")
+    muted = HexColor("#68766F")
+    border = HexColor("#DCE7E1")
+    white = HexColor("#FFFFFF")
 
-    p.setFillColor(bg)
+    p.setFillColor(white)
     p.rect(0, 0, width, height, fill=1, stroke=0)
-
-    header_h = 18 * mm
-    p.setFillColor(brand)
-    p.rect(0, height - header_h, width, header_h, fill=1, stroke=0)
-
-    p.setFillColor(HexColor("#FFFFFF"))
-    p.setFont("Helvetica-Bold", 12)
-    p.drawString(8 * mm, height - 11 * mm, "EasyRent")
-    p.setFont("Helvetica", 9)
-    p.drawRightString(width - 8 * mm, height - 11 * mm, "RECEIPT")
-
-    y = height - header_h - 5 * mm
-    p.setFillColor(text)
-    p.setFont("Helvetica-Bold", 8)
-    p.drawString(8 * mm, y, f"Receipt No: {receipt_no}")
+    p.setFillColor(brand_dark)
+    p.rect(0, height - 29 * mm, width, 29 * mm, fill=1, stroke=0)
+    p.setFillColor(white)
+    p.setFont("Helvetica-Bold", 20)
+    p.drawString(margin, height - 13 * mm, "EasyRent")
+    p.setFont("Helvetica-Bold", 9)
+    p.drawRightString(width - margin, height - 12 * mm, "RENT RECEIPT")
     p.setFont("Helvetica", 8)
-    p.setFillColor(muted)
-    p.drawRightString(width - 8 * mm, y, f"Issued: {issued_at.strftime('%d %b %Y, %H:%M')}")
-    y -= 6 * mm
+    p.drawRightString(width - margin, height - 19 * mm, "Payment confirmation")
 
     prop = unit.property
     landlord = request.user
-
+    landlord_name = _safe_str(landlord.get_full_name() or landlord.username)
+    landlord_email = _safe_str(landlord.email)
+    landlord_phone = _safe_str(prop.landlord_phone)
     tenant_name = _safe_str(tenant_obj.name)
-    tenant_phone = _safe_str(getattr(tenant_obj, "phone", None))
-    property_name = _safe_str(getattr(prop, "name", None))
-    property_loc = ", ".join([x for x in [getattr(prop, "town", ""), getattr(prop, "county", "")] if x]) or "—"
-    unit_code = _safe_str(getattr(unit, "unit_code", None))
+    tenant_phone = _safe_str(tenant_obj.phone)
+    property_name = _safe_str(prop.name)
+    property_loc = ", ".join(
+        part for part in (prop.town, prop.county) if part
+    ) or "—"
 
-    landlord_name = _safe_str((landlord.get_full_name() or landlord.username))
-    landlord_email = _safe_str(getattr(landlord, "email", None))
-    landlord_phone = _safe_str(getattr(prop, "landlord_phone", None))
+    def wrapped_text(value, x, y, max_width, font="Helvetica", size=9, color=text):
+        p.setFont(font, size)
+        p.setFillColor(color)
+        lines = simpleSplit(str(value), font, size, max_width) or ["—"]
+        for line in lines:
+            p.drawString(x, y, line)
+            y -= 4.5 * mm
+        return y
 
-    month_paid_for = _safe_str(payment.month_paid_for)
-    date_paid = _safe_str(payment.date_paid)
-    date_occupied = _safe_str(getattr(tenant_obj, "date_occupied", None))
-
-    rent_paid = _money(payment.amount)
-    monthly_rent = _money(payment.monthly_rent)
-    rent_balance = _money(payment.rent_balance)
-    cumulative_balance = _money(payment.cumulative_rent_balance)
-    deposit_total_fmt = _money(deposit_total)
-
-    def section_title(label: str, yy: float):
+    def section(label, y):
         p.setFillColor(brand_dark)
-        p.setFont("Helvetica-Bold", 8)
-        p.drawString(8 * mm, yy, label)
+        p.setFont("Helvetica-Bold", 10)
+        p.drawString(margin, y, label.upper())
+        p.setStrokeColor(border)
+        p.setLineWidth(0.6)
+        p.line(margin, y - 2 * mm, width - margin, y - 2 * mm)
+        return y - 8 * mm
 
-    def keyval(k: str, v: str, yy: float):
+    def info_row(label, value, y):
         p.setFont("Helvetica", 8)
         p.setFillColor(muted)
-        p.drawString(8 * mm, yy, k)
-        p.setFillColor(text)
-        p.drawRightString(width - 8 * mm, yy, v)
+        p.drawString(margin, y, label)
+        value_x = margin + 43 * mm
+        next_y = wrapped_text(
+            value,
+            value_x,
+            y,
+            width - margin - value_x,
+            font="Helvetica-Bold",
+            size=9,
+        )
+        return min(y - 6 * mm, next_y)
 
-    def box(x, yy_top, w, h):
-        p.setFillColor(light_bg)
-        p.setStrokeColor(border)
-        p.setLineWidth(0.7)
-        p.rect(x, yy_top - h, w, h, fill=1, stroke=1)
+    y = height - 39 * mm
+    p.setFillColor(muted)
+    p.setFont("Helvetica", 8)
+    p.drawString(margin, y, f"Receipt {receipt_no}")
+    p.drawRightString(
+        width - margin,
+        y,
+        f"Issued {issued_at.strftime('%d %b %Y, %H:%M')}",
+    )
 
-    parties_h = 32 * mm
-    box(6 * mm, y, width - 12 * mm, parties_h)
-    yy = y - 5 * mm
+    amount_top = y - 7 * mm
+    amount_height = 26 * mm
+    p.setFillColor(mint)
+    p.roundRect(
+        margin,
+        amount_top - amount_height,
+        content_width,
+        amount_height,
+        3 * mm,
+        fill=1,
+        stroke=0,
+    )
+    p.setFillColor(brand_dark)
+    p.setFont("Helvetica-Bold", 8)
+    p.drawString(margin + 6 * mm, amount_top - 8 * mm, "AMOUNT RECEIVED")
+    p.setFont("Helvetica-Bold", 19)
+    p.drawString(
+        margin + 6 * mm,
+        amount_top - 19 * mm,
+        f"KES {_money(payment.amount)}",
+    )
+    y = amount_top - amount_height - 10 * mm
 
-    section_title("Tenant", yy); yy -= 5 * mm
-    keyval("Name", tenant_name, yy); yy -= 4.2 * mm
-    keyval("Phone", tenant_phone, yy); yy -= 4.2 * mm
-    keyval("Date Occupied", date_occupied, yy); yy -= 5.2 * mm
+    y = section("Tenant and property", y)
+    for label, value in (
+        ("Tenant", tenant_name),
+        ("Phone", tenant_phone),
+        ("Property", property_name),
+        ("Location", property_loc),
+        ("Unit", _safe_str(unit.unit_code)),
+    ):
+        y = info_row(label, value, y)
 
-    section_title("Landlord / Issuer", yy); yy -= 5 * mm
-    keyval("Name", landlord_name, yy); yy -= 4.2 * mm
-    keyval("Phone", landlord_phone, yy)
+    y -= 2 * mm
+    y = section("Payment details", y)
+    for label, value in (
+        ("Month paid for", _safe_str(payment.month_paid_for)),
+        ("Payment date", payment.date_paid.strftime("%d %b %Y")),
+        ("Monthly rent", f"KES {_money(payment.monthly_rent)}"),
+        ("Balance this month", f"KES {_money(payment.rent_balance)}"),
+        ("Cumulative rent balance", f"KES {_money(payment.cumulative_rent_balance)}"),
+        ("Deposit held separately", f"KES {_money(deposit_total)}"),
+    ):
+        y = info_row(label, value, y)
 
-    y -= (parties_h + 6 * mm)
-
-    prop_h = 18 * mm
-    box(6 * mm, y, width - 12 * mm, prop_h)
-    yy = y - 5 * mm
-    section_title("Property Details", yy); yy -= 5 * mm
-    keyval("Property", property_name, yy); yy -= 4.2 * mm
-    keyval("Location", property_loc, yy); yy -= 4.2 * mm
-    keyval("Unit", unit_code, yy)
-
-    y -= (prop_h + 6 * mm)
-
-    pay_h = 38 * mm
-    box(6 * mm, y, width - 12 * mm, pay_h)
-    yy = y - 5 * mm
-    section_title("Payment", yy); yy -= 5 * mm
-
-    keyval("Month Paid For", month_paid_for, yy); yy -= 4.2 * mm
-    keyval("Date Paid", date_paid, yy); yy -= 5.0 * mm
-
-    def amount_row(label, amount, yy_row, bold=False, color=text):
-        p.setFillColor(muted)
-        p.setFont("Helvetica-Bold" if bold else "Helvetica", 8)
-        p.drawString(8 * mm, yy_row, label)
-        p.setFillColor(color)
-        p.drawRightString(width - 8 * mm, yy_row, f"KES {amount}")
-
-    amount_row("Monthly Rent", monthly_rent, yy); yy -= 4.2 * mm
-    amount_row("Amount Received", rent_paid, yy, bold=True, color=success); yy -= 4.2 * mm
-    amount_row("Balance (This Month)", rent_balance, yy); yy -= 4.2 * mm
-    amount_row("Cumulative Balance", cumulative_balance, yy); yy -= 4.2 * mm
-    amount_row("Deposit (Total)", deposit_total_fmt, yy); yy -= 4.2 * mm
-
+    footer_y = max(18 * mm, y - 2 * mm)
     p.setStrokeColor(border)
     p.setLineWidth(0.7)
-    p.line(8 * mm, 22 * mm, width - 8 * mm, 22 * mm)
-
+    p.line(margin, footer_y, width - margin, footer_y)
+    p.setFillColor(muted)
+    p.setFont("Helvetica-Bold", 8)
+    p.drawString(margin, footer_y - 6 * mm, "ISSUED BY")
+    p.setFont("Helvetica", 8)
+    p.setFillColor(text)
+    p.drawString(margin + 22 * mm, footer_y - 6 * mm, landlord_name)
     p.setFillColor(muted)
     p.setFont("Helvetica", 7)
-    p.drawString(8 * mm, 18 * mm, "Issued by EasyRent. This receipt is generated electronically.")
-    p.drawString(8 * mm, 14.5 * mm, f"Support / Email: {landlord_email}")
-
-    p.setFillColor(text)
-    p.setFont("Helvetica", 7)
-    p.drawRightString(width - 8 * mm, 14.5 * mm, "Signature: ____________________")
+    p.drawString(margin, footer_y - 11 * mm, f"{landlord_phone}  |  {landlord_email}")
+    p.drawString(
+        margin,
+        footer_y - 16 * mm,
+        "Electronically generated by EasyRent. Keep this receipt for your records.",
+    )
 
     p.setStrokeColor(border)
-    p.setLineWidth(1)
-    p.rect(4 * mm, 4 * mm, width - 8 * mm, height - 8 * mm, fill=0, stroke=1)
-
+    p.setLineWidth(0.8)
+    p.roundRect(5 * mm, 5 * mm, width - 10 * mm, height - 10 * mm, 2 * mm, fill=0, stroke=1)
     p.showPage()
     p.save()
     return response
@@ -1600,12 +1696,21 @@ def receipt_history(request, tenant_id):
         messages.error(request, "You don't have permission to view this receipt history.")
         return redirect("tenant_list")
 
-    history = sorted(
-        [
-            *ReceiptHistory.objects.filter(tenant=tenant_obj),
-            *RentPayment.objects.filter(tenant=tenant_obj),
-        ],
-        key=lambda item: item.date_generated,
-        reverse=True,
+    history = [
+        {
+            "record": payment,
+            "kind": "payment",
+            "receipt_no": f"ER-{payment.created_at:%Y%m%d}-{payment.id:06d}",
+        }
+        for payment in RentPayment.objects.filter(tenant=tenant_obj)
+    ]
+    history.extend(
+        {
+            "record": receipt,
+            "kind": "archive",
+            "receipt_no": None,
+        }
+        for receipt in ReceiptHistory.objects.filter(tenant=tenant_obj)
     )
+    history.sort(key=lambda item: item["record"].date_generated, reverse=True)
     return render(request, "receipt_history.html", {"tenant": tenant_obj, "history": history})

@@ -1,0 +1,53 @@
+<div class="unit-form border rounded p-3 mb-3" style="background: rgba(255,255,255,0.92);">
+  {{ uf.id }}
+  {% if uf.non_field_errors %}
+    <div class="alert alert-danger mb-2">{{ uf.non_field_errors }}</div>
+  {% endif %}
+
+  <div class="row g-2">
+    <div class="col-md-3">
+      <label class="form-label">Unit Code</label>
+      {{ uf.unit_code }}
+      {% if uf.unit_code.errors %}<div class="text-danger small">{{ uf.unit_code.errors }}</div>{% endif %}
+    </div>
+    <div class="col-md-3">
+      <label class="form-label">Unit Type</label>
+      {{ uf.unit_type }}
+      {% if uf.unit_type.errors %}<div class="text-danger small">{{ uf.unit_type.errors }}</div>{% endif %}
+    </div>
+    <div class="col-md-3">
+      <label class="form-label">Price</label>
+      {{ uf.price }}
+      {% if uf.price.errors %}<div class="text-danger small">{{ uf.price.errors }}</div>{% endif %}
+    </div>
+    <div class="col-md-3">
+      <label class="form-label">Deposit</label>
+      {{ uf.deposit }}
+      {% if uf.deposit.errors %}<div class="text-danger small">{{ uf.deposit.errors }}</div>{% endif %}
+    </div>
+  </div>
+
+  <div class="row g-2 mt-2 align-items-end">
+    <div class="col-md-4">
+      <label class="form-label">Vacancy</label>
+      {{ uf.vacancy }}
+      {% if uf.vacancy.errors %}<div class="text-danger small">{{ uf.vacancy.errors }}</div>{% endif %}
+    </div>
+    <div class="col-md-4">
+      <div class="form-check mt-4">
+        {{ uf.is_active }}
+        <label class="form-check-label ms-1">Active</label>
+      </div>
+      {% if uf.is_active.errors %}<div class="text-danger small">{{ uf.is_active.errors }}</div>{% endif %}
+    </div>
+    <div class="col-md-4">
+      {% if uf.DELETE %}
+        <div class="form-check mt-4">
+          {{ uf.DELETE }}
+          <label class="form-check-label ms-1 text-danger">Remove this unit</label>
+        </div>
+        {% if uf.DELETE.errors %}<div class="text-danger small">{{ uf.DELETE.errors }}</div>{% endif %}
+      {% endif %}
+    </div>
+  </div>
+</div>

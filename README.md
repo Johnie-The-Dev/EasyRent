@@ -5,8 +5,28 @@ If you are willing you can join me in building this great project.
 
 ## Resetting database data
 
-To clear Django-managed data from the configured PostgreSQL database while keeping
-its tables and migration history, run:
+Superusers can open the manager dashboard at `/admin/ops/` to review landlords
+and tenants, search accounts, inspect linked activity, suspend/reactivate an
+account, or delete an account and its linked EasyRent records. Deletion requires
+typing the account username. Other application records are available in Django
+admin at `/admin/`. Landlord tenancy forms can optionally link a tenancy to an
+existing tenant account; booking-based move-ins are linked automatically, so
+account review and deletion can include that tenancy history. Older manual
+tenancy records remain unlinked until someone matches them to an account.
+
+The site and Django admin use separate browser sessions, so signing in or out
+of one does not replace the other. Admin sessions and CSRF tokens are scoped
+to `/admin/`, so signing in to the site does not invalidate an open admin
+form. After this separation is enabled, administrators may need to sign in to
+the admin again once.
+
+The manager dashboard also offers a full data reset. It requires typing both
+the configured database name and `DELETE ALL DATA`; it removes all Django-managed
+records, including manager accounts, so create a new superuser afterward.
+Tables and migration history are preserved.
+
+Alternatively, to clear Django-managed data from the configured PostgreSQL
+database while keeping its tables and migration history, run:
 
 ```sh
 docker compose exec web python manage.py reset_data --confirm-database easy_rent

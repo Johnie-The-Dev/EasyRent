@@ -207,6 +207,15 @@ class TenantForm(forms.ModelForm):
         widget=forms.Select(attrs={"class": "form-control"}),
     )
 
+    user = forms.ModelChoiceField(
+        queryset=User.objects.none(),
+        required=False,
+        label="Tenant account (optional)",
+        empty_label="Not linked",
+        widget=forms.Select(attrs={"class": "form-control"}),
+        help_text="Link this tenancy to an existing tenant account so its activity can be reviewed together.",
+    )
+
     unit_fk = forms.ModelChoiceField(
         queryset=Unit.objects.none(),
         label="Unit",
@@ -255,6 +264,7 @@ class TenantForm(forms.ModelForm):
         fields = [
             "name",
             "phone",
+            "user",
             "unit_fk",
             "date_occupied",
             "rent_paid",
@@ -305,6 +315,8 @@ class TenantForm(forms.ModelForm):
         if self.instance and self.instance.pk:
             self.fields["rent_paid"].disabled = True
             self.fields["rent_paid"].label = "Total Paid This Month"
+            if self.instance.booking_id:
+                self.fields["user"].disabled = True
         else:
             self.fields.pop("rent_paid")
 
@@ -322,6 +334,13 @@ class TenantForm(forms.ModelForm):
             qs = qs.filter(vacancy__in=allowed_statuses)
 
         self.fields["unit_fk"].queryset = qs
+        account_qs = User.objects.filter(role="tenant")
+        if user and getattr(user, "is_authenticated", False) and hasattr(user, "is_landlord") and user.is_landlord():
+            account_qs = account_qs.filter(
+                Q(bookings__unit__property__landlord=user)
+                | Q(pk=getattr(self.instance, "user_id", None))
+            )
+        self.fields["user"].queryset = account_qs.distinct().order_by("username")
 
         def _label(u: Unit) -> str:
             prop_name = getattr(getattr(u, "property", None), "name", "—")
@@ -375,8 +394,20 @@ class UnitForm(forms.ModelForm):
         if self.instance.pk:
             return super().has_changed()
 
-        meaningful_fields = ("unit_code", "unit_type", "price", "deposit", "vacancy")
-        return any(self.data.get(self.add_prefix(field)) for field in meaningful_fields)
+        if self.data.get(self.add_prefix("DELETE")):
+            return True
+
+        meaningful_fields = ("unit_code", "price", "deposit")
+        if any((self.data.get(self.add_prefix(field)) or "").strip() for field in meaningful_fields):
+            return True
+
+        unit_type = self.data.get(self.add_prefix("unit_type"))
+        default_unit_type = Unit.UNIT_TYPE_CHOICES[0][0]
+        if unit_type and unit_type != default_unit_type:
+            return True
+
+        vacancy = self.data.get(self.add_prefix("vacancy"))
+        return bool(vacancy and vacancy != Unit.VACANT)
 
     def clean(self):
         cleaned_data = super().clean()
@@ -401,6 +432,8 @@ class UnitForm(forms.ModelForm):
             cleaned_data["unit_type"] = self.instance.unit_type
         if cleaned_data.get("price") in (None, "") and self.instance.pk:
             cleaned_data["price"] = self.instance.price
+        if cleaned_data.get("deposit") in (None, ""):
+            cleaned_data["deposit"] = self.instance.deposit
         if not cleaned_data.get("vacancy"):
             cleaned_data["vacancy"] = self.instance.vacancy or Unit.VACANT
         if cleaned_data.get("is_active") is None:

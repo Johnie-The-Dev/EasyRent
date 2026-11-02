@@ -1,97 +1,166 @@
 {% extends 'base.html' %}
 
-{% block title %}Receipt History - EasyRent{% endblock %}
+{% block title %}Payment History - EasyRent{% endblock %}
 
 {% block content %}
-<div class="container mt-5 py-4">
-    <div class="card shadow-sm">
-        <div class="card-header bg-primary text-white">
-            <h2 class="text-center mb-0">Receipt History for {{ tenant.name }}</h2>
-        </div>
-        <div class="card-body">
-            <div class="table-responsive">
-                <table class="table table-striped table-hover">
-                    <thead class="table-dark">
-                        <tr>
-                            <th>Date Generated</th>
-                            <th>Rent Paid</th>
-                            <th>Date Paid</th>
-                            <th>Month Paid For</th>
-                            <th>Monthly Rent</th>
-                            <th>Rent Balance</th>
-                            <th>Cumulative Rent Balance</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for receipt in history %}
-                        <tr>
-                            <td data-label="Date Generated">{{ receipt.date_generated }}</td>
-                            <td data-label="Rent Paid">
-                                Ksh {{ receipt.rent_paid }}
-                                {% if receipt.is_legacy_snapshot %}<small class="text-muted d-block">Imported running total</small>{% endif %}
-                            </td>
-                            <td data-label="Date Paid">{{ receipt.date_paid }}</td>
-                            <td data-label="Month Paid For">{{ receipt.month_paid_for }}</td>
-                            <td data-label="Monthly Rent">Ksh {{ receipt.monthly_rent }}</td>
-                            <td data-label="Rent Balance">Ksh {{ receipt.rent_balance }}</td>
-                            <td data-label="Cumulative Rent Balance">Ksh {{ receipt.cumulative_rent_balance }}</td>
-                        </tr>
-                        {% empty %}
-                        <tr>
-                            <td colspan="7" class="text-center text-muted">No receipt history available.</td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </div>
-        </div>
-    </div>
-</div>
-
 <style>
-    .card {
-        border-radius: 10px;
-        overflow: hidden;
-    }
-
-    .card-header {
-        text-align: center;
-        font-weight: bold;
-    }
-
-    .table {
-        margin-bottom: 0;
-    }
-
-    .table tbody tr:hover {
-        background: #f8f9fa;
-    }
-
-    @media (max-width: 576px) {
-        .table thead {
-            display: none;
-        }
-        .table tbody, .table tr, .table td {
-            display: block;
-            width: 100%;
-        }
-        .table tr {
-            margin-bottom: 15px;
-        }
-        .table td {
-            text-align: right;
-            padding-left: 50%;
-            position: relative;
-        }
-        .table td::before {
-            content: attr(data-label);
-            position: absolute;
-            left: 0;
-            width: 50%;
-            padding-left: 15px;
-            font-weight: bold;
-            text-align: left;
-        }
-    }
+  .receipt-page { max-width: 1080px; }
+  .receipt-heading {
+    background: linear-gradient(130deg, #123d34, #176b5b 72%, #248b73);
+    border-radius: 18px;
+    color: #fff;
+    padding: clamp(1.4rem, 4vw, 2.4rem);
+    box-shadow: 0 16px 38px rgba(18, 61, 52, .16);
+  }
+  .receipt-heading .eyebrow {
+    color: rgba(255,255,255,.72);
+    font-size: .75rem;
+    font-weight: 700;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+  }
+  .receipt-heading h1 { font-size: clamp(1.45rem, 3vw, 2rem); font-weight: 800; }
+  .receipt-summary, .receipt-card {
+    border: 1px solid #e0e7e2;
+    border-radius: 15px;
+    background: #fff;
+    box-shadow: 0 5px 18px rgba(24, 50, 39, .05);
+  }
+  .receipt-card { padding: clamp(1rem, 3vw, 1.4rem); }
+  .receipt-amount { color: #176b5b; font-size: 1.35rem; font-weight: 800; }
+  .receipt-label {
+    color: #68766f;
+    font-size: .72rem;
+    font-weight: 700;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+  }
+  .receipt-value { font-weight: 650; overflow-wrap: anywhere; }
+  .receipt-number { color: #68766f; font-size: .82rem; }
+  .receipt-empty {
+    border: 1px dashed #cbd8d0;
+    border-radius: 15px;
+    background: rgba(255,255,255,.75);
+  }
+  @media print {
+    .receipt-heading, .receipt-summary, .receipt-card { box-shadow: none; }
+    .receipt-heading { background: #fff; border: 1px solid #ddd; color: #111; }
+    .receipt-heading .eyebrow { color: #555; }
+    .receipt-actions, .navbar, .footer { display: none !important; }
+    body { background: #fff !important; padding-top: 0 !important; }
+  }
 </style>
+
+<main class="container receipt-page py-4 py-lg-5">
+  <header class="receipt-heading mb-4 d-flex flex-wrap justify-content-between align-items-end gap-3">
+    <div>
+      <div class="eyebrow mb-2">Rent records</div>
+      <h1 class="mb-2">Payment history</h1>
+      <div class="text-white-50">{{ tenant.name }}{% if tenant.unit_fk %} · {{ tenant.unit_fk.property.name }} · Unit {{ tenant.unit_fk.unit_code }}{% endif %}</div>
+    </div>
+    <div class="receipt-actions d-flex flex-wrap gap-2">
+      <a href="{% url 'tenant_list' %}" class="btn btn-light">
+        <i class="bi bi-arrow-left"></i> Back to tenants
+      </a>
+      {% if tenant.payments.all.0 %}
+        <form method="post" action="{% url 'generate_receipt' tenant.id %}">
+          {% csrf_token %}
+          <button type="submit" class="btn btn-outline-light">
+            <i class="bi bi-file-earmark-pdf"></i> Latest receipt
+          </button>
+        </form>
+      {% endif %}
+    </div>
+  </header>
+
+  <section class="receipt-summary p-3 p-md-4 mb-4" aria-label="Payment history summary">
+    <div class="row g-3 align-items-center">
+      <div class="col-sm-6">
+        <div class="receipt-label">Tenant</div>
+        <div class="receipt-value">{{ tenant.name }}</div>
+      </div>
+      <div class="col-sm-3">
+        <div class="receipt-label">Records</div>
+        <div class="receipt-value">{{ history|length }}</div>
+      </div>
+      <div class="col-sm-3">
+        <div class="receipt-label">Phone</div>
+        <div class="receipt-value">{{ tenant.phone|default:"—" }}</div>
+      </div>
+    </div>
+  </section>
+
+  <section aria-label="Payment records">
+    {% for item in history %}
+      {% with receipt=item.record %}
+        <article class="receipt-card mb-3">
+          <div class="d-flex flex-wrap justify-content-between align-items-start gap-3 mb-3">
+            <div>
+              <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
+                {% if item.kind == "payment" %}
+                  <span class="badge rounded-pill text-bg-success">Rent payment</span>
+                  {% if receipt.is_legacy_snapshot %}
+                    <span class="badge rounded-pill text-bg-warning">Imported record</span>
+                  {% endif %}
+                {% else %}
+                  <span class="badge rounded-pill text-bg-secondary">Archived receipt</span>
+                {% endif %}
+                <span class="receipt-number">
+                  {% if item.receipt_no %}{{ item.receipt_no }}{% else %}Saved record{% endif %}
+                </span>
+              </div>
+              <div class="small text-muted">
+                <i class="bi bi-calendar3 me-1"></i>
+                Paid {{ receipt.date_paid|date:"M d, Y" }}
+                <span class="mx-1">·</span>
+                Generated {{ receipt.date_generated|date:"M d, Y · H:i" }}
+              </div>
+            </div>
+            <div class="text-sm-end">
+              <div class="receipt-label">Amount received</div>
+              <div class="receipt-amount">KES {{ receipt.rent_paid|floatformat:2 }}</div>
+            </div>
+          </div>
+
+          <div class="row g-3 border-top pt-3">
+            <div class="col-6 col-md-3">
+              <div class="receipt-label">Month covered</div>
+              <div class="receipt-value">{{ receipt.month_paid_for|default:"—" }}</div>
+            </div>
+            <div class="col-6 col-md-3">
+              <div class="receipt-label">Monthly rent</div>
+              <div class="receipt-value">KES {{ receipt.monthly_rent|floatformat:2 }}</div>
+            </div>
+            <div class="col-6 col-md-3">
+              <div class="receipt-label">Balance this month</div>
+              <div class="receipt-value">KES {{ receipt.rent_balance|floatformat:2 }}</div>
+            </div>
+            <div class="col-6 col-md-3">
+              <div class="receipt-label">Cumulative balance</div>
+              <div class="receipt-value">KES {{ receipt.cumulative_rent_balance|floatformat:2 }}</div>
+            </div>
+          </div>
+
+          {% if item.kind == "payment" %}
+            <div class="receipt-actions d-flex justify-content-end border-top mt-3 pt-3">
+              <form method="post" action="{% url 'generate_receipt' tenant.id %}">
+                {% csrf_token %}
+                <input type="hidden" name="payment_id" value="{{ receipt.id }}">
+                <button type="submit" class="btn btn-sm btn-outline-success">
+                  <i class="bi bi-file-earmark-pdf"></i> Download this receipt
+                </button>
+              </form>
+            </div>
+          {% endif %}
+        </article>
+      {% endwith %}
+    {% empty %}
+      <div class="receipt-empty text-center px-3 py-5">
+        <div class="fs-1 text-success mb-2"><i class="bi bi-receipt"></i></div>
+        <h2 class="h5 fw-bold">No payment records yet</h2>
+        <p class="text-muted mb-0">Recorded rent payments and available receipts will appear here.</p>
+      </div>
+    {% endfor %}
+  </section>
+</main>
 {% endblock %}

@@ -3,7 +3,7 @@ from decimal import Decimal
 
 from django.contrib.auth import get_user_model
 from django.db.models.deletion import ProtectedError
-from django.test import TestCase
+from django.test import Client, TestCase
 from django.urls import reverse
 
 from .forms import TenantForm
@@ -104,7 +104,7 @@ class LandlordWorkflowSecurityTests(TestCase):
 		self.assertEqual(response.status_code, 200)
 		self.assertNotContains(response, "My Collection")
 		self.assertNotContains(response, "Request Unit")
-		self.assertNotContains(response, "Save / Hifadhi")
+		self.assertNotContains(response, "Save listing")
 
 	def test_landlord_dashboard_renders_owned_property(self):
 		self.client.force_login(self.landlord)
@@ -149,7 +149,7 @@ class LandlordWorkflowSecurityTests(TestCase):
 
 		self.assertContains(response, "My Collection")
 		self.assertContains(response, "Request Unit")
-		self.assertContains(response, "Save / Hifadhi")
+		self.assertContains(response, "Save listing")
 
 	def test_new_tenant_form_has_one_payment_entry_and_edit_total_is_read_only(self):
 		new_tenant_form = TenantForm(user=self.landlord)
@@ -194,6 +194,94 @@ class LandlordWorkflowSecurityTests(TestCase):
 		second_vacant.refresh_from_db()
 		self.assertEqual(first_vacant.vacancy, Unit.BOOKED)
 		self.assertEqual(second_vacant.vacancy, Unit.VACANT)
+
+	def test_ajax_booking_updates_without_redirect_and_reports_remaining_availability(self):
+		first_vacant = Unit.objects.create(
+			property=self.property,
+			unit_code="A2",
+			unit_type="Single Room",
+			price=Decimal("10000.00"),
+		)
+		Unit.objects.create(
+			property=self.property,
+			unit_code="A3",
+			unit_type="Single Room",
+			price=Decimal("12000.00"),
+		)
+		self.client.force_login(self.tenant_user)
+
+		response = self.client.post(
+			reverse("book_property", args=[self.property.id]),
+			HTTP_X_REQUESTED_WITH="XMLHttpRequest",
+		)
+
+		self.assertEqual(response.status_code, 200)
+		self.assertEqual(response.json(), {
+			"success": True,
+			"message": "Booking request sent. Track it under My Bookings.",
+			"vacant_units": 1,
+			"min_vacant_price": "12000.00",
+		})
+		self.assertEqual(Booking.objects.filter(tenant=self.tenant_user).count(), 1)
+		first_vacant.refresh_from_db()
+		self.assertEqual(first_vacant.vacancy, Unit.BOOKED)
+
+	def test_ajax_booking_conflict_is_reported_without_redirect(self):
+		vacant = Unit.objects.create(
+			property=self.property,
+			unit_code="A2",
+			unit_type="Single Room",
+			price=Decimal("10000.00"),
+		)
+		Booking.objects.create(
+			unit=vacant,
+			tenant=self.tenant_user,
+			status=Booking.STATUS_PENDING,
+		)
+		self.client.force_login(self.tenant_user)
+
+		response = self.client.post(
+			reverse("book_property", args=[self.property.id]),
+			HTTP_X_REQUESTED_WITH="XMLHttpRequest",
+		)
+
+		self.assertEqual(response.status_code, 409)
+		self.assertFalse(response.json()["success"])
+		self.assertEqual(Booking.objects.filter(tenant=self.tenant_user).count(), 1)
+
+	def test_ajax_collection_actions_update_saved_state_without_redirect(self):
+		self.client.force_login(self.tenant_user)
+
+		add_response = self.client.post(
+			reverse("add_to_collection", args=[self.property.id]),
+			HTTP_X_REQUESTED_WITH="XMLHttpRequest",
+		)
+		repeated_add_response = self.client.post(
+			reverse("add_to_collection", args=[self.property.id]),
+			HTTP_X_REQUESTED_WITH="XMLHttpRequest",
+		)
+		remove_response = self.client.post(
+			reverse("remove_from_collection", args=[self.property.id]),
+			HTTP_X_REQUESTED_WITH="XMLHttpRequest",
+		)
+
+		self.assertEqual(add_response.status_code, 200)
+		self.assertTrue(add_response.json()["saved"])
+		self.assertTrue(add_response.json()["created"])
+		self.assertEqual(repeated_add_response.status_code, 200)
+		self.assertTrue(repeated_add_response.json()["saved"])
+		self.assertFalse(repeated_add_response.json()["created"])
+		self.assertEqual(remove_response.status_code, 200)
+		self.assertFalse(remove_response.json()["saved"])
+		self.assertFalse(TenantCollection.objects.filter(tenant=self.tenant_user).exists())
+
+	def test_add_to_collection_keeps_redirect_for_regular_form_submission(self):
+		self.client.force_login(self.tenant_user)
+
+		response = self.client.post(reverse("add_to_collection", args=[self.property.id]))
+
+		self.assertRedirects(response, reverse("tenant_feed"))
+		self.assertTrue(TenantCollection.objects.filter(tenant=self.tenant_user).exists())
 
 	def test_cancelled_booking_cannot_be_reactivated(self):
 		booking = Booking.objects.create(
@@ -329,6 +417,7 @@ class LandlordWorkflowSecurityTests(TestCase):
 		self.assertEqual(booking.status, Booking.STATUS_MOVED_IN)
 		self.assertEqual(competing_booking.status, Booking.STATUS_CANCELLED)
 		self.assertEqual(tenancy.unit_fk_id, unit.id)
+		self.assertEqual(tenancy.user, self.tenant_user)
 		self.assertEqual(unit.vacancy, Unit.OCCUPIED)
 		self.assertEqual(deposit.tenant_id, self.tenant_user.id)
 
@@ -481,6 +570,91 @@ class LandlordWorkflowSecurityTests(TestCase):
 		self.assertEqual(new_property.units.count(), 1)
 		self.assertEqual(new_property.units.get().unit_code, "N1")
 
+	def test_add_property_accepts_multiple_units(self):
+		self.client.force_login(self.landlord)
+		page = self.client.get(reverse("add_property"))
+		formset = page.context["formset"]
+		prefix = formset.prefix
+		data = {
+			"name": "Multi Unit Rental",
+			"county": "Nairobi",
+			"town": "Westlands",
+			"property_type": "Single Room",
+			"price": "9000.00",
+			"landlord_phone": "+254712345678",
+			"description": "",
+			f"{prefix}-TOTAL_FORMS": "4",
+			f"{prefix}-INITIAL_FORMS": "0",
+			f"{prefix}-MIN_NUM_FORMS": "0",
+			f"{prefix}-MAX_NUM_FORMS": "1000",
+		}
+		for index, code in enumerate(("N1", "N2", "N3")):
+			data.update({
+				f"{prefix}-{index}-unit_code": code,
+				f"{prefix}-{index}-unit_type": "Single Room",
+				f"{prefix}-{index}-price": "9000.00",
+				f"{prefix}-{index}-deposit": "0.00",
+				f"{prefix}-{index}-vacancy": Unit.VACANT,
+			})
+
+		response = self.client.post(reverse("add_property"), data)
+
+		self.assertRedirects(response, reverse("landlord_dashboard"))
+		property_obj = Property.objects.get(name="Multi Unit Rental")
+		self.assertEqual(
+			list(property_obj.units.order_by("unit_code").values_list("unit_code", flat=True)),
+			["N1", "N2", "N3"],
+		)
+
+	def test_add_property_page_has_dynamic_add_unit_control(self):
+		self.client.force_login(self.landlord)
+
+		response = self.client.get(reverse("add_property"))
+
+		self.assertContains(response, "Add another unit")
+		self.assertContains(response, "data-empty-unit-form")
+		self.assertContains(response, "__prefix__")
+
+	def test_add_property_ignores_unused_dynamic_unit_rows(self):
+		self.client.force_login(self.landlord)
+		page = self.client.get(reverse("add_property"))
+		prefix = page.context["formset"].prefix
+		data = {
+			"name": "Rental With Unused Unit Rows",
+			"county": "Nairobi",
+			"town": "Westlands",
+			"property_type": "Single Room",
+			"price": "9000.00",
+			"landlord_phone": "+254712345678",
+			"description": "",
+			f"{prefix}-TOTAL_FORMS": "3",
+			f"{prefix}-INITIAL_FORMS": "0",
+			f"{prefix}-MIN_NUM_FORMS": "0",
+			f"{prefix}-MAX_NUM_FORMS": "1000",
+			f"{prefix}-0-unit_code": "N1",
+			f"{prefix}-0-unit_type": "Single Room",
+			f"{prefix}-0-price": "9000.00",
+			f"{prefix}-0-deposit": "0.00",
+			f"{prefix}-0-vacancy": Unit.VACANT,
+		}
+		for index in (1, 2):
+			data.update({
+				f"{prefix}-{index}-unit_code": "",
+				f"{prefix}-{index}-unit_type": "Single Room",
+				f"{prefix}-{index}-price": "",
+				f"{prefix}-{index}-deposit": "",
+				f"{prefix}-{index}-vacancy": Unit.VACANT,
+				f"{prefix}-{index}-is_active": "on",
+			})
+
+		response = self.client.post(reverse("add_property"), data)
+
+		self.assertRedirects(response, reverse("landlord_dashboard"))
+		self.assertEqual(
+			Property.objects.get(name="Rental With Unused Unit Rows").units.count(),
+			1,
+		)
+
 	def test_add_property_inherits_property_defaults_for_unit(self):
 		self.client.force_login(self.landlord)
 		page = self.client.get(reverse("add_property"))
@@ -501,7 +675,7 @@ class LandlordWorkflowSecurityTests(TestCase):
 			f"{prefix}-0-unit_code": "D1",
 			f"{prefix}-0-unit_type": "",
 			f"{prefix}-0-price": "",
-			f"{prefix}-0-deposit": "0.00",
+			f"{prefix}-0-deposit": "",
 			f"{prefix}-0-vacancy": "",
 		}
 
@@ -511,6 +685,7 @@ class LandlordWorkflowSecurityTests(TestCase):
 		unit = Property.objects.get(name="Defaulted Rental").units.get()
 		self.assertEqual(unit.unit_type, "Bed Sitter")
 		self.assertEqual(unit.price, Decimal("15000.00"))
+		self.assertEqual(unit.deposit, Decimal("0.00"))
 		self.assertEqual(unit.vacancy, Unit.VACANT)
 		self.assertTrue(unit.is_active)
 
@@ -553,6 +728,60 @@ class LandlordWorkflowSecurityTests(TestCase):
 		self.assertEqual(self.property.name, "Renamed Property")
 		self.assertEqual(self.unit.unit_code, "A1-UPDATED")
 		self.assertEqual(self.unit.price, Decimal("11500.00"))
+
+	def test_edit_property_accepts_multiple_new_units(self):
+		self.client.force_login(self.landlord)
+		page = self.client.get(reverse("edit_property", args=[self.property.id]))
+		formset = page.context["unit_formset"]
+		prefix = formset.prefix
+		data = {
+			"name": self.property.name,
+			"county": "",
+			"town": self.property.town,
+			"property_type": self.property.property_type,
+			"price": str(self.property.price),
+			"landlord_phone": self.property.landlord_phone,
+			"description": "",
+			f"{prefix}-TOTAL_FORMS": "4",
+			f"{prefix}-INITIAL_FORMS": "1",
+			f"{prefix}-MIN_NUM_FORMS": "0",
+			f"{prefix}-MAX_NUM_FORMS": "1000",
+			f"{prefix}-0-id": str(self.unit.id),
+			f"{prefix}-0-unit_code": self.unit.unit_code,
+			f"{prefix}-0-unit_type": self.unit.unit_type,
+			f"{prefix}-0-price": str(self.unit.price),
+			f"{prefix}-0-deposit": str(self.unit.deposit),
+			f"{prefix}-0-vacancy": self.unit.vacancy,
+			f"{prefix}-0-is_active": "on",
+		}
+		for index, code in enumerate(("A2", "A3"), start=1):
+			data.update({
+				f"{prefix}-{index}-unit_code": code,
+				f"{prefix}-{index}-unit_type": "Single Room" if index == 1 else "",
+				f"{prefix}-{index}-price": "11000.00" if index == 1 else "",
+				f"{prefix}-{index}-deposit": "1000.00",
+				f"{prefix}-{index}-vacancy": Unit.VACANT if index == 1 else "",
+			})
+		data.update({
+			f"{prefix}-3-unit_code": "",
+			f"{prefix}-3-unit_type": "Single Room",
+			f"{prefix}-3-price": "",
+			f"{prefix}-3-deposit": "",
+			f"{prefix}-3-vacancy": Unit.VACANT,
+			f"{prefix}-3-is_active": "on",
+		})
+
+		response = self.client.post(reverse("edit_property", args=[self.property.id]), data)
+
+		self.assertEqual(response.status_code, 302)
+		self.assertEqual(
+			list(self.property.units.order_by("unit_code").values_list("unit_code", flat=True)),
+			["A1", "A2", "A3"],
+		)
+		defaulted_unit = self.property.units.get(unit_code="A3")
+		self.assertEqual(defaulted_unit.unit_type, self.property.property_type)
+		self.assertEqual(defaulted_unit.price, self.property.price)
+		self.assertEqual(defaulted_unit.vacancy, Unit.VACANT)
 
 	def test_edit_property_image_delete_form_is_not_nested(self):
 		image = PropertyImage.objects.create(
@@ -633,7 +862,6 @@ class LandlordWorkflowSecurityTests(TestCase):
 	def test_unit_with_tenancy_cannot_be_deleted_directly(self):
 		with self.assertRaises(ProtectedError):
 			self.unit.delete()
-
 		self.assertTrue(Unit.objects.filter(id=self.unit.id).exists())
 		self.assertTrue(Tenant.objects.filter(id=self.tenant.id).exists())
 
@@ -681,6 +909,59 @@ class LandlordWorkflowSecurityTests(TestCase):
 		self.assertEqual(RentPayment.objects.filter(tenant=self.tenant).count(), 1)
 		self.assertEqual(ReceiptHistory.objects.filter(tenant=self.tenant).count(), 0)
 		self.assertIsNotNone(payment.pk)
+
+	def test_receipt_download_can_target_a_historical_payment(self):
+		historical_payment = RentPayment.objects.create(
+			tenant=self.tenant,
+			amount=Decimal("2500.00"),
+			date_paid=date(2026, 1, 15),
+			month_paid_for="2026-01",
+			monthly_rent=Decimal("10000.00"),
+			rent_balance=Decimal("7500.00"),
+			cumulative_rent_balance=Decimal("7500.00"),
+		)
+		RentPayment.objects.create(
+			tenant=self.tenant,
+			amount=Decimal("5000.00"),
+			date_paid=date(2026, 2, 15),
+			month_paid_for="2026-02",
+			monthly_rent=Decimal("10000.00"),
+			rent_balance=Decimal("5000.00"),
+			cumulative_rent_balance=Decimal("12500.00"),
+		)
+		self.client.force_login(self.landlord)
+
+		response = self.client.post(
+			reverse("generate_receipt", args=[self.tenant.id]),
+			{"payment_id": historical_payment.id},
+		)
+
+		self.assertEqual(response["Content-Type"], "application/pdf")
+		self.assertIn(
+			f"ER-{historical_payment.created_at:%Y%m%d}-{historical_payment.id:06d}",
+			response["Content-Disposition"],
+		)
+		self.assertEqual(RentPayment.objects.filter(tenant=self.tenant).count(), 2)
+
+	def test_receipt_history_displays_payment_specific_downloads(self):
+		payment = RentPayment.objects.create(
+			tenant=self.tenant,
+			amount=Decimal("2500.00"),
+			date_paid=date(2026, 1, 15),
+			month_paid_for="2026-01",
+			monthly_rent=Decimal("10000.00"),
+			rent_balance=Decimal("7500.00"),
+			cumulative_rent_balance=Decimal("7500.00"),
+		)
+		self.client.force_login(self.landlord)
+
+		response = self.client.get(reverse("receipt_history", args=[self.tenant.id]))
+
+		self.assertEqual(response.status_code, 200)
+		self.assertContains(response, "Payment history")
+		self.assertContains(response, "Download this receipt")
+		self.assertContains(response, f'name="payment_id" value="{payment.id}"')
+		self.assertEqual(response.context["history"][0]["record"], payment)
 
 	def test_deposit_totals_stay_with_the_tenancy(self):
 		DepositHistory.objects.create(
@@ -733,3 +1014,26 @@ class LandlordWorkflowSecurityTests(TestCase):
 
 		self.assertRedirects(response, reverse("edit_property", args=[self.property.id]))
 		self.assertFalse(PropertyImage.objects.filter(id=image.id).exists())
+
+
+class SignUpFlowTests(TestCase):
+	def test_signup_accepts_fresh_csrf_token_and_logs_in_new_user(self):
+		client = Client(enforce_csrf_checks=True)
+		signup_page = client.get(reverse("signup"))
+
+		response = client.post(
+			reverse("signup"),
+			{
+				"csrfmiddlewaretoken": signup_page.cookies["csrftoken"].value,
+				"username": "new-tenant",
+				"email": "new-tenant@example.com",
+				"role": "tenant",
+				"password1": "StrongPassword-12345",
+				"password2": "StrongPassword-12345",
+			},
+		)
+
+		self.assertRedirects(response, reverse("tenant_feed"))
+		user = get_user_model().objects.get(username="new-tenant")
+		self.assertEqual(user.role, "tenant")
+		self.assertTrue(client.session.get("_auth_user_id"))

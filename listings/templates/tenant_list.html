@@ -190,16 +190,18 @@
                       <i class="bi bi-trash"></i>
                       </button>
                     </form>
-                    <form method="post" action="{% url 'generate_receipt' tenant.id %}">
-                      {% csrf_token %}
-                      <button type="submit" class="btn btn-sm btn-outline-success" title="Generate Receipt">
-                      <i class="bi bi-receipt"></i>
-                      </button>
-                    </form>
+                    {% if tenant.payments.all.0 %}
+                      <form method="post" action="{% url 'generate_receipt' tenant.id %}">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-sm btn-outline-success" title="Download latest PDF receipt" aria-label="Download latest PDF receipt">
+                          <i class="bi bi-file-earmark-pdf"></i>
+                        </button>
+                      </form>
+                    {% endif %}
                   </div>
 
-                  <a href="{% url 'receipt_history' tenant.id %}" class="btn btn-sm btn-secondary">
-                    <i class="bi bi-clock-history"></i> Receipt History
+                  <a href="{% url 'receipt_history' tenant.id %}" class="btn btn-sm btn-outline-secondary">
+                    <i class="bi bi-clock-history"></i> Payment history
                   </a>
                 </div>
               </td>
@@ -292,16 +294,18 @@
                   <a href="{% url 'edit_tenant' tenant.id %}" class="btn btn-sm btn-outline-primary">
                     <i class="bi bi-pencil-square"></i> Edit
                   </a>
-                  <form method="post" action="{% url 'generate_receipt' tenant.id %}">
-                    {% csrf_token %}
-                    <button type="submit" class="btn btn-sm btn-outline-success">
-                    <i class="bi bi-receipt"></i> Receipt
-                    </button>
-                  </form>
+                  {% if tenant.payments.all.0 %}
+                    <form method="post" action="{% url 'generate_receipt' tenant.id %}">
+                      {% csrf_token %}
+                      <button type="submit" class="btn btn-sm btn-outline-success">
+                        <i class="bi bi-file-earmark-pdf"></i> Latest PDF receipt
+                      </button>
+                    </form>
+                  {% endif %}
                 </div>
 
-                <a href="{% url 'receipt_history' tenant.id %}" class="btn btn-sm btn-secondary">
-                  <i class="bi bi-clock-history"></i> Receipt History
+                <a href="{% url 'receipt_history' tenant.id %}" class="btn btn-sm btn-outline-secondary">
+                  <i class="bi bi-clock-history"></i> Payment history
                 </a>
 
                 <form method="post" action="{% url 'delete_tenant' tenant.id %}">

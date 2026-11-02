@@ -7,6 +7,7 @@ urlpatterns = [
     path("", views.ops_dashboard, name="dashboard"),
     path("users/", views.manage_users, name="users"),
     path("users/<int:user_id>/", views.user_detail, name="user_detail"),
+    path("users/<int:user_id>/status/", views.toggle_user_active, name="toggle_user_active"),
     path("users/<int:user_id>/delete/", views.delete_user, name="delete_user"),
     path("data/reset/", views.reset_data, name="reset_data"),
 

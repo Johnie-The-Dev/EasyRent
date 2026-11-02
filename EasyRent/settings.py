@@ -49,7 +49,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
-    "django.contrib.sessions.middleware.SessionMiddleware",
+    "listings.middleware.AdminSessionMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
@@ -195,6 +195,9 @@ if DEBUG:
 
 SESSION_COOKIE_SECURE = not DEBUG
 CSRF_COOKIE_SECURE = not DEBUG
+ADMIN_SESSION_COOKIE_NAME = "admin_sessionid"
+ADMIN_SESSION_COOKIE_PATH = "/admin/"
+ADMIN_CSRF_COOKIE_NAME = "admin_csrftoken"
 
 # If behind proxy/load balancer:
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")

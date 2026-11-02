@@ -182,8 +182,8 @@
 
 <div class="signup-section">
     <div class="signup-card">
-        <h2>Create an Account — Jiunge</h2>
-        <p class="subtitle">Sign up and start browsing—tuna listings za students na young pros.</p>
+        <h2>Create your account</h2>
+        <p class="subtitle">Sign up to find a rental or manage your properties.</p>
 
         <form method="post">
             {% csrf_token %}
@@ -226,13 +226,13 @@
                 {% endif %}
             {% endfor %}
 
-            <p class="terms-text">By signing up, you agree to our Terms of Service and Privacy Policy. (Sera zetu zinabaki wazi.)</p>
+            <p class="terms-text">By signing up, you agree to our Terms of Service and Privacy Policy.</p>
 
             <button type="submit" class="signup-btn">Create Account</button>
         </form>
 
         <div class="login-prompt">
-            Already have an account? <a href="{% url 'login' %}">Log in — Ingia</a>
+            Already have an account? <a href="{% url 'login' %}">Log in</a>
         </div>
     </div>
 </div>

@@ -36,10 +36,13 @@
   <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:12px; flex-wrap:wrap;">
     <div>
       <h1 style="margin-bottom:4px;">EasyRent Ops Dashboard</h1>
-      <div class="ops-muted">Platform-wide monitoring & downloadable reports (superuser-only).</div>
+      <div class="ops-muted">Platform-wide monitoring, account management, and reports (superuser-only).</div>
     </div>
 
     <div class="ops-actions">
+      <a class="button" href="{% url 'ops:users' %}">Manage users</a>
+      <a class="button" href="/admin/">Manage site data</a>
+      <a class="button" href="{% url 'ops:reset_data' %}" style="background:#ba2121">Reset all data</a>
       <a class="button" href="{% url 'ops:market_overview_pdf' %}?days=7">Market (7d)</a>
       <a class="button" href="{% url 'ops:market_overview_pdf' %}?days=30">Market (30d)</a>
       <a class="button" href="{% url 'ops:receipts_ledger_pdf' %}?days=30">Receipts (30d)</a>
@@ -55,7 +58,10 @@
       <dl class="ops-kpi">
         <dt>Landlords</dt><dd>{{ cards.total_landlords }}</dd>
         <dt>Tenants</dt><dd>{{ cards.total_tenants }}</dd>
-        <dt>New (7 days)</dt><dd>{{ cards.new_users_7d }}</dd>
+        <dt>Admin accounts</dt><dd>{{ cards.admin_accounts }}</dd>
+        <dt>Active accounts (all roles)</dt><dd>{{ cards.active_users }}</dd>
+        <dt>Suspended accounts (all roles)</dt><dd>{{ cards.inactive_users }}</dd>
+        <dt>New accounts (7 days, all roles)</dt><dd>{{ cards.new_users_7d }}</dd>
       </dl>
     </div>
 
@@ -64,8 +70,10 @@
       <dl class="ops-kpi">
         <dt>Properties</dt><dd>{{ cards.total_properties }}</dd>
         <dt>Active units</dt><dd>{{ cards.total_units }}</dd>
-        <dt>Occupancy</dt><dd>{{ cards.occupancy_rate }}%</dd>
+        <dt>Recorded occupancy rate</dt><dd>{{ cards.occupancy_rate }}%</dd>
+        <dt>Active tenancy records</dt><dd>{{ cards.active_tenancy_records }}</dd>
       </dl>
+      <div class="ops-muted ops-note">Occupancy uses each active unit’s status, not tenancy records.</div>
     </div>
 
     <div class="module ops-card">
@@ -100,12 +108,12 @@
   <!-- Money throughput -->
   <div class="module" style="padding: 12px 14px;">
     <h2 style="margin-top:0;">Money throughput (platform-wide)</h2>
-    <div class="ops-muted ops-note">Not your revenue — reflects rent/deposit flows recorded in the system.</div>
+    <div class="ops-muted ops-note">Platform-wide amounts recorded in the system; this is not platform revenue.</div>
     <dl class="ops-kpi" style="max-width:700px;">
-      <dt>Expected monthly rent capacity</dt><dd>KES {{ cards.expected_monthly_rent|floatformat:0 }}</dd>
-      <dt>Rent collected (this month)</dt><dd>KES {{ cards.rent_collected_month|floatformat:0 }}</dd>
-      <dt>Deposits received (this month)</dt><dd>KES {{ cards.deposits_month|floatformat:0 }}</dd>
-      <dt>Outstanding balance total</dt><dd>KES {{ cards.outstanding_balance_total|floatformat:0 }}</dd>
+      <dt>Potential monthly rent (all active units)</dt><dd>KES {{ cards.expected_monthly_rent|floatformat:0 }}</dd>
+      <dt>Payments recorded for current rent month</dt><dd>KES {{ cards.rent_collected_month|floatformat:0 }}</dd>
+      <dt>Deposits received this month to date</dt><dd>KES {{ cards.deposits_month|floatformat:0 }}</dd>
+      <dt>Outstanding balance (active tenancy records)</dt><dd>KES {{ cards.outstanding_balance_total|floatformat:0 }}</dd>
     </dl>
   </div>
 
@@ -113,7 +121,7 @@
   <div class="ops-two">
     <div class="module" style="padding: 12px 14px;">
       <h2 style="margin-top:0;">Top saved properties</h2>
-      <div class="ops-muted ops-note">Demand proxy based on tenant saves.</div>
+      <div class="ops-muted ops-note">All-time demand proxy based on tenant saves.</div>
       <table class="ops-table">
         <thead>
           <tr>
@@ -137,8 +145,8 @@
     </div>
 
     <div class="module" style="padding: 12px 14px;">
-      <h2 style="margin-top:0;">Top towns by bookings (30d)</h2>
-      <div class="ops-muted ops-note">Where booking demand is concentrated.</div>
+      <h2 style="margin-top:0;">Bookings by town (30d)</h2>
+      <div class="ops-muted ops-note">Bookings created in the last 30 days, including all statuses.</div>
       <table class="ops-table">
         <thead>
           <tr>
@@ -194,7 +202,7 @@
       <h2 style="margin-top:0;">Data integrity</h2>
       <div class="ops-muted ops-note">These indicate inconsistent states worth investigating.</div>
 
-      <h3 style="margin: 10px 0 6px; font-size: 13px;">BOOKED but no active booking</h3>
+      <h3 style="margin: 10px 0 6px; font-size: 13px;">BOOKED status without an active booking (up to 10 shown)</h3>
       <ul class="ops-slim-list">
         {% for u in booked_without_booking %}
           <li>{{ u.property.name }} / {{ u.unit_code }}</li>
@@ -203,7 +211,7 @@
         {% endfor %}
       </ul>
 
-      <h3 style="margin: 12px 0 6px; font-size: 13px;">OCCUPIED but no tenant record</h3>
+      <h3 style="margin: 12px 0 6px; font-size: 13px;">OCCUPIED status without an active tenancy record (up to 10 shown)</h3>
       <ul class="ops-slim-list">
         {% for u in occupied_without_tenant %}
           <li>{{ u.property.name }} / {{ u.unit_code }}</li>
@@ -213,7 +221,7 @@
       </ul>
 
       <h3 style="margin: 12px 0 6px; font-size: 13px;">
-        Tenants with negative balances
+        Active tenancy records with negative balances (up to 25 shown)
         <span class="ops-muted">(count: <b>{{ negative_balances_count }}</b>)</span>
       </h3>
 

@@ -52,7 +52,7 @@
 </style>
 
 <div class="page-header">
-  <h1>🏡 Available Units — Tafuta</h1>
+  <h1>Available rentals</h1>
   <p>Find your next room or small flat. Filter, call, and arrange viewings quickly.</p>
 </div>
 
@@ -65,7 +65,7 @@
         <i class="bi bi-heart"></i> My Collection
       </a>
       <a href="{% url 'tenant_bookings' %}" class="btn btn-light">
-        <i class="bi bi-bookmark-fill"></i> My Bookings / Orodha
+        <i class="bi bi-bookmark-fill"></i> My bookings
       </a>
     </div>
   {% endif %}
@@ -126,10 +126,14 @@
     </div>
   </form>
 
+  {% if user.is_authenticated and user.is_tenant %}
+    <div id="tenant-action-status" class="alert d-none mb-4" role="status" aria-live="polite"></div>
+  {% endif %}
+
   <div class="row g-4">
     {% for property in properties %}
       <div class="col-lg-4 col-md-6">
-        <div class="card property-card h-100">
+        <div class="card property-card h-100" data-property-card>
 
           {# ✅ Images (queryset-safe) #}
           {% with imgs=property.images.all %}
@@ -172,7 +176,7 @@
               </h5>
 
               {% if property.vacant_units_display %}
-                <span class="badge badge-soft">
+                <span class="badge badge-soft" data-vacancy-badge>
                   Vacant {{ property.vacant_units_display }}
                 </span>
               {% endif %}
@@ -197,18 +201,18 @@
               </div>
 
               {% if property.min_vacant_price %}
-                <div class="fs-5 fw-bold mb-1" style="color: var(--success-color);">
+                <div class="fs-5 fw-bold mb-1" style="color: var(--success-color);" data-vacancy-price>
                   From Ksh {{ property.min_vacant_price|floatformat:0 }}/month
                 </div>
               {% else %}
-                <div class="fs-5 fw-bold mb-1" style="color: var(--success-color);">
+                <div class="fs-5 fw-bold mb-1" style="color: var(--success-color);" data-vacancy-price>
                   From Ksh {{ property.price|floatformat:0 }}/month
                 </div>
               {% endif %}
 
               <div class="small text-muted">
                 Vacant:
-                <strong>{{ property.vacant_units_display|default:0 }}</strong>
+                <strong data-vacancy-count>{{ property.vacant_units_display|default:0 }}</strong>
                 /
                 {{ property.total_units_active|default:"—" }}
               </div>
@@ -238,11 +242,11 @@
                 <div class="col-6">
                   {% if property.landlord_phone %}
                     <a href="tel:{{ property.landlord_phone }}" class="btn btn-outline-secondary btn-sm w-100">
-                      <i class="bi bi-telephone"></i> Call / Piga
+                      <i class="bi bi-telephone"></i> Call
                     </a>
                   {% else %}
                     <button class="btn btn-outline-secondary btn-sm w-100" disabled>
-                      <i class="bi bi-telephone"></i> Call / Piga
+                      <i class="bi bi-telephone"></i> Call
                     </button>
                   {% endif %}
                 </div>
@@ -251,11 +255,11 @@
                   {% if property.whatsapp_link %}
                     <a href="{{ property.whatsapp_link }}" target="_blank" rel="noopener"
                        class="btn btn-success btn-sm w-100">
-                      <i class="bi bi-whatsapp"></i> Message / Tuma
+                      <i class="bi bi-whatsapp"></i> Message
                     </a>
                   {% else %}
                     <button class="btn btn-success btn-sm w-100" disabled>
-                      <i class="bi bi-whatsapp"></i> Message / Tuma
+                      <i class="bi bi-whatsapp"></i> Message
                     </button>
                   {% endif %}
                 </div>
@@ -265,17 +269,25 @@
             <div class="d-grid gap-2">
               {% if user.is_authenticated and user.is_tenant %}
                 {% if property.id in saved_properties %}
-                  <form method="post" action="{% url 'remove_from_collection' property.id %}">
+                  <form method="post" action="{% url 'remove_from_collection' property.id %}"
+                        data-tenant-listing-action="collection"
+                        data-save-url="{% url 'add_to_collection' property.id %}"
+                        data-remove-url="{% url 'remove_from_collection' property.id %}"
+                        data-saved="true">
                     {% csrf_token %}
-                    <button type="submit" class="btn btn-danger btn-sm">
+                    <button type="submit" class="btn btn-danger btn-sm w-100">
                     <i class="bi bi-heart-fill"></i> Remove from Collection
                     </button>
                   </form>
                 {% else %}
-                  <form method="post" action="{% url 'add_to_collection' property.id %}">
+                  <form method="post" action="{% url 'add_to_collection' property.id %}"
+                        data-tenant-listing-action="collection"
+                        data-save-url="{% url 'add_to_collection' property.id %}"
+                        data-remove-url="{% url 'remove_from_collection' property.id %}"
+                        data-saved="false">
                     {% csrf_token %}
-                    <button type="submit" class="btn btn-outline-secondary btn-sm">
-                    <i class="bi bi-heart"></i> Save / Hifadhi
+                    <button type="submit" class="btn btn-outline-secondary btn-sm w-100">
+                    <i class="bi bi-heart"></i> Save listing
                     </button>
                   </form>
                 {% endif %}
@@ -287,9 +299,10 @@
                     <i class="bi bi-check-circle-fill"></i> Active booking
                   </button>
                 {% else %}
-                  <form method="post" action="{% url 'book_property' property.id %}">
+                  <form method="post" action="{% url 'book_property' property.id %}"
+                        data-tenant-listing-action="booking">
                     {% csrf_token %}
-                    <button type="submit" class="btn btn-primary btn-sm">
+                    <button type="submit" class="btn btn-primary btn-sm w-100">
                     <i class="bi bi-send-check"></i> Request Unit
                     </button>
                   </form>
@@ -317,7 +330,7 @@
         <div style="background: white; padding: 3rem; border-radius: 14px; border:1px solid rgba(0,0,0,.06); box-shadow: 0 10px 28px rgba(0,0,0,.06);">
           <i class="bi bi-inbox" style="font-size: 3rem; color: var(--text-muted);"></i>
           <p class="text-muted mt-3 fs-5 mb-2">
-            Hakuna nyumba zinazokidhi vigezo vyako.
+            No rentals match your filters. Try changing your search criteria.
           </p>
           <p class="text-muted mb-4">Try clearing filters or search elsewhere.</p>
           <a href="{% url 'tenant_feed' %}" class="btn btn-primary btn-sm mt-2">View All Properties / Ona Zote</a>
@@ -384,6 +397,115 @@
     </div>
   </div>
 </div>
+
+{% if user.is_authenticated and user.is_tenant %}
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  var status = document.getElementById('tenant-action-status');
+  if (!status) return;
+
+  function showStatus(message, isError) {
+    status.textContent = message;
+    status.className = 'alert mb-4 ' + (isError ? 'alert-danger' : 'alert-success');
+  }
+
+  function setCollectionState(form, saved) {
+    var button = form.querySelector('button[type="submit"]');
+    form.dataset.saved = saved ? 'true' : 'false';
+    form.action = saved ? form.dataset.removeUrl : form.dataset.saveUrl;
+    button.className = saved
+      ? 'btn btn-danger btn-sm w-100'
+      : 'btn btn-outline-secondary btn-sm w-100';
+    button.innerHTML = saved
+      ? '<i class="bi bi-heart-fill"></i> Remove from Collection'
+      : '<i class="bi bi-heart"></i> Save listing';
+  }
+
+  function updateVacancy(card, data) {
+    var count = card.querySelector('[data-vacancy-count]');
+    var badge = card.querySelector('[data-vacancy-badge]');
+    var price = card.querySelector('[data-vacancy-price]');
+    var bookingButton = card.querySelector('[data-tenant-listing-action="booking"] button');
+
+    if (count) count.textContent = data.vacant_units;
+    if (badge) {
+      badge.textContent = data.vacant_units
+        ? 'Vacant ' + data.vacant_units
+        : 'No vacant units';
+      badge.classList.toggle('d-none', !data.vacant_units);
+    }
+    if (price) {
+      if (data.min_vacant_price === null) {
+        price.textContent = 'No units currently available';
+      } else {
+        var amount = Number(data.min_vacant_price).toLocaleString('en-KE', {
+          maximumFractionDigits: 0
+        });
+        price.textContent = 'From Ksh ' + amount + '/month';
+      }
+    }
+    if (bookingButton) {
+      bookingButton.disabled = data.vacant_units === 0;
+      if (!data.vacant_units) bookingButton.textContent = 'No vacant units';
+    }
+  }
+
+  document.addEventListener('submit', async function (event) {
+    var form = event.target.closest('form[data-tenant-listing-action]');
+    if (!form) return;
+
+    event.preventDefault();
+    var button = form.querySelector('button[type="submit"]');
+    if (!button || button.disabled) return;
+    var originalDisabled = button.disabled;
+    button.disabled = true;
+
+    try {
+      var response = await fetch(form.action, {
+        method: 'POST',
+        body: new FormData(form),
+        credentials: 'same-origin',
+        headers: {
+          'Accept': 'application/json',
+          'X-Requested-With': 'XMLHttpRequest'
+        }
+      });
+      var contentType = response.headers.get('content-type') || '';
+      if (!contentType.includes('application/json')) {
+        if (response.redirected) {
+          window.location.assign(response.url);
+          return;
+        }
+        throw new Error('The server returned an unexpected response. Please try again.');
+      }
+
+      var data = await response.json();
+      if (!response.ok || !data.success) {
+        showStatus(data.message || 'This action could not be completed. Please try again.', true);
+        return;
+      }
+
+      showStatus(data.message, false);
+      if (form.dataset.tenantListingAction === 'collection') {
+        setCollectionState(form, data.saved);
+      } else {
+        var card = form.closest('[data-property-card]');
+        updateVacancy(card, data);
+        button.disabled = true;
+        button.className = 'btn btn-outline-success btn-sm w-100';
+        button.innerHTML = '<i class="bi bi-check-circle-fill"></i> Active booking';
+      }
+    } catch (error) {
+      showStatus(error.message || 'Could not reach the server. Please try again.', true);
+    } finally {
+      if (button.isConnected && !button.textContent.includes('Active booking')) {
+        button.disabled = originalDisabled;
+      }
+    }
+  });
+});
+</script>
+{% endif %}
 
 <script>
 document.addEventListener('DOMContentLoaded', function () {

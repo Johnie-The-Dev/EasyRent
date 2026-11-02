@@ -268,12 +268,12 @@
                       <form method="post" action="{% url 'generate_receipt' t.id %}">
                         {% csrf_token %}
                         <button type="submit" class="btn btn-sm btn-outline-success">
-                          <i class="bi bi-receipt"></i> Receipt
+                          <i class="bi bi-file-earmark-pdf"></i> Latest PDF receipt
                         </button>
                       </form>
                     {% endif %}
                     <a href="{% url 'receipt_history' t.id %}" class="btn btn-sm btn-outline-secondary">
-                      <i class="bi bi-clock"></i> History
+                      <i class="bi bi-clock-history"></i> Payment history
                     </a>
                   </div>
                 </div>

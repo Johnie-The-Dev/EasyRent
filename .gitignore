@@ -18,6 +18,12 @@ EasyRent-env/
 # Django media/static
 media/
 static/
+!static/
+static/*
+!static/css/
+static/css/*
+!static/css/easyrent.css
+!static/css/admin.css
 staticfiles/
 
 # Docker

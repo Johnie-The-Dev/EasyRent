@@ -1,22 +1,24 @@
 from __future__ import annotations
 
+import logging
 from datetime import date, timedelta
 from decimal import Decimal
-import logging
 
+from django.contrib import messages
 from django.contrib.admin.views.decorators import staff_member_required
 from django.contrib.auth import get_user_model
 from django.core.management import call_command
+from django.core.paginator import Paginator
 from django.db import connections, transaction
 from django.db.models import Count, DecimalField, Q, Sum
-from django.http import HttpResponse, HttpResponseBadRequest, HttpResponseForbidden
+from django.http import HttpResponse, HttpResponseForbidden, HttpResponseNotAllowed
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
-from django.core.paginator import Paginator
 
 from listings.models import (
     Booking,
     DepositHistory,
+    PasswordResetCode,
     Property,
     PropertyImage,
     RentPayment,
@@ -44,16 +46,17 @@ def _superuser_required(view_func):
 def _delete_user_and_related_data(user, actor):
     database = user._state.db or "default"
     landlord_properties = Property.objects.using(database).filter(landlord=user)
-    landlord_units = Unit.objects.using(database).filter(property__landlord=user)
     user_bookings = Booking.objects.using(database).filter(
         Q(tenant=user) | Q(unit__property__landlord=user)
     )
     related_tenancies = Tenant.objects.using(database).filter(
-        Q(unit_fk__property__landlord=user) | Q(booking__in=user_bookings)
+        Q(user=user) | Q(unit_fk__property__landlord=user) | Q(booking__in=user_bookings)
     )
     active_tenancy_unit_ids = list(
         related_tenancies.filter(is_active=True).values_list("unit_fk_id", flat=True).distinct()
     )
+    affected_unit_ids = set(active_tenancy_unit_ids)
+    affected_unit_ids.update(user_bookings.values_list("unit_id", flat=True))
 
     files_to_delete = []
     for prop in landlord_properties.only("video"):
@@ -66,25 +69,24 @@ def _delete_user_and_related_data(user, actor):
             files_to_delete.append((image.image.storage, image.image.name))
 
     with transaction.atomic(using=database):
-        tenancy_ids = related_tenancies.values("pk")
+        tenancy_ids = related_tenancies.order_by().values("pk")
         RentPayment.objects.using(database).filter(tenant_id__in=tenancy_ids).delete()
         ReceiptHistory.objects.using(database).filter(tenant_id__in=tenancy_ids).delete()
         DepositHistory.objects.using(database).filter(
-            Q(tenancy_id__in=tenancy_ids) | Q(unit__property__landlord=user)
+            Q(tenant=user) | Q(tenancy_id__in=tenancy_ids) | Q(unit__property__landlord=user)
         ).delete()
+        if user.email:
+            PasswordResetCode.objects.using(database).filter(email__iexact=user.email).delete()
         related_tenancies.delete()
 
-        # Keep unrelated landlord-managed tenancy records if they point at a
-        # booking being removed, while releasing the protected booking link.
-        Tenant.objects.using(database).filter(booking__in=user_bookings).update(booking=None)
         user_bookings.delete()
-        landlord_properties.delete()
         Unit.objects.using(database).filter(
-            pk__in=active_tenancy_unit_ids,
-            vacancy=Unit.OCCUPIED,
+            pk__in=affected_unit_ids,
+            vacancy__in=[Unit.OCCUPIED, Unit.BOOKED],
         ).exclude(tenancies__is_active=True).exclude(
             bookings__status__in=[Booking.STATUS_PENDING, Booking.STATUS_CONFIRMED]
         ).update(vacancy=Unit.VACANT)
+        landlord_properties.delete()
         user.delete(using=database)
 
     for storage, name in files_to_delete:
@@ -105,14 +107,24 @@ def ops_dashboard(request):
     since_30d = now - timedelta(days=30)
 
     # Users
-    total_landlords = User.objects.filter(role="landlord").count()
-    total_tenants = User.objects.filter(role="tenant").count()
+    total_landlords = User.objects.filter(
+        role="landlord",
+        is_staff=False,
+        is_superuser=False,
+    ).count()
+    total_tenants = User.objects.filter(
+        role="tenant",
+        is_staff=False,
+        is_superuser=False,
+    ).count()
+    admin_accounts = User.objects.filter(Q(is_staff=True) | Q(is_superuser=True)).count()
     new_users_7d = User.objects.filter(date_joined__gte=since_7d).count()
 
     # Inventory
     total_properties = Property.objects.count()
     active_units_qs = Unit.objects.filter(is_active=True)
     total_units = active_units_qs.count()
+    active_tenancy_records = Tenant.objects.filter(is_active=True).count()
 
     vacant_units = active_units_qs.filter(vacancy=Unit.VACANT).count()
     booked_units = active_units_qs.filter(vacancy=Unit.BOOKED).count()
@@ -215,11 +227,13 @@ def ops_dashboard(request):
         "cards": {
             "total_landlords": total_landlords,
             "total_tenants": total_tenants,
+            "admin_accounts": admin_accounts,
             "active_users": User.objects.filter(is_active=True).count(),
             "inactive_users": User.objects.filter(is_active=False).count(),
             "new_users_7d": new_users_7d,
             "total_properties": total_properties,
             "total_units": total_units,
+            "active_tenancy_records": active_tenancy_records,
             "vacant_units": vacant_units,
             "booked_units": booked_units,
             "occupied_units": occupied_units,
@@ -274,7 +288,8 @@ def manage_users(request):
         )
 
     users = users.order_by("-date_joined", "username")
-    page = Paginator(users, 25).get_page(request.GET.get("page"))
+    paginator = Paginator(users, 25)
+    page = paginator.get_page(request.GET.get("page"))
     return render(
         request,
         "admin/ops_users.html",
@@ -283,7 +298,7 @@ def manage_users(request):
             "role": role if role in ("tenant", "landlord") else "all",
             "status": status if status in ("active", "inactive") else "all",
             "search": search,
-            "total_users": users.count(),
+            "total_users": paginator.count,
         },
     )
 
@@ -291,13 +306,17 @@ def manage_users(request):
 @_superuser_required
 def user_detail(request, user_id):
     managed_user = get_object_or_404(User, pk=user_id)
-    properties = Property.objects.filter(landlord=managed_user).order_by("-created_at")
-    tenancies = Tenant.objects.filter(
-        Q(unit_fk__property__landlord=managed_user) | Q(booking__tenant=managed_user)
-    ).select_related("unit_fk", "unit_fk__property").distinct()
-    bookings = Booking.objects.filter(tenant=managed_user).select_related(
-        "unit", "unit__property"
+    properties = Property.objects.filter(landlord=managed_user).prefetch_related(
+        "units"
     ).order_by("-created_at")
+    tenancies = Tenant.objects.filter(
+        Q(user=managed_user)
+        | Q(unit_fk__property__landlord=managed_user)
+        | Q(booking__tenant=managed_user)
+    ).select_related("unit_fk", "unit_fk__property").distinct()
+    bookings = Booking.objects.filter(
+        Q(tenant=managed_user) | Q(unit__property__landlord=managed_user)
+    ).select_related("tenant", "unit", "unit__property").order_by("-created_at")
     collections = TenantCollection.objects.filter(tenant=managed_user).select_related(
         "property"
     ).order_by("-added_at")
@@ -306,23 +325,60 @@ def user_detail(request, user_id):
     ).select_related("unit", "unit__property", "tenant", "tenancy").order_by(
         "-date_received", "-created_at"
     )
+    payments = RentPayment.objects.filter(
+        tenant__in=tenancies.order_by().values("pk")
+    ).select_related("tenant").order_by("-created_at")
+    receipts = ReceiptHistory.objects.filter(
+        tenant__in=tenancies.order_by().values("pk")
+    ).select_related("tenant").order_by("-date_generated")
+    properties_count = properties.count()
+    tenancies_count = tenancies.count()
+    bookings_count = bookings.count()
+    collections_count = collections.count()
+    deposits_count = deposits.count()
+    payments_count = payments.count()
+    receipts_count = receipts.count()
 
     context = {
         "managed_user": managed_user,
-        "properties": properties,
-        "tenancies": tenancies,
-        "bookings": bookings,
-        "collections": collections,
-        "deposits": deposits,
+        "properties": properties[:100],
+        "tenancies": tenancies[:100],
+        "bookings": bookings[:100],
+        "collections": collections[:100],
+        "deposits": deposits[:100],
+        "payments": payments[:100],
+        "receipts": receipts[:100],
         "units_count": Unit.objects.filter(property__landlord=managed_user).count(),
-        "payments_count": RentPayment.objects.filter(
-            tenant__in=tenancies.values("pk")
-        ).count(),
-        "receipts_count": ReceiptHistory.objects.filter(
-            tenant__in=tenancies.values("pk")
-        ).count(),
+        "payments_count": payments_count,
+        "receipts_count": receipts_count,
+        "deposits_count": deposits_count,
+        "collections_count": collections_count,
+        "bookings_count": bookings_count,
+        "tenancies_count": tenancies_count,
+        "properties_count": properties_count,
     }
     return render(request, "admin/ops_user_detail.html", context)
+
+
+@_superuser_required
+def toggle_user_active(request, user_id):
+    if request.method != "POST":
+        return HttpResponseNotAllowed(["POST"])
+    managed_user = get_object_or_404(User, pk=user_id)
+    if managed_user.is_superuser or managed_user.pk == request.user.pk:
+        return HttpResponseForbidden("Manager and superuser accounts cannot be changed here.")
+
+    managed_user.is_active = not managed_user.is_active
+    managed_user.save(update_fields=["is_active"])
+    status = "activated" if managed_user.is_active else "suspended"
+    logger.info(
+        "Manager user %s %s user %s",
+        request.user.pk,
+        status,
+        managed_user.pk,
+    )
+    messages.success(request, f"{managed_user.username} has been {status}.")
+    return redirect("ops:user_detail", user_id=managed_user.pk)
 
 
 @_superuser_required
@@ -343,6 +399,11 @@ def delete_user(request, user_id):
                 status=400,
             )
         username = managed_user.username
+        logger.warning(
+            "Manager user %s confirmed deletion of user %s",
+            request.user.pk,
+            managed_user.pk,
+        )
         _delete_user_and_related_data(managed_user, request.user)
         return render(
             request,
@@ -351,7 +412,7 @@ def delete_user(request, user_id):
         )
 
     if request.method != "GET":
-        return HttpResponseBadRequest("Only GET and POST are supported.")
+        return HttpResponseNotAllowed(["GET", "POST"])
 
     return render(
         request,
@@ -401,7 +462,7 @@ def reset_data(request):
         )
 
     if request.method != "GET":
-        return HttpResponseBadRequest("Only GET and POST are supported.")
+        return HttpResponseNotAllowed(["GET", "POST"])
 
     return render(request, "admin/ops_reset_data.html", {"database_name": database_name})
 

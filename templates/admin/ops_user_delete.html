@@ -1,0 +1,25 @@
+{% extends "admin/base_site.html" %}
+
+{% block content %}
+<div class="content">
+  <h1>Delete account</h1>
+  {% if error %}<p class="errornote">{{ error }}</p>{% endif %}
+  <div class="module" style="max-width:760px;padding:18px">
+    <h2>Delete {{ managed_user.username }}?</h2>
+    <p>This permanently deletes this {{ managed_user.get_role_display|lower }} account and data linked to it, including bookings, saved properties, tenancy records, rent payments, receipts, and—if they are a landlord—their properties, units, images, and related records.</p>
+    <p>Older manually entered tenancy records that have not been linked to this account are not identifiable as its data. Link them to the account first, or review them separately in <a href="/admin/listings/tenant/">Tenancy records</a>.</p>
+    <p><strong>This cannot be undone.</strong> If you need records for accounting or a dispute, export them before continuing.</p>
+    <form method="post">
+      {% csrf_token %}
+      <div>
+        <label for="confirm-username">Enter <strong>{{ managed_user.username }}</strong> to confirm:</label><br>
+        <input id="confirm-username" name="confirm_username" type="text" required autocomplete="off">
+      </div>
+      <p>
+        <button class="button" type="submit" style="background:#ba2121">Permanently delete account and linked data</button>
+        <a class="button" href="{% url 'ops:user_detail' managed_user.pk %}">Cancel</a>
+      </p>
+    </form>
+  </div>
+</div>
+{% endblock %}

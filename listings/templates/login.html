@@ -189,8 +189,8 @@
 
 <div class="login-section">
     <div class="login-card">
-        <h2>Welcome Back — Karibu!</h2>
-        <p class="subtitle">Sign in to EasyRent. Ingia chini kuendelea.</p>
+        <h2>Welcome back</h2>
+        <p class="subtitle">Sign in to continue to EasyRent.</p>
 
         <form method="post">
             {% csrf_token %}
@@ -208,14 +208,14 @@
             {% endfor %}
 
             <div class="login-links">
-                <a href="{% url 'password_reset' %}">Forgot Password? / Umesahau Neno la Siri?</a>
+                <a href="{% url 'password_reset' %}">Forgot your password?</a>
             </div>
 
             <button type="submit" class="login-btn">Login</button>
         </form>
 
         <div class="signup-prompt">
-            No account yet? <a href="{% url 'signup' %}">Sign up — Jiunge sasa</a>
+            Don’t have an account? <a href="{% url 'signup' %}">Create one</a>
         </div>
     </div>
 </div>

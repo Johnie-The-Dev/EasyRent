@@ -1,0 +1,13 @@
+{% extends "admin/base_site.html" %}
+
+{% block content %}
+<div class="content">
+  <h1>Database reset complete</h1>
+  <div class="module" style="max-width:760px;padding:18px">
+    <p>All Django-managed data has been removed from <strong>{{ database_name }}</strong>. Database tables and migration history remain.</p>
+    <p>Create a new superuser to regain access:</p>
+    <pre>docker compose exec web python manage.py createsuperuser</pre>
+    <p><a class="button" href="/admin/">Go to admin sign in</a></p>
+  </div>
+</div>
+{% endblock %}
