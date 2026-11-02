@@ -47,6 +47,7 @@ class PasswordResetCode(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     expires_at = models.DateTimeField(db_index=True)
     used_at = models.DateTimeField(null=True, blank=True)
+    failed_attempts = models.PositiveSmallIntegerField(default=0)
 
     class Meta:
         ordering = ["-created_at"]

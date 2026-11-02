@@ -12,9 +12,10 @@ from django.contrib import messages
 from django.contrib.auth import get_user_model, login, logout
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.views import LoginView
-from django.core.exceptions import PermissionDenied
+from django.core.exceptions import PermissionDenied, ValidationError
 from django.core.mail import send_mail
 from django.core.paginator import Paginator
+from django.contrib.auth.password_validation import validate_password
 from django.db import IntegrityError, transaction
 from django.db.models import Count, DecimalField, Min, Q, Sum
 from django.http import HttpResponse, JsonResponse
@@ -239,7 +240,7 @@ def _safe_from_email() -> str:
     return (
         getattr(settings, "DEFAULT_FROM_EMAIL", None)
         or getattr(settings, "EMAIL_HOST_USER", None)
-        or "no-reply@easyrent.local"
+        or "cooltechsoftwares@gmail.com"
     )
 
 
@@ -316,6 +317,7 @@ class CustomLoginView(LoginView):
     template_name = "login.html"
 
 
+@require_POST
 def custom_logout(request):
     logout(request)
     return redirect("login")
@@ -1418,6 +1420,9 @@ def tenant_list(request):
 
 RESET_CODE_LENGTH = 6
 RESET_CODE_TTL_MINUTES = 10
+RESET_CODE_MAX_FAILED_ATTEMPTS = 5
+RESET_REQUEST_LIMIT = 3
+RESET_REQUEST_WINDOW = timedelta(hours=1)
 
 
 def _hash_reset_code(email: str, code: str) -> str:
@@ -1427,15 +1432,6 @@ def _hash_reset_code(email: str, code: str) -> str:
     secret = (settings.SECRET_KEY or "").encode("utf-8")
     msg = f"{_normalize_email(email)}|{(code or '').strip()}".encode("utf-8")
     return hmac.new(secret, msg, hashlib.sha256).hexdigest()
-
-
-def _mask_email(email: str) -> str:
-    email = (email or "").strip()
-    if "@" not in email:
-        return email
-    name, dom = email.split("@", 1)
-    shown = (name[:2] if len(name) >= 2 else (name[:1] if name else ""))
-    return f"{shown}***@{dom}"
 
 
 class RequestPasswordResetCodeView(View):
@@ -1457,26 +1453,36 @@ class RequestPasswordResetCodeView(View):
             return redirect("password_reset_verify")
 
         now = timezone.now()
-        expires_at = now + timedelta(minutes=RESET_CODE_TTL_MINUTES)
-
-        code = get_random_string(RESET_CODE_LENGTH, allowed_chars="0123456789")
-        code_hash = _hash_reset_code(email, code)
-
         with transaction.atomic():
-            # Invalidate any active codes for this email
-            PasswordResetCode.objects.filter(
+            locked_user = User.objects.select_for_update().filter(pk=user.pk).first()
+            recent_requests = PasswordResetCode.objects.filter(
                 email__iexact=email,
-                used_at__isnull=True,
-                expires_at__gt=now,
-            ).update(used_at=now)
+                created_at__gte=now - RESET_REQUEST_WINDOW,
+            ).count()
+            if locked_user is not None and recent_requests < RESET_REQUEST_LIMIT:
+                expires_at = now + timedelta(minutes=RESET_CODE_TTL_MINUTES)
+                code = get_random_string(RESET_CODE_LENGTH, allowed_chars="0123456789")
+                code_hash = _hash_reset_code(email, code)
 
-            PasswordResetCode.objects.create(
-                email=email,
-                code_hash=code_hash,
-                created_at=now,
-                expires_at=expires_at,
-                used_at=None,
-            )
+                PasswordResetCode.objects.filter(
+                    email__iexact=email,
+                    used_at__isnull=True,
+                    expires_at__gt=now,
+                ).update(used_at=now)
+
+                PasswordResetCode.objects.create(
+                    email=email,
+                    code_hash=code_hash,
+                    created_at=now,
+                    expires_at=expires_at,
+                    used_at=None,
+                )
+            else:
+                code = None
+
+        if code is None:
+            messages.success(request, generic_ok)
+            return redirect("password_reset_verify")
 
         subject = "Your Password Reset Code"
         body = (
@@ -1506,7 +1512,7 @@ class RequestPasswordResetCodeView(View):
             messages.error(request, "We couldn't send an email right now. Please try again later.")
             return redirect("password_reset")
 
-        messages.success(request, f"A reset code has been sent to {_mask_email(email)}.")
+        messages.success(request, generic_ok)
         return redirect("password_reset_verify")
 
 
@@ -1524,24 +1530,28 @@ class VerifyResetCodeView(View):
 
         now = timezone.now()
         code_hash = _hash_reset_code(email, code)
-
-        prc = (
-            PasswordResetCode.objects.filter(
-                email__iexact=email,
-                code_hash=code_hash,
-                used_at__isnull=True,
-                expires_at__gt=now,
+        with transaction.atomic():
+            prc = (
+                PasswordResetCode.objects.select_for_update()
+                .filter(
+                    email__iexact=email,
+                    used_at__isnull=True,
+                    expires_at__gt=now,
+                    failed_attempts__lt=RESET_CODE_MAX_FAILED_ATTEMPTS,
+                )
+                .order_by("-created_at")
+                .first()
             )
-            .order_by("-created_at")
-            .first()
-        )
 
-        if not prc:
-            messages.error(request, "Invalid or expired code. Please request a new one.")
-            return redirect("password_reset_verify")
+            if not prc or not hmac.compare_digest(prc.code_hash, code_hash):
+                if prc:
+                    prc.failed_attempts += 1
+                    prc.save(update_fields=["failed_attempts"])
+                messages.error(request, "Invalid or expired code. Please request a new one.")
+                return redirect("password_reset_verify")
 
-        prc.used_at = now
-        prc.save(update_fields=["used_at"])
+            prc.used_at = now
+            prc.save(update_fields=["used_at"])
 
         request.session["reset_email"] = email
         return redirect("password_reset_new_password")
@@ -1553,20 +1563,23 @@ class SetNewPasswordView(View):
 
     def post(self, request):
         email = (request.session.get("reset_email") or "").strip()
-        password = (request.POST.get("password") or "").strip()
+        password = request.POST.get("password") or ""
 
         if not email:
             messages.error(request, "Your reset session expired. Please request a new code.")
             return redirect("password_reset")
 
-        if not password or len(password) < 8:
-            messages.error(request, "Password must be at least 8 characters.")
-            return redirect("password_reset_new_password")
-
         user = User.objects.filter(email__iexact=email).first()
         if not user:
             messages.error(request, "No account found for that email.")
             return redirect("password_reset")
+
+        try:
+            validate_password(password, user=user)
+        except ValidationError as error:
+            for validation_message in error.messages:
+                messages.error(request, validation_message)
+            return redirect("password_reset_new_password")
 
         user.set_password(password)
         user.save(update_fields=["password"])

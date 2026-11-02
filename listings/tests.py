@@ -14,6 +14,7 @@ from .models import (
 	DepositHistory,
 	Property,
 	PropertyImage,
+	PasswordResetCode,
 	RentPayment,
 	ReceiptHistory,
 	Tenant,
@@ -1376,3 +1377,111 @@ class SignUpFlowTests(TestCase):
 		user = get_user_model().objects.get(username="new-tenant")
 		self.assertEqual(user.role, "tenant")
 		self.assertTrue(client.session.get("_auth_user_id"))
+
+
+class PasswordResetSecurityTests(TestCase):
+	def setUp(self):
+		self.user = get_user_model().objects.create_user(
+			username="reset-user",
+			email="reset-user@example.com",
+			password="Existing-Strong-Password-987!",
+			role="tenant",
+		)
+
+	def request_reset_code(self):
+		with patch("listings.views.send_mail") as send_mail, patch(
+			"listings.views.get_random_string", return_value="123456"
+		):
+			response = self.client.post(
+				reverse("password_reset"),
+				{"email": self.user.email},
+			)
+		return response, send_mail
+
+	def test_reset_code_requests_are_limited_per_email(self):
+		for _ in range(3):
+			response, send_mail = self.request_reset_code()
+			self.assertRedirects(response, reverse("password_reset_verify"))
+			send_mail.assert_called_once()
+
+		response, send_mail = self.request_reset_code()
+
+		self.assertRedirects(response, reverse("password_reset_verify"))
+		send_mail.assert_not_called()
+		self.assertEqual(
+			PasswordResetCode.objects.filter(email__iexact=self.user.email).count(),
+			3,
+		)
+
+	def test_reset_code_is_invalidated_after_five_failed_attempts(self):
+		self.request_reset_code()
+
+		for _ in range(5):
+			response = self.client.post(
+				reverse("password_reset_verify"),
+				{"email": self.user.email, "code": "000000"},
+			)
+			self.assertRedirects(response, reverse("password_reset_verify"))
+
+		reset_code = PasswordResetCode.objects.get(email__iexact=self.user.email)
+		self.assertEqual(reset_code.failed_attempts, 5)
+
+		response = self.client.post(
+			reverse("password_reset_verify"),
+			{"email": self.user.email, "code": "123456"},
+		)
+
+		self.assertRedirects(response, reverse("password_reset_verify"))
+		self.assertNotIn("reset_email", self.client.session)
+
+	def test_reset_password_uses_configured_password_validators(self):
+		session = self.client.session
+		session["reset_email"] = self.user.email
+		session.save()
+
+		response = self.client.post(
+			reverse("password_reset_new_password"),
+			{"password": self.user.username},
+			follow=True,
+		)
+
+		self.assertContains(response, "too similar to the username")
+		self.user.refresh_from_db()
+		self.assertTrue(self.user.check_password("Existing-Strong-Password-987!"))
+
+	def test_reset_password_accepts_a_password_that_passes_validators(self):
+		session = self.client.session
+		session["reset_email"] = self.user.email
+		session.save()
+
+		response = self.client.post(
+			reverse("password_reset_new_password"),
+			{"password": "Another-Strong-Password-987!"},
+		)
+
+		self.assertRedirects(response, reverse("login"))
+		self.user.refresh_from_db()
+		self.assertTrue(self.user.check_password("Another-Strong-Password-987!"))
+
+
+class LogoutSecurityTests(TestCase):
+	def setUp(self):
+		self.user = get_user_model().objects.create_user(
+			username="logout-user",
+			email="logout-user@example.com",
+			password="Existing-Strong-Password-987!",
+			role="tenant",
+		)
+		self.client.force_login(self.user)
+
+	def test_get_request_does_not_log_out_user(self):
+		response = self.client.get(reverse("logout"))
+
+		self.assertEqual(response.status_code, 405)
+		self.assertEqual(self.client.get(reverse("tenant_feed")).context["user"], self.user)
+
+	def test_post_request_logs_out_user(self):
+		response = self.client.post(reverse("logout"))
+
+		self.assertRedirects(response, reverse("login"))
+		self.assertNotIn("_auth_user_id", self.client.session)

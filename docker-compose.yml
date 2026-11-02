@@ -46,7 +46,7 @@ services:
 
       # ✅ Email (DEV): settings.py will use console backend automatically when DEBUG=True
       # If you later set DEBUG=False, then these SMTP vars matter:
-      DEFAULT_FROM_EMAIL: "no-reply@easyrent.local"
+      DEFAULT_FROM_EMAIL: "cooltechsoftwares@gmail.com"
       EMAIL_HOST: ""
       EMAIL_PORT: "587"
       EMAIL_USE_TLS: "True"

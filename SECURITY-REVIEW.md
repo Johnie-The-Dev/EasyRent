@@ -9,12 +9,12 @@ an external penetration test or a review of production infrastructure.
 
 ## Findings
 
-| # | Severity | File | Lines | Finding | Confidence |
-|---|----------|------|-------|---------|------------|
-| 1 | HIGH | [docker-compose.yml](./docker-compose.yml), [settings.py](./EasyRent/settings.py) | `docker-compose.yml:28-34`; `settings.py:17,196-197` | The Compose configuration publishes the Django development server with `DEBUG=True` and a hard-coded weak `SECRET_KEY`. With DEBUG enabled, secure session and CSRF cookies are disabled. This configuration is unsafe if exposed beyond local development. Django's deployment check also reports missing HTTPS redirect and HSTS settings; configure these in Django or enforce them at a trusted TLS-terminating proxy. | 10/10 |
-| 2 | HIGH | [views.py](./listings/views.py) | `1419-1420,1513-1546` | Password recovery uses a six-digit code valid for ten minutes, with no attempt limit or request throttling. An attacker able to reach the recovery flow can make repeated guesses and can repeatedly invalidate outstanding codes. Add per-account and per-source throttling, attempt limits, and monitoring. | 9/10 |
-| 3 | MEDIUM | [views.py](./listings/views.py) | `1550-1572` | Password-reset completion checks only for an eight-character minimum rather than calling Django's configured password validators. Common or otherwise weak passwords can therefore bypass the stronger password policy used during signup. Call `validate_password` and return its validation errors to the user. | 10/10 |
-| 4 | LOW | [views.py](./listings/views.py) | `319-321` | Logout is a state-changing GET endpoint. A third-party page can cause a signed-in user's browser to sign out. Require POST and retain CSRF protection. | 10/10 |
+| # | Severity | File | Status | Finding | Confidence |
+|---|----------|------|--------|---------|------------|
+| 1 | HIGH | [docker-compose.yml](./docker-compose.yml), [settings.py](./EasyRent/settings.py) | Open | The Compose configuration publishes the Django development server with `DEBUG=True` and a hard-coded weak `SECRET_KEY`. With DEBUG enabled, secure session and CSRF cookies are disabled. This configuration is unsafe if exposed beyond local development. Django's deployment check also reports missing HTTPS redirect and HSTS settings; configure these in Django or enforce them at a trusted TLS-terminating proxy. | 10/10 |
+| 2 | HIGH | [views.py](./listings/views.py) | Fixed | Password recovery previously used a six-digit code valid for ten minutes without attempt limits or request throttling. Requests are now limited per email and active codes expire after five failed verification attempts. | 9/10 |
+| 3 | MEDIUM | [views.py](./listings/views.py) | Fixed | Password-reset completion previously checked only a fixed length. It now applies Django's configured password validators and displays their validation messages. | 10/10 |
+| 4 | LOW | [views.py](./listings/views.py), [base.html](./listings/templates/base.html) | Fixed | Logout previously changed state on GET. It now requires POST and is submitted through a CSRF-protected form. | 10/10 |
 
 No critical findings were identified in the reviewed scope. The role and
 ownership checks inspected for tenant/landlord actions and operations-admin
@@ -26,7 +26,5 @@ deployment hardening or runtime testing.
 1. Do not expose the current Compose configuration to the internet. Use a
    production WSGI/ASGI server, a private random secret, `DEBUG=False`, HTTPS,
    secure cookies, and deliberate host/proxy/HSTS settings.
-2. Throttle password-reset requests and verification attempts, and limit
-   failed guesses for each active reset flow.
-3. Apply Django's configured password validators when setting a reset password.
-4. Change logout to POST.
+2. Consider adding IP-based password-reset rate limits and monitoring in
+   addition to the current per-email limits.

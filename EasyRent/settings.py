@@ -154,7 +154,7 @@ MEDIA_ROOT = BASE_DIR / "media"
 
 if DEBUG:
     EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
-    DEFAULT_FROM_EMAIL = os.getenv("DEFAULT_FROM_EMAIL", "no-reply@easyrent.local")
+    DEFAULT_FROM_EMAIL = os.getenv("DEFAULT_FROM_EMAIL", "cooltechsoftwares@gmail.com")
     EMAIL_HOST = os.getenv("EMAIL_HOST", "")
     EMAIL_PORT = int(os.getenv("EMAIL_PORT", "587"))
     EMAIL_USE_TLS = os.getenv("EMAIL_USE_TLS", "True").lower() in ("true", "1", "yes")
@@ -173,7 +173,7 @@ else:
     DEFAULT_FROM_EMAIL = (
         os.getenv("DEFAULT_FROM_EMAIL")
         or EMAIL_HOST_USER
-        or "no-reply@easyrent.local"
+        or "cooltechsoftwares@gmail.com"
     )
 
 # -------------------------------------------------------------------
