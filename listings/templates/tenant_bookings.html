@@ -94,23 +94,29 @@
                 <div class="d-flex justify-content-between align-items-start mb-3">
                   <div>
                     <h5 class="card-title fw-bold mb-1" style="color: var(--primary-color)">
-                      {{ prop.name }}
+                      {% if prop.landlord.is_active %}
+                        {{ prop.name }}
+                      {% else %}
+                        Listing unavailable
+                      {% endif %}
                     </h5>
 
-                    <div class="small text-muted">
-                      <i class="bi bi-geo-alt"></i>
-                      {% if prop.county %}{{ prop.county }},{% endif %}
-                      {{ prop.town }}
-                    </div>
+                    {% if prop.landlord.is_active %}
+                      <div class="small text-muted">
+                        <i class="bi bi-geo-alt"></i>
+                        {% if prop.county %}{{ prop.county }},{% endif %}
+                        {{ prop.town }}
+                      </div>
 
-                    <div class="small text-muted mt-2 d-flex flex-wrap gap-2">
-                      <span class="badge bg-light text-dark" style="border:1px solid rgba(0,0,0,0.06);">
-                        Unit {{ unit.unit_code }}
-                      </span>
-                      <span class="badge bg-light text-dark" style="border:1px solid rgba(0,0,0,0.06);">
-                        {{ unit.unit_type }}
-                      </span>
-                    </div>
+                      <div class="small text-muted mt-2 d-flex flex-wrap gap-2">
+                        <span class="badge bg-light text-dark" style="border:1px solid rgba(0,0,0,0.06);">
+                          Unit {{ unit.unit_code }}
+                        </span>
+                        <span class="badge bg-light text-dark" style="border:1px solid rgba(0,0,0,0.06);">
+                          {{ unit.unit_type }}
+                        </span>
+                      </div>
+                    {% endif %}
                   </div>
 
                   <div>
@@ -139,9 +145,13 @@
                 <div class="row g-3 mb-3 pb-3 border-bottom border-light">
                   <div class="col-6">
                     <div class="small text-muted mb-1">Monthly Rent</div>
-                    <div class="fw-bold" style="color: var(--success-color)">
-                      Ksh {{ unit.price|floatformat:0 }}
-                    </div>
+                    {% if prop.landlord.is_active %}
+                      <div class="fw-bold" style="color: var(--success-color)">
+                        Ksh {{ unit.price|floatformat:0 }}
+                      </div>
+                    {% else %}
+                      <div class="fw-bold text-muted">Unavailable</div>
+                    {% endif %}
                   </div>
 
                   <div class="col-6">
@@ -153,41 +163,51 @@
                     <div class="small text-muted mb-1">Landlord</div>
                     <div class="fw-500">
                       {% with landlord=prop.landlord %}
-                        {% if landlord.get_full_name %}{{ landlord.get_full_name }}{% else %}{{ landlord.username }}{% endif %}
+                        {% if landlord.is_active %}
+                          {% if landlord.get_full_name %}{{ landlord.get_full_name }}{% else %}{{ landlord.username }}{% endif %}
+                        {% else %}
+                          Account unavailable
+                        {% endif %}
                       {% endwith %}
                     </div>
                   </div>
                 </div>
 
-                <div class="mb-3">
-                  <div class="small text-muted mb-2">Contact Landlord</div>
-                  <div class="row g-2">
-                    <div class="col-6">
-                      {% if prop.landlord_phone %}
-                        <a href="tel:{{ prop.landlord_phone }}" class="btn btn-outline-secondary btn-sm w-100">
-                          <i class="bi bi-telephone"></i> Call
-                        </a>
-                      {% else %}
-                        <button class="btn btn-outline-secondary btn-sm w-100" disabled>
-                          <i class="bi bi-telephone"></i> Call
-                        </button>
-                      {% endif %}
-                    </div>
+                {% if prop.landlord.is_active %}
+                  <div class="mb-3">
+                    <div class="small text-muted mb-2">Contact Landlord</div>
+                    <div class="row g-2">
+                      <div class="col-6">
+                        {% if prop.landlord_phone %}
+                          <a href="tel:{{ prop.landlord_phone }}" class="btn btn-outline-secondary btn-sm w-100">
+                            <i class="bi bi-telephone"></i> Call
+                          </a>
+                        {% else %}
+                          <button class="btn btn-outline-secondary btn-sm w-100" disabled>
+                            <i class="bi bi-telephone"></i> Call
+                          </button>
+                        {% endif %}
+                      </div>
 
-                    <div class="col-6">
-                      {% if prop.whatsapp_link %}
-                        <a href="{{ prop.whatsapp_link }}" target="_blank" rel="noopener"
-                           class="btn btn-success btn-sm w-100">
-                          <i class="bi bi-whatsapp"></i> Message
-                        </a>
-                      {% else %}
-                        <button class="btn btn-success btn-sm w-100" disabled>
-                          <i class="bi bi-whatsapp"></i> Message
-                        </button>
-                      {% endif %}
+                      <div class="col-6">
+                        {% if prop.whatsapp_link %}
+                          <a href="{{ prop.whatsapp_link }}" target="_blank" rel="noopener"
+                             class="btn btn-success btn-sm w-100">
+                            <i class="bi bi-whatsapp"></i> Message
+                          </a>
+                        {% else %}
+                          <button class="btn btn-success btn-sm w-100" disabled>
+                            <i class="bi bi-whatsapp"></i> Message
+                          </button>
+                        {% endif %}
+                      </div>
                     </div>
                   </div>
-                </div>
+                {% else %}
+                  <div class="alert alert-secondary py-2 mb-3">
+                    This listing and its contact details are unavailable while the landlord account is suspended.
+                  </div>
+                {% endif %}
 
                 {# Actions #}
                 {% if booking.status == 'pending' or booking.status == 'confirmed' %}
@@ -256,9 +276,13 @@
               </div>
               <div class="modal-body">
                 <p class="mb-0">
-                  Are you sure you want to cancel your booking for
-                  <strong>{{ booking.unit.property.name }}</strong>
-                  (Unit <strong>{{ booking.unit.unit_code }}</strong>)?
+                  Are you sure you want to cancel your booking
+                  {% if booking.unit.property.landlord.is_active %}
+                    for <strong>{{ booking.unit.property.name }}</strong>
+                    (Unit <strong>{{ booking.unit.unit_code }}</strong>)?
+                  {% else %}
+                    for this unavailable listing?
+                  {% endif %}
                 </p>
                 <p class="text-muted small mt-2">This action cannot be undone.</p>
               </div>

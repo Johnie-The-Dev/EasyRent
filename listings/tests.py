@@ -151,6 +151,62 @@ class LandlordWorkflowSecurityTests(TestCase):
 		self.assertContains(response, "Request Unit")
 		self.assertContains(response, "Save listing")
 
+	def test_suspended_landlord_listings_are_hidden_from_tenant_browse_and_collection(self):
+		market_property = Property.objects.create(
+			name="Suspended Landlord Listing",
+			town="Nairobi",
+			property_type="Single Room",
+			price=Decimal("9000.00"),
+			landlord=self.landlord,
+			landlord_phone="+254712345678",
+		)
+		Unit.objects.create(
+			property=market_property,
+			unit_code="B1",
+			unit_type="Single Room",
+			price=Decimal("9000.00"),
+		)
+		TenantCollection.objects.create(
+			tenant=self.tenant_user,
+			property=market_property,
+		)
+		self.landlord.is_active = False
+		self.landlord.save(update_fields=["is_active"])
+		self.client.force_login(self.tenant_user)
+
+		feed_response = self.client.get(reverse("tenant_feed"))
+		collection_response = self.client.get(reverse("view_collection"))
+		booking_response = self.client.post(
+			reverse("book_property", args=[market_property.id]),
+		)
+		save_response = self.client.post(
+			reverse("add_to_collection", args=[market_property.id]),
+		)
+
+		self.assertNotContains(feed_response, market_property.name)
+		self.assertNotContains(feed_response, market_property.landlord_phone)
+		self.assertNotContains(collection_response, market_property.name)
+		self.assertEqual(booking_response.status_code, 404)
+		self.assertEqual(save_response.status_code, 404)
+		self.assertFalse(Booking.objects.filter(unit__property=market_property).exists())
+
+	def test_suspended_landlord_contact_is_hidden_from_existing_booking(self):
+		unit, _booking = self.create_booked_unit(
+			status=Booking.STATUS_PENDING,
+			tenant=self.tenant_user,
+		)
+		self.landlord.is_active = False
+		self.landlord.save(update_fields=["is_active"])
+		self.client.force_login(self.tenant_user)
+
+		response = self.client.get(reverse("tenant_bookings"))
+
+		self.assertContains(response, "This listing and its contact details are unavailable")
+		self.assertContains(response, "Account unavailable")
+		self.assertContains(response, "Listing unavailable")
+		self.assertNotContains(response, self.property.name)
+		self.assertNotContains(response, self.property.landlord_phone)
+
 	def test_new_tenant_form_has_one_payment_entry_and_edit_total_is_read_only(self):
 		new_tenant_form = TenantForm(user=self.landlord)
 		edit_tenant_form = TenantForm(instance=self.tenant, user=self.landlord)

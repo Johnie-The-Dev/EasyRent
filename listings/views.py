@@ -438,7 +438,7 @@ def landlord_dashboard(request):
 
 def tenant_feed(request):
     properties_list = (
-        Property.objects.all()
+        Property.objects.filter(landlord__is_active=True)
         .select_related("landlord")
         .prefetch_related("images")
     )
@@ -690,7 +690,11 @@ def delete_property_image(request, image_id):
 def book_property(request, property_id):
     is_ajax = _is_ajax_request(request)
     with transaction.atomic():
-        prop = get_object_or_404(Property.objects.select_for_update(), id=property_id)
+        prop = get_object_or_404(
+            Property.objects.select_for_update(),
+            id=property_id,
+            landlord__is_active=True,
+        )
         if Booking.objects.filter(
             tenant=request.user,
             unit__property=prop,
@@ -907,7 +911,7 @@ def clear_booking(request, booking_id):
 @tenant_required
 @require_POST
 def add_to_collection(request, property_id):
-    prop = get_object_or_404(Property, id=property_id)
+    prop = get_object_or_404(Property, id=property_id, landlord__is_active=True)
     _, created = TenantCollection.objects.get_or_create(tenant=request.user, property=prop)
     if _is_ajax_request(request):
         return JsonResponse({
@@ -955,7 +959,10 @@ def view_collection(request):
     unit_filter = _available_unit_filter("property__units")
 
     collection = (
-        TenantCollection.objects.filter(tenant=request.user)
+        TenantCollection.objects.filter(
+            tenant=request.user,
+            property__landlord__is_active=True,
+        )
         .select_related("property", "property__landlord")
         .prefetch_related("property__images")
         .annotate(
