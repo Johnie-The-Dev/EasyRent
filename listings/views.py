@@ -353,6 +353,50 @@ def landlord_dashboard(request):
 
     rent_remaining_month = expected_monthly_rent - rent_paid_month
 
+    active_tenancies = list(
+        Tenant.objects.filter(
+            unit_fk__property__landlord=request.user,
+            is_active=True,
+        )
+        .select_related("unit_fk", "unit_fk__property")
+    )
+    tenancy_ids = [tenancy.id for tenancy in active_tenancies]
+    month_paid_by_tenancy = {}
+    if tenancy_ids:
+        month_payment_rows = (
+            RentPayment.objects.filter(
+                tenant_id__in=tenancy_ids,
+                month_paid_for=current_month,
+            )
+            .values("tenant_id")
+            .annotate(total=Sum("amount", output_field=DecimalField()))
+        )
+        month_paid_by_tenancy = {
+            row["tenant_id"]: row["total"] or Decimal("0")
+            for row in month_payment_rows
+        }
+
+    rent_followups = []
+    for tenancy in active_tenancies:
+        tenancy.current_month_paid = month_paid_by_tenancy.get(tenancy.id, Decimal("0"))
+        tenancy.current_month_due = max(
+            _normalize_decimal(tenancy.monthly_rent)
+            - tenancy.current_month_paid,
+            Decimal("0"),
+        )
+        if tenancy.current_month_due > 0:
+            tenancy.collection_status = (
+                "No payment recorded this month"
+                if tenancy.current_month_paid == 0
+                else "Partially paid"
+            )
+            rent_followups.append(tenancy)
+    rent_followups.sort(key=lambda tenancy: tenancy.current_month_due, reverse=True)
+    rent_followup_total = sum(
+        (tenancy.current_month_due for tenancy in rent_followups),
+        Decimal("0"),
+    )
+
     outstanding_balance_total = (
         Tenant.objects.filter(unit_fk__property__landlord=request.user, is_active=True)
         .aggregate(total=Sum("rent_balance", output_field=DecimalField()))["total"]
@@ -414,6 +458,10 @@ def landlord_dashboard(request):
         "expected_monthly_rent": expected_monthly_rent,
         "rent_paid_month": rent_paid_month,
         "rent_remaining_month": rent_remaining_month,
+        "current_month": current_month,
+        "rent_followups": rent_followups[:8],
+        "rent_followup_count": len(rent_followups),
+        "rent_followup_total": rent_followup_total,
         "outstanding_balance_total": outstanding_balance_total,
         # compatibility keys
         "total_monthly_rent": expected_monthly_rent,
@@ -770,6 +818,7 @@ def tenant_bookings(request):
     bookings = (
         Booking.objects.filter(tenant=request.user)
         .select_related("unit", "unit__property", "unit__property__landlord")
+        .prefetch_related("unit__property__images")
         .order_by("-created_at")
     )
     context = {
@@ -901,6 +950,26 @@ def clear_booking(request, booking_id):
 
     booking.delete()
     messages.success(request, "Cancelled booking cleared.")
+    return redirect("tenant_bookings")
+
+
+@tenant_required
+@require_POST
+def clear_cancelled_bookings(request):
+    cancelled_bookings = Booking.objects.filter(
+        tenant=request.user,
+        status=Booking.STATUS_CANCELLED,
+    )
+    cleared_count = cancelled_bookings.count()
+    if cleared_count:
+        cancelled_bookings.delete()
+        messages.success(
+            request,
+            f"Cleared {cleared_count} cancelled booking"
+            f"{'s' if cleared_count != 1 else ''}.",
+        )
+    else:
+        messages.info(request, "There are no cancelled bookings to clear.")
     return redirect("tenant_bookings")
 
 

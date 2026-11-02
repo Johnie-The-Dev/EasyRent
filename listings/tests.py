@@ -5,6 +5,7 @@ from django.contrib.auth import get_user_model
 from django.db.models.deletion import ProtectedError
 from django.test import Client, TestCase
 from django.urls import reverse
+from django.utils import timezone
 
 from .forms import TenantForm
 from .models import (
@@ -75,6 +76,17 @@ class LandlordWorkflowSecurityTests(TestCase):
 		)
 		return unit, booking
 
+	def test_about_page_explains_rental_journey_and_limits(self):
+		response = self.client.get(reverse("about"))
+
+		self.assertEqual(response.status_code, 200)
+		self.assertContains(response, "Find your next place.")
+		self.assertContains(response, "Students")
+		self.assertContains(response, "Busy people and families")
+		self.assertContains(response, "Contact the landlord directly")
+		self.assertContains(response, "not a guarantee of identity")
+		self.assertNotContains(response, "Verified Landlords")
+
 	def test_tenant_cannot_open_landlord_dashboard(self):
 		self.client.force_login(self.tenant_user)
 
@@ -113,7 +125,103 @@ class LandlordWorkflowSecurityTests(TestCase):
 
 		self.assertEqual(response.status_code, 200)
 		self.assertContains(response, self.property.name)
-		self.assertContains(response, "recent payment(s)")
+		self.assertContains(response, "Rent payments recorded for")
+		self.assertContains(response, "Rent collection")
+		self.assertEqual(response.context["rent_followup_count"], 1)
+		self.assertEqual(response.context["rent_followups"][0].current_month_due, Decimal("10000.00"))
+
+	def test_landlord_dashboard_rent_followup_subtracts_current_month_payments(self):
+		current_month = timezone.localdate().strftime("%Y-%m")
+		RentPayment.objects.create(
+			tenant=self.tenant,
+			amount=Decimal("4000.00"),
+			date_paid=timezone.localdate(),
+			month_paid_for=current_month,
+			monthly_rent=Decimal("10000.00"),
+			rent_balance=Decimal("6000.00"),
+			cumulative_rent_balance=Decimal("6000.00"),
+		)
+		self.client.force_login(self.landlord)
+
+		response = self.client.get(reverse("landlord_dashboard"))
+
+		self.assertEqual(response.status_code, 200)
+		self.assertEqual(response.context["rent_followup_count"], 1)
+		self.assertEqual(response.context["rent_followup_total"], Decimal("6000.00"))
+		self.assertEqual(response.context["rent_followups"][0].current_month_paid, Decimal("4000.00"))
+		self.assertEqual(response.context["rent_followups"][0].current_month_due, Decimal("6000.00"))
+		self.assertContains(response, "Recent rent payments")
+		self.assertContains(response, 'name="payment_id"')
+		self.assertContains(response, "4000")
+
+	def test_landlord_dashboard_has_clear_empty_state_for_recent_payments(self):
+		self.client.force_login(self.landlord)
+
+		response = self.client.get(reverse("landlord_dashboard"))
+
+		self.assertEqual(response.status_code, 200)
+		self.assertContains(response, "Recent rent payments")
+		self.assertContains(response, "No rent payments recorded yet")
+
+	def test_landlord_dashboard_rent_followup_ignores_payments_for_other_landlords(self):
+		other_landlord = get_user_model().objects.create_user(
+			username="other-landlord",
+			password="test-password",
+			role="landlord",
+		)
+		other_property = Property.objects.create(
+			name="Other property",
+			town="Nairobi",
+			property_type="Single Room",
+			price=Decimal("8000.00"),
+			landlord=other_landlord,
+			landlord_phone="+254712345678",
+		)
+		other_unit = Unit.objects.create(
+			property=other_property,
+			unit_code="B1",
+			unit_type="Single Room",
+			price=Decimal("8000.00"),
+		)
+		Tenant.objects.create(
+			name="Other resident",
+			phone="0712345678",
+			unit_fk=other_unit,
+			date_occupied=date(2026, 1, 1),
+			rent_paid=Decimal("0.00"),
+			date_paid=date(2026, 1, 1),
+			month_paid_for="2026-01",
+			monthly_rent=Decimal("8000.00"),
+		)
+		self.client.force_login(self.landlord)
+
+		response = self.client.get(reverse("landlord_dashboard"))
+
+		self.assertEqual(response.status_code, 200)
+		self.assertEqual(response.context["rent_followup_count"], 1)
+		self.assertNotContains(response, "Other resident")
+
+	def test_landlord_workspace_pages_render_with_shared_navigation(self):
+		self.client.force_login(self.landlord)
+		page_urls = (
+			reverse("landlord_dashboard"),
+			reverse("landlord_bookings"),
+			reverse("tenant_list"),
+			reverse("manage_tenants"),
+			reverse("edit_tenant", args=[self.tenant.id]),
+			reverse("landlord_profile"),
+			reverse("add_property"),
+			reverse("edit_property", args=[self.property.id]),
+		)
+
+		for url in page_urls:
+			with self.subTest(url=url):
+				response = self.client.get(url)
+				self.assertEqual(response.status_code, 200)
+				self.assertContains(response, 'class="landlord-experience"')
+				self.assertContains(response, reverse("landlord_dashboard"))
+				self.assertContains(response, reverse("landlord_bookings"))
+				self.assertContains(response, reverse("tenant_list"))
 
 	def test_tenant_forms_render_without_duplicate_or_misleading_controls(self):
 		self.client.force_login(self.landlord)
@@ -355,6 +463,105 @@ class LandlordWorkflowSecurityTests(TestCase):
 		self.assertRedirects(response, reverse("landlord_bookings"))
 		booking.refresh_from_db()
 		self.assertEqual(booking.status, Booking.STATUS_CANCELLED)
+
+	def test_tenant_can_clear_own_cancelled_booking_only(self):
+		booking = Booking.objects.create(
+			unit=self.unit,
+			tenant=self.tenant_user,
+			status=Booking.STATUS_CANCELLED,
+		)
+		other_tenant = get_user_model().objects.create_user(
+			username="other-tenant",
+			password="test-password",
+			role="tenant",
+		)
+		other_booking = Booking.objects.create(
+			unit=self.unit,
+			tenant=other_tenant,
+			status=Booking.STATUS_CANCELLED,
+		)
+		self.client.force_login(self.tenant_user)
+
+		response = self.client.post(reverse("clear_booking", args=[booking.id]))
+
+		self.assertRedirects(response, reverse("tenant_bookings"))
+		self.assertFalse(Booking.objects.filter(id=booking.id).exists())
+		self.assertTrue(Booking.objects.filter(id=other_booking.id).exists())
+		self.assertEqual(
+			self.client.post(reverse("clear_booking", args=[other_booking.id])).status_code,
+			404,
+		)
+		self.assertEqual(
+			self.client.get(reverse("clear_booking", args=[other_booking.id])).status_code,
+			405,
+		)
+
+	def test_clear_cancelled_bookings_preserves_active_moved_in_and_other_tenant_records(self):
+		cancelled_booking = Booking.objects.create(
+			unit=self.unit,
+			tenant=self.tenant_user,
+			status=Booking.STATUS_CANCELLED,
+		)
+		active_booking = Booking.objects.create(
+			unit=self.unit,
+			tenant=self.tenant_user,
+			status=Booking.STATUS_PENDING,
+		)
+		moved_in_booking = Booking.objects.create(
+			unit=self.unit,
+			tenant=self.tenant_user,
+			status=Booking.STATUS_MOVED_IN,
+		)
+		self.tenant.booking = moved_in_booking
+		self.tenant.save(update_fields=["booking"])
+		other_tenant = get_user_model().objects.create_user(
+			username="other-tenant",
+			password="test-password",
+			role="tenant",
+		)
+		other_booking = Booking.objects.create(
+			unit=self.unit,
+			tenant=other_tenant,
+			status=Booking.STATUS_CANCELLED,
+		)
+		self.client.force_login(self.tenant_user)
+
+		page_response = self.client.get(reverse("tenant_bookings"))
+		self.assertContains(page_response, "Last updated")
+		self.assertContains(page_response, "Clear all cancelled")
+		self.assertContains(page_response, "Moved-in bookings are retained")
+
+		response = self.client.post(reverse("clear_cancelled_bookings"))
+
+		self.assertRedirects(response, reverse("tenant_bookings"))
+		self.assertFalse(Booking.objects.filter(id=cancelled_booking.id).exists())
+		self.assertTrue(Booking.objects.filter(id=active_booking.id).exists())
+		self.assertTrue(Booking.objects.filter(id=moved_in_booking.id).exists())
+		self.assertTrue(Booking.objects.filter(id=other_booking.id).exists())
+		self.assertEqual(
+			self.client.get(reverse("clear_cancelled_bookings")).status_code,
+			405,
+		)
+
+	def test_tenant_cannot_clear_active_or_moved_in_booking(self):
+		active_booking = Booking.objects.create(
+			unit=self.unit,
+			tenant=self.tenant_user,
+			status=Booking.STATUS_PENDING,
+		)
+		moved_in_booking = Booking.objects.create(
+			unit=self.unit,
+			tenant=self.tenant_user,
+			status=Booking.STATUS_MOVED_IN,
+		)
+		self.tenant.booking = moved_in_booking
+		self.tenant.save(update_fields=["booking"])
+		self.client.force_login(self.tenant_user)
+
+		for booking in (active_booking, moved_in_booking):
+			response = self.client.post(reverse("clear_booking", args=[booking.id]))
+			self.assertRedirects(response, reverse("tenant_bookings"))
+			self.assertTrue(Booking.objects.filter(id=booking.id).exists())
 
 	def test_booking_confirmation_rejected_for_occupied_unit(self):
 		booking = Booking.objects.create(

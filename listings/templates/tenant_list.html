@@ -4,101 +4,60 @@
 {% block title %}Tenant List - EasyRent{% endblock %}
 
 {% block content %}
-<style>
-  .page-head {
-    background: linear-gradient(135deg, rgba(37,99,235,.12) 0%, rgba(99,102,241,.10) 50%, rgba(14,165,233,.10) 100%);
-    border: 1px solid rgba(0,0,0,.06);
-    border-radius: 16px;
-    padding: 22px 18px;
-  }
-  .kpi-card{
-    border: 1px solid rgba(0,0,0,.06);
-    border-radius: 16px;
-    box-shadow: 0 10px 28px rgba(0,0,0,0.06);
-  }
-  .table-card{
-    border: 1px solid rgba(0,0,0,.06);
-    border-radius: 16px;
-    overflow: hidden;
-    box-shadow: 0 10px 28px rgba(0,0,0,0.06);
-  }
-  .badge-soft { background: rgba(37,99,235,.10); color:#1d4ed8; border:1px solid rgba(37,99,235,.18); }
-  .badge-warn { background: rgba(245,158,11,.15); color:#b45309; border:1px solid rgba(245,158,11,.25); }
-  .badge-ok { background: rgba(22,163,74,.15); color:#166534; border:1px solid rgba(22,163,74,.25); }
-  .badge-danger { background: rgba(239,68,68,.14); color:#991b1b; border:1px solid rgba(239,68,68,.25); }
-  .badge-deposit { background: rgba(14,165,233,.12); color:#0369a1; border:1px solid rgba(14,165,233,.25); }
-
-  .sticky-actions { min-width: 260px; }
-  .search-input { max-width: 420px; }
-
-  /* Mobile cards */
-  @media (max-width: 992px) {
-    .desktop-table { display: none; }
-  }
-  @media (min-width: 993px) {
-    .mobile-cards { display: none; }
-  }
-</style>
-
-<div class="container py-4">
-
-  <div class="page-head mb-4 d-flex justify-content-between align-items-start flex-wrap gap-2">
+<div class="landlord-page">
+  <header class="landlord-page-head">
     <div>
-      <h2 class="fw-bold mb-1">Tenants</h2>
-      <div class="text-muted">Unit-first tenant records, balances, receipts, and deposits.</div>
+      <div class="landlord-eyebrow">People and payments</div>
+      <h1>Tenant directory</h1>
+      <p>Review active tenancies, rent records, deposits, and receipts for your properties.</p>
     </div>
-    <div class="d-flex gap-2 flex-wrap">
+    <div class="landlord-actions">
       <a href="{% url 'manage_tenants' %}" class="btn btn-primary">
-        <i class="bi bi-plus-lg"></i> Add Tenant
+        <i class="bi bi-person-plus"></i> Add tenant
       </a>
-      <a href="{% url 'landlord_dashboard' %}" class="btn btn-outline-secondary">
-        <i class="bi bi-speedometer2"></i> Dashboard
+      <a href="{% url 'landlord_dashboard' %}" class="btn btn-outline-light">
+        <i class="bi bi-grid-1x2"></i> Dashboard
       </a>
     </div>
-  </div>
+  </header>
 
-  {# KPIs #}
   <div class="row g-3 mb-4">
     <div class="col-md-4">
-      <div class="card kpi-card border-0 h-100">
-        <div class="card-body">
-          <div class="text-muted small fw-bold">Total Tenants</div>
-          <div class="fw-bold" style="font-size:1.9rem;">{{ tenant_list|length }}</div>
-        </div>
+      <div class="landlord-kpi">
+        <div class="landlord-kpi-label">Active tenancies</div>
+        <div class="landlord-kpi-value">{{ tenant_list|length }}</div>
+        <div class="landlord-kpi-note">Across your managed properties</div>
       </div>
     </div>
     <div class="col-md-4">
-      <div class="card kpi-card border-0 h-100">
-        <div class="card-body">
-          <div class="text-muted small fw-bold">This Page</div>
-          <div class="text-muted">Search + quick actions (edit, receipt, history).</div>
-        </div>
+      <div class="landlord-kpi" style="border-left-color:#328465">
+        <div class="landlord-kpi-label">Rent records</div>
+        <div class="landlord-kpi-value"><i class="bi bi-receipt-cutoff"></i></div>
+        <div class="landlord-kpi-note">Record rent and download payment receipts</div>
       </div>
     </div>
     <div class="col-md-4">
-      <div class="card kpi-card border-0 h-100">
-        <div class="card-body">
-          <div class="text-muted small fw-bold">Deposit Tip</div>
-          <div class="text-muted">Deposit is shown separately and does not change rent balances.</div>
-        </div>
+      <div class="landlord-kpi" style="border-left-color:#5a8b91">
+        <div class="landlord-kpi-label">Deposit records</div>
+        <div class="landlord-kpi-value"><i class="bi bi-safe2"></i></div>
+        <div class="landlord-kpi-note">Deposits are tracked separately from rent</div>
       </div>
     </div>
   </div>
 
-  {# Toolbar #}
-  <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
-    <div class="input-group search-input">
+  <div class="d-flex justify-content-between align-items-center flex-wrap gap-3 mb-3">
+    <div class="input-group" style="max-width:460px">
       <span class="input-group-text bg-white"><i class="bi bi-search"></i></span>
-      <input type="text" id="tenantSearch" class="form-control" placeholder="Search by name, phone, property, unit…">
+      <label class="visually-hidden" for="tenantSearch">Search tenants</label>
+      <input type="search" id="tenantSearch" class="form-control" placeholder="Search name, phone, property, or unit">
     </div>
-    <div class="small text-muted" id="tenantCountHint"></div>
+    <div class="small text-muted" id="tenantCountHint" aria-live="polite"></div>
   </div>
 
-  {# Desktop table #}
-  <div class="desktop-table table-card">
+  <div class="desktop-table landlord-table-wrap">
     <div class="table-responsive">
       <table class="table table-hover mb-0" id="tenantTable">
-        <thead style="background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-dark) 100%); color: white;">
+        <thead>
           <tr>
             <th style="padding: 1rem; border: none;">Tenant</th>
             <th style="padding: 1rem; border: none;">Property / Unit</th>
@@ -216,12 +175,11 @@
     </div>
   </div>
 
-  {# Mobile cards #}
   <div class="mobile-cards">
     <div class="row g-3" id="tenantCards">
       {% for tenant in tenant_list %}
         <div class="col-12 tenant-card">
-          <div class="card kpi-card border-0">
+          <div class="card landlord-panel">
             <div class="card-body">
               <div class="d-flex justify-content-between align-items-start gap-2">
                 <div>
@@ -320,7 +278,7 @@
         </div>
       {% empty %}
         <div class="col-12">
-          <div class="card kpi-card border-0">
+          <div class="card landlord-panel">
             <div class="card-body text-center text-muted py-4">No tenants found.</div>
           </div>
         </div>

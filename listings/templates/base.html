@@ -247,7 +247,7 @@
     <link rel="stylesheet" href="{% static 'css/easyrent.css' %}">
   </head>
 
-  <body>
+  <body{% if user.is_authenticated and user.is_landlord %} class="landlord-experience"{% endif %}>
     <nav class="navbar navbar-expand-lg navbar-dark">
       <div class="container">
         <a class="navbar-brand" href="{% url 'home' %}">
@@ -271,9 +271,10 @@
                 <li class="nav-item"><a class="nav-link" href="{% url 'view_collection' %}">My Collection</a></li>
                 <li class="nav-item"><a class="nav-link" href="{% url 'tenant_bookings' %}">My Bookings</a></li>
               {% elif user.is_landlord %}
-                <li class="nav-item"><a class="nav-link" href="{% url 'landlord_dashboard' %}">Dashboard</a></li>
-                <li class="nav-item"><a class="nav-link" href="{% url 'landlord_bookings' %}">Bookings</a></li>
-                <li class="nav-item"><a class="nav-link" href="{% url 'tenant_list' %}">Tenants</a></li>
+                <li class="nav-item"><a class="nav-link{% if request.resolver_match.url_name == 'landlord_dashboard' %} active{% endif %}" href="{% url 'landlord_dashboard' %}"{% if request.resolver_match.url_name == 'landlord_dashboard' %} aria-current="page"{% endif %}><i class="bi bi-grid-1x2 me-1"></i> Dashboard</a></li>
+                <li class="nav-item"><a class="nav-link{% if request.resolver_match.url_name == 'landlord_bookings' %} active{% endif %}" href="{% url 'landlord_bookings' %}"{% if request.resolver_match.url_name == 'landlord_bookings' %} aria-current="page"{% endif %}><i class="bi bi-calendar2-check me-1"></i> Bookings</a></li>
+                <li class="nav-item"><a class="nav-link{% if request.resolver_match.url_name == 'tenant_list' or request.resolver_match.url_name == 'manage_tenants' or request.resolver_match.url_name == 'edit_tenant' %} active{% endif %}" href="{% url 'tenant_list' %}"{% if request.resolver_match.url_name == 'tenant_list' or request.resolver_match.url_name == 'manage_tenants' or request.resolver_match.url_name == 'edit_tenant' %} aria-current="page"{% endif %}><i class="bi bi-people me-1"></i> Tenants</a></li>
+                <li class="nav-item"><a class="nav-link{% if request.resolver_match.url_name == 'landlord_profile' %} active{% endif %}" href="{% url 'landlord_profile' %}"{% if request.resolver_match.url_name == 'landlord_profile' %} aria-current="page"{% endif %}><i class="bi bi-person-circle me-1"></i> Profile</a></li>
               {% endif %}
 
               {# ✅ Notifications dropdown (uses listings.context_processors.notifications_context) #}

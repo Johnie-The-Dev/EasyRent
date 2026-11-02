@@ -57,6 +57,7 @@ urlpatterns = [
     path("tenant/bookings/", views.tenant_bookings, name="tenant_bookings"),
     path("booking/unbook/<int:booking_id>/", views.unbook_property, name="unbook_property"),
     path("booking/clear/<int:booking_id>/", views.clear_booking, name="clear_booking"),
+    path("booking/clear-cancelled/", views.clear_cancelled_bookings, name="clear_cancelled_bookings"),
 
     # ✅ Notifications
     path("notifications/", views.notifications_center, name="notifications_center"),

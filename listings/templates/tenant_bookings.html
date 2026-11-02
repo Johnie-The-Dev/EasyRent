@@ -1,320 +1,369 @@
-{# tenant_bookings.html (UNIT-FIRST / RELATION-SAFE) — UPDATED (NO DJANGO MESSAGES UI) ✅ #}
-{% extends 'base.html' %}
+{% extends "base.html" %}
 
-{% block title %}My Bookings - EasyRent{% endblock %}
+{% block title %}My Bookings | EasyRent{% endblock %}
 
 {% block content %}
-<style>
-  .page-header{
-    background: linear-gradient(135deg, #0ea5e9, #2563eb);
-    color:#fff;
-    border-radius: 14px;
-    padding: 22px 18px;
-  }
-  .kpi-card{
-    border: 1px solid rgba(0,0,0,.06);
-    border-radius: 14px;
-    box-shadow: 0 10px 30px rgba(0,0,0,.06);
-  }
-  .booking-card{
-    border: 1px solid rgba(0,0,0,.06);
-    border-radius: 14px;
-    box-shadow: 0 10px 30px rgba(0,0,0,.06);
-  }
-</style>
+<div class="tenant-bookings-page">
+  <section class="tenant-bookings-hero" aria-labelledby="tenant-bookings-title">
+    <div class="tenant-bookings-hero-copy">
+      <span class="tenant-bookings-eyebrow"><i class="bi bi-calendar2-check" aria-hidden="true"></i> Your rental journey</span>
+      <h1 id="tenant-bookings-title">My bookings</h1>
+      <p>Keep track of your requests, check their status, and stay in touch with the landlord.</p>
+    </div>
+    <div class="tenant-bookings-hero-actions">
+      <a href="{% url 'view_collection' %}" class="btn tenant-bookings-btn-outline">
+        <i class="bi bi-bookmark-heart" aria-hidden="true"></i> Saved places
+      </a>
+      <a href="{% url 'tenant_feed' %}" class="btn tenant-bookings-btn-light">
+        <i class="bi bi-search" aria-hidden="true"></i> Find a place
+      </a>
+    </div>
+    <div class="tenant-bookings-hero-mark" aria-hidden="true"><i class="bi bi-house-heart"></i></div>
+  </section>
 
-<div class="container py-4">
+  <section class="tenant-bookings-summary" aria-label="Booking summary">
+    <article class="tenant-booking-stat stat-total">
+      <span class="tenant-booking-stat-icon"><i class="bi bi-collection" aria-hidden="true"></i></span>
+      <div><span class="tenant-booking-stat-label">All bookings</span><strong>{{ bookings_count|default:bookings.count }}</strong></div>
+    </article>
+    <article class="tenant-booking-stat stat-pending">
+      <span class="tenant-booking-stat-icon"><i class="bi bi-hourglass-split" aria-hidden="true"></i></span>
+      <div><span class="tenant-booking-stat-label">Awaiting response</span><strong>{{ pending_count|default:0 }}</strong></div>
+    </article>
+    <article class="tenant-booking-stat stat-confirmed">
+      <span class="tenant-booking-stat-icon"><i class="bi bi-check2-circle" aria-hidden="true"></i></span>
+      <div><span class="tenant-booking-stat-label">Confirmed</span><strong>{{ confirmed_count|default:0 }}</strong></div>
+    </article>
+    <article class="tenant-booking-stat stat-moved">
+      <span class="tenant-booking-stat-icon"><i class="bi bi-house-check" aria-hidden="true"></i></span>
+      <div><span class="tenant-booking-stat-label">Moved in</span><strong>{{ moved_in_count|default:0 }}</strong></div>
+    </article>
+    <article class="tenant-booking-stat stat-cancelled">
+      <span class="tenant-booking-stat-icon"><i class="bi bi-x-circle" aria-hidden="true"></i></span>
+      <div><span class="tenant-booking-stat-label">Cancelled</span><strong>{{ cancelled_count|default:0 }}</strong></div>
+    </article>
+  </section>
 
-  <div class="page-header mb-4">
-    <div class="d-flex justify-content-between align-items-start flex-wrap gap-2">
+  <section class="tenant-bookings-content" aria-labelledby="tenant-bookings-list-title">
+    <div class="tenant-bookings-section-heading">
       <div>
-        <h2 class="fw-bold mb-1">My Bookings</h2>
-        <p class="mb-0" style="opacity:.95;">Unit-first booking requests and status updates.</p>
+        <span class="tenant-bookings-eyebrow tenant-bookings-eyebrow-dark">Booking activity</span>
+        <h2 id="tenant-bookings-list-title">Your requests</h2>
       </div>
-      <div class="d-flex gap-2 flex-wrap">
-        <a href="{% url 'view_collection' %}" class="btn btn-light btn-sm">
-          <i class="bi bi-heart"></i> My Collection
-        </a>
-        <a href="{% url 'tenant_feed' %}" class="btn btn-outline-light btn-sm">
-          <i class="bi bi-search"></i> Browse Units
-        </a>
-      </div>
+      {% if bookings %}
+        <label class="tenant-bookings-search">
+          <i class="bi bi-search" aria-hidden="true"></i>
+          <span class="visually-hidden">Search your bookings</span>
+          <input type="search" id="booking-search" placeholder="Search property or area" autocomplete="off">
+        </label>
+      {% endif %}
     </div>
-  </div>
 
-  <div class="row g-3 mb-4">
-    <div class="col-6 col-lg-3">
-      <div class="card kpi-card">
-        <div class="card-body">
-          <div class="text-muted small fw-bold">Total</div>
-          <div class="fw-bold" style="font-size:1.8rem">{{ bookings_count|default:bookings.count }}</div>
-        </div>
+    {% if bookings %}
+      <div class="tenant-bookings-filters" role="group" aria-label="Filter bookings by status">
+        <button type="button" class="tenant-booking-filter is-active" data-filter="all" aria-pressed="true">All <span>{{ bookings_count }}</span></button>
+        <button type="button" class="tenant-booking-filter" data-filter="pending" aria-pressed="false">Pending <span>{{ pending_count }}</span></button>
+        <button type="button" class="tenant-booking-filter" data-filter="confirmed" aria-pressed="false">Confirmed <span>{{ confirmed_count }}</span></button>
+        <button type="button" class="tenant-booking-filter" data-filter="moved_in" aria-pressed="false">Moved in <span>{{ moved_in_count }}</span></button>
+        <button type="button" class="tenant-booking-filter" data-filter="cancelled" aria-pressed="false">Cancelled <span>{{ cancelled_count }}</span></button>
       </div>
-    </div>
-    <div class="col-6 col-lg-3">
-      <div class="card kpi-card">
-        <div class="card-body">
-          <div class="text-muted small fw-bold">Confirmed</div>
-          <div class="fw-bold" style="font-size:1.8rem;color:var(--success-color)">
-            {{ confirmed_count|default:0 }}
+
+      {% if cancelled_count %}
+        <div class="tenant-booking-history-tools">
+          <div>
+            <strong><i class="bi bi-clock-history" aria-hidden="true"></i> Booking history</strong>
+            <p>
+              Clear cancelled requests individually or remove all {{ cancelled_count }} cancelled
+              record{{ cancelled_count|pluralize }}. Active bookings are kept, and moved-in records
+              remain linked to your tenancy.
+            </p>
           </div>
+          <button type="button" class="btn tenant-booking-clear-all"
+                  data-bs-toggle="modal" data-bs-target="#clearAllCancelledModal">
+            <i class="bi bi-trash3" aria-hidden="true"></i> Clear all cancelled
+          </button>
         </div>
-      </div>
-    </div>
-    <div class="col-6 col-lg-3">
-      <div class="card kpi-card">
-        <div class="card-body">
-          <div class="text-muted small fw-bold">Pending</div>
-          <div class="fw-bold" style="font-size:1.8rem;color:var(--warning-color)">
-            {{ pending_count|default:0 }}
-          </div>
+      {% elif moved_in_count %}
+        <div class="tenant-booking-history-note">
+          <i class="bi bi-info-circle" aria-hidden="true"></i>
+          Moved-in bookings are retained as part of your tenancy history.
         </div>
-      </div>
-    </div>
-    <div class="col-6 col-lg-3">
-      <div class="card kpi-card">
-        <div class="card-body">
-          <div class="text-muted small fw-bold">Moved in</div>
-          <div class="fw-bold" style="font-size:1.8rem;color:var(--primary-color)">
-            {{ moved_in_count|default:0 }}
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
+      {% endif %}
 
-  <div class="row g-4">
-    {% for booking in bookings %}
-      <div class="col-lg-6">
-        <div class="card booking-card h-100">
-          <div class="card-body">
+      <p class="tenant-bookings-result-count" id="booking-result-count" aria-live="polite">
+        Showing {{ bookings_count }} booking{{ bookings_count|pluralize }}
+      </p>
 
-            {% with unit=booking.unit prop=booking.unit.property %}
-              {% if unit and prop %}
-                <div class="d-flex justify-content-between align-items-start mb-3">
-                  <div>
-                    <h5 class="card-title fw-bold mb-1" style="color: var(--primary-color)">
-                      {% if prop.landlord.is_active %}
-                        {{ prop.name }}
-                      {% else %}
-                        Listing unavailable
-                      {% endif %}
-                    </h5>
-
-                    {% if prop.landlord.is_active %}
-                      <div class="small text-muted">
-                        <i class="bi bi-geo-alt"></i>
-                        {% if prop.county %}{{ prop.county }},{% endif %}
-                        {{ prop.town }}
-                      </div>
-
-                      <div class="small text-muted mt-2 d-flex flex-wrap gap-2">
-                        <span class="badge bg-light text-dark" style="border:1px solid rgba(0,0,0,0.06);">
-                          Unit {{ unit.unit_code }}
-                        </span>
-                        <span class="badge bg-light text-dark" style="border:1px solid rgba(0,0,0,0.06);">
-                          {{ unit.unit_type }}
-                        </span>
-                      </div>
-                    {% endif %}
-                  </div>
-
-                  <div>
-                    {% if booking.status == 'pending' %}
-                      <span class="badge" style="background: var(--warning-color); color: white;">
-                        <i class="bi bi-hourglass-split"></i> Pending
-                      </span>
-                    {% elif booking.status == 'confirmed' %}
-                      <span class="badge" style="background: var(--success-color)">
-                        <i class="bi bi-check-circle-fill"></i> Confirmed
-                      </span>
-                    {% elif booking.status == 'cancelled' %}
-                      <span class="badge" style="background: var(--danger-color)">
-                        <i class="bi bi-x-circle-fill"></i> Cancelled
-                      </span>
-                    {% elif booking.status == 'moved_in' %}
-                      <span class="badge" style="background: var(--primary-color)">
-                        <i class="bi bi-house-check-fill"></i> Moved in
-                      </span>
-                    {% else %}
-                      <span class="badge bg-secondary">Unknown</span>
-                    {% endif %}
-                  </div>
-                </div>
-
-                <div class="row g-3 mb-3 pb-3 border-bottom border-light">
-                  <div class="col-6">
-                    <div class="small text-muted mb-1">Monthly Rent</div>
-                    {% if prop.landlord.is_active %}
-                      <div class="fw-bold" style="color: var(--success-color)">
-                        Ksh {{ unit.price|floatformat:0 }}
-                      </div>
-                    {% else %}
-                      <div class="fw-bold text-muted">Unavailable</div>
-                    {% endif %}
-                  </div>
-
-                  <div class="col-6">
-                    <div class="small text-muted mb-1">Booked On</div>
-                    <div class="fw-500">{{ booking.created_at|date:"M d, Y" }}</div>
-                  </div>
-
-                  <div class="col-12">
-                    <div class="small text-muted mb-1">Landlord</div>
-                    <div class="fw-500">
-                      {% with landlord=prop.landlord %}
-                        {% if landlord.is_active %}
-                          {% if landlord.get_full_name %}{{ landlord.get_full_name }}{% else %}{{ landlord.username }}{% endif %}
-                        {% else %}
-                          Account unavailable
-                        {% endif %}
-                      {% endwith %}
-                    </div>
-                  </div>
-                </div>
-
+      <div class="tenant-bookings-list" id="tenant-bookings-list">
+        {% for booking in bookings %}
+          {% with unit=booking.unit prop=booking.unit.property %}
+            <article class="tenant-booking-card"
+                     data-status="{{ booking.status }}"
+                     data-search="{% if prop.landlord.is_active %}{{ prop.name }} {{ prop.county }} {{ prop.town }} {{ unit.unit_code }} {{ unit.unit_type }}{% endif %}">
+              <div class="tenant-booking-cover">
                 {% if prop.landlord.is_active %}
-                  <div class="mb-3">
-                    <div class="small text-muted mb-2">Contact Landlord</div>
-                    <div class="row g-2">
-                      <div class="col-6">
-                        {% if prop.landlord_phone %}
-                          <a href="tel:{{ prop.landlord_phone }}" class="btn btn-outline-secondary btn-sm w-100">
-                            <i class="bi bi-telephone"></i> Call
-                          </a>
-                        {% else %}
-                          <button class="btn btn-outline-secondary btn-sm w-100" disabled>
-                            <i class="bi bi-telephone"></i> Call
-                          </button>
-                        {% endif %}
-                      </div>
-
-                      <div class="col-6">
-                        {% if prop.whatsapp_link %}
-                          <a href="{{ prop.whatsapp_link }}" target="_blank" rel="noopener"
-                             class="btn btn-success btn-sm w-100">
-                            <i class="bi bi-whatsapp"></i> Message
-                          </a>
-                        {% else %}
-                          <button class="btn btn-success btn-sm w-100" disabled>
-                            <i class="bi bi-whatsapp"></i> Message
-                          </button>
-                        {% endif %}
-                      </div>
-                    </div>
-                  </div>
+                  {% with cover=prop.images.all|first %}
+                    {% if cover %}
+                      <img src="{{ cover.image.url }}" alt="{{ prop.name }}" loading="lazy">
+                    {% else %}
+                      <div class="tenant-booking-cover-placeholder"><i class="bi bi-buildings" aria-hidden="true"></i></div>
+                    {% endif %}
+                  {% endwith %}
                 {% else %}
-                  <div class="alert alert-secondary py-2 mb-3">
-                    This listing and its contact details are unavailable while the landlord account is suspended.
+                  <div class="tenant-booking-cover-placeholder cover-unavailable"><i class="bi bi-house-slash" aria-hidden="true"></i></div>
+                {% endif %}
+                <span class="tenant-booking-status status-{{ booking.status }}">
+                  {% if booking.status == "pending" %}
+                    <i class="bi bi-hourglass-split" aria-hidden="true"></i> Pending
+                  {% elif booking.status == "confirmed" %}
+                    <i class="bi bi-check-circle-fill" aria-hidden="true"></i> Confirmed
+                  {% elif booking.status == "cancelled" %}
+                    <i class="bi bi-x-circle-fill" aria-hidden="true"></i> Cancelled
+                  {% elif booking.status == "moved_in" %}
+                    <i class="bi bi-house-check-fill" aria-hidden="true"></i> Moved in
+                  {% else %}
+                    <i class="bi bi-question-circle" aria-hidden="true"></i> {{ booking.get_status_display }}
+                  {% endif %}
+                </span>
+              </div>
+
+              <div class="tenant-booking-main">
+                <div class="tenant-booking-heading">
+                  <div>
+                    <span class="tenant-booking-kind">
+                      {% if prop.landlord.is_active %}{{ unit.unit_type }}{% else %}Booking record{% endif %}
+                    </span>
+                    <h3>
+                      {% if prop.landlord.is_active %}{{ prop.name }}{% else %}Listing unavailable{% endif %}
+                    </h3>
+                    {% if prop.landlord.is_active %}
+                      <p class="tenant-booking-location">
+                        <i class="bi bi-geo-alt" aria-hidden="true"></i>
+                        {% if prop.county %}{{ prop.county }}, {% endif %}{{ prop.town }}
+                      </p>
+                    {% endif %}
                   </div>
+                  <div class="tenant-booking-price">
+                    {% if prop.landlord.is_active %}
+                      <strong>Ksh {{ unit.price|floatformat:0 }}</strong><span>per month</span>
+                    {% else %}
+                      <strong>Unavailable</strong><span>listing price hidden</span>
+                    {% endif %}
+                  </div>
+                </div>
+
+                <div class="tenant-booking-details">
+                  {% if prop.landlord.is_active %}
+                    <div><span>Unit</span><strong>{{ unit.unit_code }}</strong></div>
+                  {% endif %}
+                  <div><span>Requested</span><strong>{{ booking.created_at|date:"M d, Y" }}</strong></div>
+                  {% if booking.move_in_date %}
+                    <div><span>Move-in date</span><strong>{{ booking.move_in_date|date:"M d, Y" }}</strong></div>
+                  {% endif %}
+                  <div><span>Last updated</span><strong>{{ booking.updated_at|date:"M d, Y \a\t g:i A" }}</strong></div>
+                  <div><span>Landlord</span>
+                    <strong>
+                      {% if prop.landlord.is_active %}
+                        {% if prop.landlord.get_full_name %}{{ prop.landlord.get_full_name }}{% else %}{{ prop.landlord.username }}{% endif %}
+                      {% else %}
+                        Account unavailable
+                      {% endif %}
+                    </strong>
+                  </div>
+                </div>
+
+                {% if booking.status == "pending" %}
+                  <p class="tenant-booking-update"><i class="bi bi-info-circle" aria-hidden="true"></i> Your request is waiting for the landlord to respond.</p>
+                {% elif booking.status == "confirmed" %}
+                  <p class="tenant-booking-update update-success"><i class="bi bi-check2-circle" aria-hidden="true"></i> Your booking is confirmed. Contact the landlord to agree on the next steps.</p>
+                {% elif booking.status == "moved_in" %}
+                  <p class="tenant-booking-update update-success"><i class="bi bi-house-check" aria-hidden="true"></i> Move-in completed. This booking is now part of your rental history.</p>
+                {% elif booking.status == "cancelled" %}
+                  <p class="tenant-booking-update update-muted"><i class="bi bi-info-circle" aria-hidden="true"></i> This booking was cancelled.</p>
                 {% endif %}
 
-                {# Actions #}
-                {% if booking.status == 'pending' or booking.status == 'confirmed' %}
-                  <div class="d-grid gap-2 pt-2 border-top border-light">
-                    <button type="button" class="btn btn-danger btn-sm"
-                            data-bs-toggle="modal"
-                            data-bs-target="#unbookModal{{ booking.id }}">
-                      <i class="bi bi-x-circle"></i> Cancel Booking
-                    </button>
-                  </div>
-                {% else %}
-                  {% if booking.status == 'moved_in' %}
-                    <div class="pt-2 border-top border-light">
-                      <small class="text-success"><i class="bi bi-check-circle"></i> Move-in completed.</small>
+                <div class="tenant-booking-footer">
+                  {% if prop.landlord.is_active %}
+                    <div class="tenant-booking-contact">
+                      {% if prop.landlord_phone %}
+                        <a href="tel:{{ prop.landlord_phone }}" class="tenant-booking-contact-link">
+                          <i class="bi bi-telephone" aria-hidden="true"></i> Call landlord
+                        </a>
+                      {% endif %}
+                      {% if prop.whatsapp_link %}
+                        <a href="{{ prop.whatsapp_link }}" target="_blank" rel="noopener" class="tenant-booking-contact-link">
+                          <i class="bi bi-whatsapp" aria-hidden="true"></i> WhatsApp
+                        </a>
+                      {% endif %}
                     </div>
                   {% else %}
-                  {# ✅ Cancelled bookings can be cleared/removed by tenant #}
-                  <div class="pt-2 border-top border-light">
-                    <div class="d-flex justify-content-between align-items-center mb-0">
-                      <small class="text-muted"><i class="bi bi-info-circle"></i> This booking has been cancelled.</small>
+                    <p class="tenant-booking-unavailable"><i class="bi bi-shield-lock" aria-hidden="true"></i> This listing and its contact details are unavailable while the landlord account is suspended.</p>
+                  {% endif %}
 
-                      <form method="post" action="{% url 'clear_booking' booking.id %}">
+                  <div class="tenant-booking-actions">
+                    {% if booking.status == "pending" or booking.status == "confirmed" %}
+                      <button type="button" class="btn tenant-booking-cancel"
+                              data-bs-toggle="modal" data-bs-target="#unbookModal{{ booking.id }}">
+                        <i class="bi bi-x-circle" aria-hidden="true"></i> Cancel booking
+                      </button>
+                    {% elif booking.status == "cancelled" %}
+                      <button type="button" class="btn tenant-booking-clear"
+                              data-bs-toggle="modal" data-bs-target="#clearBookingModal{{ booking.id }}">
+                        <i class="bi bi-trash3" aria-hidden="true"></i> Clear record
+                      </button>
+                    {% endif %}
+                  </div>
+                </div>
+              </div>
+            </article>
+
+            {% if booking.status == "pending" or booking.status == "confirmed" %}
+              <div class="modal fade" id="unbookModal{{ booking.id }}" tabindex="-1"
+                   aria-labelledby="unbookModalLabel{{ booking.id }}" aria-hidden="true">
+                <div class="modal-dialog modal-dialog-centered modal-sm">
+                  <div class="modal-content tenant-booking-modal">
+                    <div class="modal-header">
+                      <h2 class="modal-title fs-5" id="unbookModalLabel{{ booking.id }}">Cancel this booking?</h2>
+                      <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                      <p class="mb-2">
+                        {% if prop.landlord.is_active %}
+                          Cancel your request for <strong>{{ prop.name }}</strong>, Unit <strong>{{ unit.unit_code }}</strong>?
+                        {% else %}
+                          Cancel this booking for an unavailable listing?
+                        {% endif %}
+                      </p>
+                      <p class="small text-muted mb-0">You can’t undo this action. The landlord will be notified.</p>
+                    </div>
+                    <div class="modal-footer">
+                      <button type="button" class="btn btn-light" data-bs-dismiss="modal">Keep booking</button>
+                      <form method="post" action="{% url 'unbook_property' booking.id %}">
                         {% csrf_token %}
-                        <button type="submit" class="btn btn-outline-danger btn-sm">
-                        <i class="bi bi-trash"></i> Clear
-                        </button>
+                        <button type="submit" class="btn btn-danger">Yes, cancel booking</button>
                       </form>
                     </div>
                   </div>
-                  {% endif %}
-                {% endif %}
-
-              {% else %}
-                <div class="text-muted">
-                  Booking details unavailable (missing unit/property relation).
                 </div>
-
-                {# If relation is missing but status is cancelled, still allow clearing #}
-                {% if booking.status == 'cancelled' %}
-                  <div class="pt-2 border-top border-light">
-                    <form method="post" action="{% url 'clear_booking' booking.id %}">
-                      {% csrf_token %}
-                      <button type="submit" class="btn btn-outline-danger btn-sm w-100">
-                      <i class="bi bi-trash"></i> Clear booking
-                      </button>
-                    </form>
+              </div>
+            {% endif %}
+            {% if booking.status == "cancelled" %}
+              <div class="modal fade" id="clearBookingModal{{ booking.id }}" tabindex="-1"
+                   aria-labelledby="clearBookingModalLabel{{ booking.id }}" aria-hidden="true">
+                <div class="modal-dialog modal-dialog-centered modal-sm">
+                  <div class="modal-content tenant-booking-modal">
+                    <div class="modal-header">
+                      <h2 class="modal-title fs-5" id="clearBookingModalLabel{{ booking.id }}">Remove this history record?</h2>
+                      <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                      <p class="mb-0">This removes the cancelled booking from your history. This can’t be undone.</p>
+                    </div>
+                    <div class="modal-footer">
+                      <button type="button" class="btn btn-light" data-bs-dismiss="modal">Keep record</button>
+                      <form method="post" action="{% url 'clear_booking' booking.id %}">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-danger">Remove record</button>
+                      </form>
+                    </div>
                   </div>
-                {% endif %}
-              {% endif %}
-            {% endwith %}
-
-          </div>
-        </div>
+                </div>
+              </div>
+            {% endif %}
+          {% endwith %}
+        {% endfor %}
       </div>
 
-      {# Cancel modal only for active bookings (pending/confirmed) #}
-        {% if booking.status == 'pending' or booking.status == 'confirmed' %}
-          {% if booking.unit and booking.unit.property %}
-        <div class="modal fade" id="unbookModal{{ booking.id }}" tabindex="-1"
-             aria-labelledby="unbookModalLabel{{ booking.id }}" aria-hidden="true">
-          <div class="modal-dialog modal-sm">
-            <div class="modal-content border-0">
-              <div class="modal-header border-bottom bg-light">
-                <h5 class="modal-title fw-bold" id="unbookModalLabel{{ booking.id }}">Cancel Booking?</h5>
+      {% if cancelled_count %}
+        <div class="modal fade" id="clearAllCancelledModal" tabindex="-1"
+             aria-labelledby="clearAllCancelledModalLabel" aria-hidden="true">
+          <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content tenant-booking-modal">
+              <div class="modal-header">
+                <h2 class="modal-title fs-5" id="clearAllCancelledModalLabel">Clear all cancelled bookings?</h2>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
               </div>
               <div class="modal-body">
-                <p class="mb-0">
-                  Are you sure you want to cancel your booking
-                  {% if booking.unit.property.landlord.is_active %}
-                    for <strong>{{ booking.unit.property.name }}</strong>
-                    (Unit <strong>{{ booking.unit.unit_code }}</strong>)?
-                  {% else %}
-                    for this unavailable listing?
-                  {% endif %}
+                <p>
+                  This permanently removes {{ cancelled_count }} cancelled
+                  booking{{ cancelled_count|pluralize }} from your history.
                 </p>
-                <p class="text-muted small mt-2">This action cannot be undone.</p>
+                <p class="small text-muted mb-0">
+                  Pending and confirmed bookings won’t be changed. Moved-in bookings are retained
+                  because they’re linked to tenancy records.
+                </p>
               </div>
-              <div class="modal-footer border-top bg-light">
-                <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Keep It</button>
-                <form method="post" action="{% url 'unbook_property' booking.id %}">
+              <div class="modal-footer">
+                <button type="button" class="btn btn-light" data-bs-dismiss="modal">Keep history</button>
+                <form method="post" action="{% url 'clear_cancelled_bookings' %}">
                   {% csrf_token %}
-                  <button type="submit" class="btn btn-danger btn-sm">
-                  Yes, Cancel Booking
-                  </button>
+                  <button type="submit" class="btn btn-danger">Clear cancelled history</button>
                 </form>
               </div>
             </div>
           </div>
         </div>
-          {% endif %}
       {% endif %}
 
-    {% empty %}
-      <div class="col-12">
-        <div class="card border-0 shadow-sm p-5 text-center"
-             style="background: linear-gradient(135deg, rgba(106, 76, 156, 0.05) 0%, rgba(80, 201, 195, 0.05) 100%); border-radius:14px;">
-          <i class="bi bi-calendar-x" style="font-size: 3.5rem; color: var(--text-muted); margin-bottom: 1rem;"></i>
-          <h4 class="fw-bold text-muted mb-2">No Bookings Yet</h4>
-          <p class="text-muted mb-4">You haven't booked any units yet. Start exploring available properties now!</p>
-          <a href="{% url 'tenant_feed' %}" class="btn btn-primary btn-lg">
-            <i class="bi bi-search"></i> Browse Properties
-          </a>
-        </div>
+      <div class="tenant-bookings-no-results" id="booking-no-results" hidden>
+        <i class="bi bi-search" aria-hidden="true"></i>
+        <h3>No matching bookings</h3>
+        <p>Try another search or choose a different status filter.</p>
       </div>
-    {% endfor %}
-  </div>
-
+    {% else %}
+      <div class="tenant-bookings-empty">
+        <span class="tenant-bookings-empty-icon"><i class="bi bi-calendar2-x" aria-hidden="true"></i></span>
+        <span class="tenant-bookings-eyebrow tenant-bookings-eyebrow-dark">A fresh start</span>
+        <h2>No bookings yet</h2>
+        <p>When you request a unit, you’ll find its status and landlord contact details here.</p>
+        <a href="{% url 'tenant_feed' %}" class="btn tenant-bookings-empty-button"><i class="bi bi-search" aria-hidden="true"></i> Browse available rentals</a>
+        <a href="{% url 'view_collection' %}" class="tenant-bookings-empty-link">View your saved places</a>
+      </div>
+    {% endif %}
+  </section>
 </div>
+
+{% if bookings %}
+<script>
+  (() => {
+    const list = document.getElementById("tenant-bookings-list");
+    const search = document.getElementById("booking-search");
+    const resultCount = document.getElementById("booking-result-count");
+    const noResults = document.getElementById("booking-no-results");
+    const filterButtons = document.querySelectorAll(".tenant-booking-filter");
+    const cards = Array.from(list.querySelectorAll(".tenant-booking-card"));
+    let activeFilter = "all";
+
+    const updateBookings = () => {
+      const query = search.value.trim().toLocaleLowerCase();
+      let visibleCount = 0;
+
+      cards.forEach((card) => {
+        const matchesFilter = activeFilter === "all" || card.dataset.status === activeFilter;
+        const matchesSearch = card.dataset.search.toLocaleLowerCase().includes(query);
+        const visible = matchesFilter && matchesSearch;
+        card.hidden = !visible;
+        visibleCount += Number(visible);
+      });
+
+      resultCount.textContent = `Showing ${visibleCount} booking${visibleCount === 1 ? "" : "s"}`;
+      noResults.hidden = visibleCount > 0;
+    };
+
+    filterButtons.forEach((button) => {
+      button.addEventListener("click", () => {
+        activeFilter = button.dataset.filter;
+        filterButtons.forEach((filterButton) => {
+          const isActive = filterButton === button;
+          filterButton.classList.toggle("is-active", isActive);
+          filterButton.setAttribute("aria-pressed", String(isActive));
+        });
+        updateBookings();
+      });
+    });
+
+    search.addEventListener("input", updateBookings);
+  })();
+</script>
+{% endif %}
 {% endblock %}

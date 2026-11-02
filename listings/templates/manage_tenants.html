@@ -4,98 +4,38 @@
 {% block title %}Manage Tenants - EasyRent{% endblock %}
 
 {% block content %}
-<style>
-  .page-wrap{
-    max-width: 900px;
-    margin: 0 auto;
-  }
-  .header-band{
-    background: linear-gradient(135deg, #0ea5e9, #2563eb);
-    border-radius: 14px;
-    padding: 22px 18px;
-    color: #fff;
-  }
-  .header-band h2{ margin: 0; font-weight: 800; }
-  .header-band p{ margin: 6px 0 0; opacity: .95; }
-
-  .form-shell{
-    background: #fff;
-    border-radius: 14px;
-    box-shadow: 0 10px 30px rgba(0,0,0,.06);
-    border: 1px solid rgba(0,0,0,.06);
-    overflow: hidden;
-  }
-  .form-shell .body{
-    padding: 18px;
-  }
-
-  .hint-card{
-    border: 1px solid rgba(0,0,0,.06);
-    background: rgba(245, 247, 251, 1);
-    border-radius: 12px;
-    padding: 12px 12px;
-  }
-
-  .meta-pill{
-    display:inline-flex;
-    gap:.35rem;
-    align-items:center;
-    font-size:.8rem;
-    padding:.2rem .55rem;
-    border-radius: 999px;
-    border: 1px solid rgba(0,0,0,.08);
-    background: rgba(255,255,255,.85);
-  }
-
-  .kpi-box{
-    border: 1px solid rgba(0,0,0,.06);
-    border-radius: 12px;
-    padding: 12px;
-    background: #fff;
-  }
-
-  .req-star{ color: #ef4444; }
-
-  .section-title{
-    font-weight: 800;
-    margin: 8px 0 2px;
-  }
-  .subtle{
-    color: rgba(17,24,39,.75);
-    font-size: .9rem;
-  }
-</style>
-
-<div class="container py-4 page-wrap">
-
-  <div class="header-band mb-4">
+<div class="landlord-page">
+  <header class="landlord-page-head">
     <div class="d-flex justify-content-between align-items-start flex-wrap gap-2">
       <div>
         {% if booking %}
-          <h2>Create Tenancy</h2>
-          <p class="mb-0">Complete the move-in for this confirmed booking.</p>
+          <div class="landlord-eyebrow">Move-in workflow</div>
+          <h1>Create Tenancy</h1>
+          <p>Complete the move-in details for this confirmed booking.</p>
         {% else %}
-          <h2>Add Tenant</h2>
-          <p class="mb-0">Record a walk-in or existing tenant for one of your units.</p>
+          <div class="landlord-eyebrow">People and payments</div>
+          <h1>Add a tenant</h1>
+          <p>Start a tenancy record for a resident in one of your units.</p>
         {% endif %}
       </div>
-      <div class="d-flex gap-2">
-        <a href="{% url 'tenant_list' %}" class="btn btn-light btn-sm">
-          <i class="bi bi-people"></i> Tenant List
-        </a>
-        <a href="{% url 'landlord_dashboard' %}" class="btn btn-outline-light btn-sm">
-          <i class="bi bi-speedometer2"></i> Dashboard
-        </a>
+      <div class="landlord-actions">
+        <a href="{% url 'tenant_list' %}" class="btn btn-light"><i class="bi bi-people"></i> Tenant directory</a>
+        <a href="{% url 'landlord_dashboard' %}" class="btn btn-outline-light"><i class="bi bi-grid-1x2"></i> Dashboard</a>
       </div>
     </div>
-  </div>
+  </header>
 
-  <div class="form-shell">
-    <div class="body">
+  <div class="landlord-form-card">
+    <div class="card-body">
 
       <form id="tenantForm" method="post" action="{% url 'manage_tenants' %}{% if booking %}?booking={{ booking.id }}{% endif %}" novalidate>
         {% csrf_token %}
         {% if booking %}<input type="hidden" name="booking_id" value="{{ booking.id }}">{% endif %}
+
+        <div class="mb-4">
+          <h2 class="landlord-section-title mb-1">Tenant details</h2>
+          <p class="small text-muted mb-0">Capture resident information, unit assignment, and the first rent transaction.</p>
+        </div>
 
         {% if form.non_field_errors %}
           <div class="alert alert-danger">
@@ -108,7 +48,7 @@
           <div class="hint-card mb-3">
             <div class="d-flex justify-content-between align-items-start flex-wrap gap-2">
               <div>
-                <div class="section-title mt-0">Confirmed booking</div>
+                  <div class="section-title mt-0">Confirmed booking</div>
                 <div class="subtle">{{ booking.tenant.get_full_name|default:booking.tenant.username }} · {{ booking.tenant.email|default:"No email" }}</div>
                 <div class="subtle">{{ booking.unit.property.name }} · Unit {{ booking.unit.unit_code }} · KES {{ booking.unit.price|floatformat:0 }}/month</div>
               </div>
@@ -272,7 +212,6 @@
         </div>
 
       </form>
-
     </div>
   </div>
 </div>

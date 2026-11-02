@@ -4,111 +4,66 @@
 {% block title %}Unit Bookings - EasyRent{% endblock %}
 
 {% block content %}
-<style>
-  .page-header{
-    background: linear-gradient(135deg, #0ea5e9, #2563eb);
-    color:#fff;
-    border-radius: 14px;
-    padding: 22px 18px;
-  }
-  .kpi-card{
-    border: 1px solid rgba(0,0,0,.06);
-    border-radius: 14px;
-    box-shadow: 0 10px 30px rgba(0,0,0,.06);
-  }
-  .table-wrap{
-    border: 1px solid rgba(0,0,0,.06);
-    border-radius: 14px;
-    overflow:hidden;
-    box-shadow: 0 10px 30px rgba(0,0,0,.06);
-    background:#fff;
-  }
-  .table thead th{ white-space: nowrap; }
-  .muted{ color: var(--text-muted); }
-  .pill{
-    display:inline-flex; gap:.35rem; align-items:center;
-    padding:.2rem .55rem; border-radius:999px;
-    border: 1px solid rgba(0,0,0,.08);
-    background: rgba(255,255,255,.9);
-    font-size: .78rem;
-  }
-</style>
-
-<div class="container py-4">
-
-  <div class="page-header mb-4">
+<div class="landlord-page">
+  <header class="landlord-page-head">
     <div class="d-flex justify-content-between align-items-start flex-wrap gap-2">
       <div>
-        <h2 class="fw-bold mb-1">📋 Unit Bookings</h2>
-        <p class="mb-0" style="opacity:.95;">Manage tenant booking requests.</p>
+        <div class="landlord-eyebrow">Leasing pipeline</div>
+        <h1>Booking requests</h1>
+        <p>Review applications, confirm a unit, or move an approved tenant into a tenancy.</p>
       </div>
-      <div class="d-flex gap-2">
-        <a href="{% url 'landlord_dashboard' %}" class="btn btn-light btn-sm">
-          <i class="bi bi-arrow-left"></i> Dashboard
+      <div class="landlord-actions">
+        <a href="{% url 'landlord_dashboard' %}" class="btn btn-light">
+          <i class="bi bi-grid-1x2"></i> Dashboard
+        </a>
+        <a href="{% url 'add_property' %}" class="btn btn-outline-light">
+          <i class="bi bi-plus-lg"></i> Add property
         </a>
       </div>
     </div>
-  </div>
+  </header>
+
+  <section class="row g-3 mb-4" aria-label="Booking totals">
+    <div class="col-6 col-lg">
+      <div class="landlord-kpi"><div class="landlord-kpi-label">All requests</div><div class="landlord-kpi-value">{{ total_bookings|default:bookings|length }}</div><div class="landlord-kpi-note">Across your units</div></div>
+    </div>
+    <div class="col-6 col-lg">
+      <div class="landlord-kpi" style="border-left-color:#c7841b"><div class="landlord-kpi-label">Pending</div><div class="landlord-kpi-value">{{ pending_count|default:0 }}</div><div class="landlord-kpi-note">Awaiting your response</div></div>
+    </div>
+    <div class="col-6 col-lg">
+      <div class="landlord-kpi" style="border-left-color:#328465"><div class="landlord-kpi-label">Confirmed</div><div class="landlord-kpi-value">{{ confirmed_count|default:0 }}</div><div class="landlord-kpi-note">Ready to move in</div></div>
+    </div>
+    <div class="col-6 col-lg">
+      <div class="landlord-kpi" style="border-left-color:#5a8b91"><div class="landlord-kpi-label">Moved in</div><div class="landlord-kpi-value">{{ moved_in_count|default:0 }}</div><div class="landlord-kpi-note">Converted to tenancy</div></div>
+    </div>
+    <div class="col-6 col-lg">
+      <div class="landlord-kpi" style="border-left-color:#bd4d4d"><div class="landlord-kpi-label">Cancelled</div><div class="landlord-kpi-value">{{ cancelled_count|default:0 }}</div><div class="landlord-kpi-note">Closed requests</div></div>
+    </div>
+  </section>
 
   {% if bookings %}
-
-    <div class="row g-3 mb-4">
-      <div class="col-6 col-lg">
-        <div class="card kpi-card h-100" style="border-left:4px solid var(--primary-color);">
-          <div class="card-body">
-            <div class="text-muted small fw-bold">Total</div>
-            <div class="fw-bold" style="font-size:1.75rem;color:var(--primary-color);">
-              {{ total_bookings|default:bookings|length }}
-            </div>
-          </div>
-        </div>
+    <section class="d-flex justify-content-between align-items-end flex-wrap gap-3 mb-3">
+      <div>
+        <h2 class="landlord-section-title mb-1">All booking activity</h2>
+        <p class="small text-muted mb-0">Use the status filter or search a tenant, property, or unit.</p>
       </div>
-      <div class="col-6 col-lg">
-        <div class="card kpi-card h-100" style="border-left:4px solid var(--warning-color);">
-          <div class="card-body">
-            <div class="text-muted small fw-bold">Pending</div>
-            <div class="fw-bold" style="font-size:1.75rem;color:var(--warning-color);">
-              {{ pending_count|default:0 }}
-            </div>
-          </div>
-        </div>
+      <div class="d-flex flex-wrap gap-2">
+        <label class="visually-hidden" for="bookingStatusFilter">Filter by status</label>
+        <select id="bookingStatusFilter" class="form-select" style="width:auto;min-width:170px">
+          <option value="">All statuses</option>
+          <option value="pending">Pending</option>
+          <option value="confirmed">Confirmed</option>
+          <option value="moved_in">Moved in</option>
+          <option value="cancelled">Cancelled</option>
+        </select>
+        <label class="visually-hidden" for="bookingSearch">Search booking activity</label>
+        <input id="bookingSearch" class="form-control" type="search" placeholder="Search bookings" style="width:min(280px, 72vw)">
       </div>
-      <div class="col-6 col-lg">
-        <div class="card kpi-card h-100" style="border-left:4px solid var(--success-color);">
-          <div class="card-body">
-            <div class="text-muted small fw-bold">Confirmed</div>
-            <div class="fw-bold" style="font-size:1.75rem;color:var(--success-color);">
-              {{ confirmed_count|default:0 }}
-            </div>
-          </div>
-        </div>
-      </div>
-      <div class="col-6 col-lg">
-        <div class="card kpi-card h-100" style="border-left:4px solid var(--danger-color);">
-          <div class="card-body">
-            <div class="text-muted small fw-bold">Cancelled</div>
-            <div class="fw-bold" style="font-size:1.75rem;color:var(--danger-color);">
-              {{ cancelled_count|default:0 }}
-            </div>
-          </div>
-        </div>
-      </div>
-      <div class="col-6 col-lg">
-        <div class="card kpi-card h-100" style="border-left:4px solid var(--primary-color);">
-          <div class="card-body">
-            <div class="text-muted small fw-bold">Moved in</div>
-            <div class="fw-bold" style="font-size:1.75rem;color:var(--primary-color);">
-              {{ moved_in_count|default:0 }}
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <div class="table-wrap">
+    </section>
+    <div class="landlord-table-wrap">
       <div class="table-responsive">
         <table class="table table-hover mb-0">
-          <thead style="background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-dark) 100%); color: white;">
+          <thead>
             <tr>
               <th style="border:none; padding: 1rem;">Property</th>
               <th style="border:none; padding: 1rem;">Unit</th>
@@ -122,7 +77,7 @@
 
           <tbody>
             {% for booking in bookings %}
-              <tr style="border-bottom: 1px solid var(--border-color);">
+              <tr class="booking-row" data-booking-status="{{ booking.status }}">
                 <td style="padding: 1.1rem; vertical-align: middle;">
                   {% if booking.unit and booking.unit.property %}
                     <a href="{% url 'edit_property' booking.unit.property.id %}"
@@ -159,23 +114,23 @@
 
                 <td style="padding: 1.1rem; vertical-align: middle;">
                   {% if booking.status == 'pending' %}
-                    <span class="badge" style="background: var(--warning-color); color: white;">
+                    <span class="landlord-status is-pending">
                       <i class="bi bi-hourglass-split"></i> Pending
                     </span>
                   {% elif booking.status == 'confirmed' %}
-                    <span class="badge" style="background: var(--success-color);">
+                    <span class="landlord-status is-success">
                       <i class="bi bi-check-circle-fill"></i> Confirmed
                     </span>
                   {% elif booking.status == 'cancelled' %}
-                    <span class="badge" style="background: var(--danger-color);">
+                    <span class="landlord-status is-danger">
                       <i class="bi bi-x-circle-fill"></i> Cancelled
                     </span>
                   {% elif booking.status == 'moved_in' %}
-                    <span class="badge" style="background: var(--primary-color);">
+                    <span class="landlord-status">
                       <i class="bi bi-house-check-fill"></i> Moved in
                     </span>
                   {% else %}
-                    <span class="badge bg-secondary">Unknown</span>
+                    <span class="landlord-status">Unknown</span>
                   {% endif %}
                 </td>
 
@@ -218,6 +173,7 @@
                 </td>
               </tr>
             {% endfor %}
+            <tr id="bookingNoResults" hidden><td colspan="7" class="text-center text-muted py-4">No bookings match those filters.</td></tr>
           </tbody>
 
         </table>
@@ -225,20 +181,36 @@
     </div>
 
   {% else %}
-    <div class="card border-0 shadow-sm p-5 text-center"
-         style="background: linear-gradient(135deg, rgba(106, 76, 156, 0.05) 0%, rgba(80, 201, 195, 0.05) 100%); border-radius:14px;">
-      <i class="bi bi-inbox" style="font-size: 3.5rem; color: var(--text-muted); margin-bottom: 1rem;"></i>
-      <h4 class="fw-bold text-muted mb-2">No Bookings Yet</h4>
-      <p class="text-muted mb-4">When tenants book your units, they will appear here for you to confirm or manage.</p>
-      <a href="{% url 'landlord_dashboard' %}" class="btn btn-primary">
-        <i class="bi bi-arrow-left"></i> Back to Dashboard
-      </a>
+    <div class="landlord-empty">
+      <div class="landlord-empty-icon"><i class="bi bi-calendar2-check"></i></div>
+      <h2 class="landlord-section-title">No booking requests yet</h2>
+      <p class="text-muted mb-3">Tenant requests for your listed units will appear here for review.</p>
+      <a href="{% url 'add_property' %}" class="btn btn-primary"><i class="bi bi-plus-lg"></i> Add a property</a>
     </div>
   {% endif %}
+  <p class="text-muted small mt-3 mb-0">Confirming a request reserves the unit. Use “Create tenancy” after approval to record move-in and any initial payment.</p>
 </div>
 
-<style>
-  .table tbody tr:hover { background-color: rgba(106, 76, 156, 0.02); }
-  .btn-group-sm .btn { border-radius: 6px; }
-</style>
+<script>
+(() => {
+  const search = document.getElementById("bookingSearch");
+  const status = document.getElementById("bookingStatusFilter");
+  const rows = Array.from(document.querySelectorAll(".booking-row"));
+  const noResults = document.getElementById("bookingNoResults");
+  const applyFilters = () => {
+    const query = (search?.value || "").trim().toLowerCase();
+    const selectedStatus = status?.value || "";
+    let visibleRows = 0;
+    rows.forEach((row) => {
+      const matchesSearch = row.innerText.toLowerCase().includes(query);
+      const matchesStatus = !selectedStatus || row.dataset.bookingStatus === selectedStatus;
+      row.hidden = !(matchesSearch && matchesStatus);
+      if (!row.hidden) visibleRows += 1;
+    });
+    if (noResults) noResults.hidden = visibleRows > 0;
+  };
+  search?.addEventListener("input", applyFilters);
+  status?.addEventListener("change", applyFilters);
+})();
+</script>
 {% endblock %}

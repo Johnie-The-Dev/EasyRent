@@ -4,45 +4,29 @@
 {% block title %}Edit Tenant - EasyRent{% endblock %}
 
 {% block content %}
-<style>
-  .page-head {
-    background: linear-gradient(135deg, rgba(37,99,235,.12) 0%, rgba(99,102,241,.10) 50%, rgba(14,165,233,.10) 100%);
-    border: 1px solid rgba(0,0,0,.06);
-    border-radius: 16px;
-    padding: 22px 18px;
-  }
-  .card-soft {
-    border: 1px solid rgba(0,0,0,.06);
-    border-radius: 16px;
-    box-shadow: 0 10px 28px rgba(0,0,0,0.06);
-  }
-  .form-hint { font-size: .85rem; color: var(--text-muted); }
-  .badge-soft {
-    background: rgba(37, 99, 235, .10);
-    color: #1d4ed8;
-    border: 1px solid rgba(37, 99, 235, .18);
-  }
-</style>
-
-<div class="container py-4">
-
-  <div class="page-head mb-4 d-flex justify-content-between align-items-start flex-wrap gap-2">
+<div class="landlord-page">
+  <header class="landlord-page-head">
     <div>
-      <h2 class="fw-bold mb-1">Edit Tenant</h2>
-      <div class="text-muted">Update tenant details and record a payment. Balances preview updates live.</div>
+      <div class="landlord-eyebrow">People and payments</div>
+      <h1>Update tenancy</h1>
+      <p>Review {{ tenant.name }}’s details or record a payment against the selected rent month.</p>
     </div>
-    <div class="d-flex gap-2 flex-wrap">
-      <a href="{% url 'tenant_list' %}" class="btn btn-outline-secondary">
-        <i class="bi bi-arrow-left"></i> Back
-      </a>
+    <div class="landlord-actions">
+      <a href="{% url 'tenant_list' %}" class="btn btn-light"><i class="bi bi-people"></i> Tenant directory</a>
+      <a href="{% url 'landlord_dashboard' %}" class="btn btn-outline-light"><i class="bi bi-grid-1x2"></i> Dashboard</a>
     </div>
-  </div>
+  </header>
 
-  <div class="card card-soft border-0">
-    <div class="card-body p-4">
+  <div class="landlord-form-card">
+    <div class="card-body">
 
       <form id="tenantForm" method="post" action="{% url 'edit_tenant' tenant.id %}">
         {% csrf_token %}
+
+        <div class="mb-4">
+          <h2 class="landlord-section-title mb-1">Tenancy details</h2>
+          <p class="small text-muted mb-0">Rent payments are stored in the ledger and update the balance automatically.</p>
+        </div>
 
         {% if form.non_field_errors %}
           <div class="alert alert-danger border-0">
@@ -53,27 +37,27 @@
         <div class="row g-3">
 
           <div class="col-md-6">
-            <label class="form-label fw-semibold">Tenant Name</label>
+            <label class="form-label fw-semibold" for="{{ form.name.id_for_label }}">Tenant Name</label>
             {{ form.name }}
             {% if form.name.errors %}<div class="text-danger small mt-1">{{ form.name.errors }}</div>{% endif %}
           </div>
 
           <div class="col-md-6">
-            <label class="form-label fw-semibold">Tenant Phone</label>
+            <label class="form-label fw-semibold" for="{{ form.phone.id_for_label }}">Tenant Phone</label>
             {{ form.phone }}
             {% if form.phone.errors %}<div class="text-danger small mt-1">{{ form.phone.errors }}</div>{% endif %}
             <div class="form-hint mt-1">Example: 07XXXXXXXX</div>
           </div>
 
           <div class="col-12">
-            <label class="form-label fw-semibold">{{ form.user.label }}</label>
+            <label class="form-label fw-semibold" for="{{ form.user.id_for_label }}">{{ form.user.label }}</label>
             {{ form.user }}
             {% if form.user.errors %}<div class="text-danger small mt-1">{{ form.user.errors }}</div>{% endif %}
             {% if form.user.help_text %}<div class="form-hint mt-1">{{ form.user.help_text }}</div>{% endif %}
           </div>
 
           <div class="col-12">
-            <label class="form-label fw-semibold">Unit Occupied</label>
+            <label class="form-label fw-semibold" for="{{ form.unit_fk.id_for_label }}">Unit Occupied</label>
             {{ form.unit_fk }}
             {% if form.unit_fk.errors %}<div class="text-danger small mt-1">{{ form.unit_fk.errors }}</div>{% endif %}
             {% if form.unit_fk.help_text %}<div class="form-hint mt-1">{{ form.unit_fk.help_text }}</div>{% endif %}
@@ -88,32 +72,32 @@
           </div>
 
           <div class="col-md-4">
-            <label class="form-label fw-semibold">Date Occupied</label>
+            <label class="form-label fw-semibold" for="{{ form.date_occupied.id_for_label }}">Date Occupied</label>
             {{ form.date_occupied }}
             {% if form.date_occupied.errors %}<div class="text-danger small mt-1">{{ form.date_occupied.errors }}</div>{% endif %}
           </div>
 
           <div class="col-md-4">
-            <label class="form-label fw-semibold">Date Paid</label>
+            <label class="form-label fw-semibold" for="{{ form.date_paid.id_for_label }}">Date Paid</label>
             {{ form.date_paid }}
             {% if form.date_paid.errors %}<div class="text-danger small mt-1">{{ form.date_paid.errors }}</div>{% endif %}
             <div class="form-hint mt-1">Tip: set this to today when receiving a payment.</div>
           </div>
 
           <div class="col-md-4">
-            <label class="form-label fw-semibold">Month Paid For</label>
+            <label class="form-label fw-semibold" for="{{ form.month_paid_for.id_for_label }}">Month Paid For</label>
             {{ form.month_paid_for }}
             {% if form.month_paid_for.errors %}<div class="text-danger small mt-1">{{ form.month_paid_for.errors }}</div>{% endif %}
           </div>
 
           <div class="col-md-6">
-            <label class="form-label fw-semibold">Monthly Rent (KES)</label>
+            <label class="form-label fw-semibold" for="{{ form.monthly_rent.id_for_label }}">Monthly Rent (KES)</label>
             {{ form.monthly_rent }}
             {% if form.monthly_rent.errors %}<div class="text-danger small mt-1">{{ form.monthly_rent.errors }}</div>{% endif %}
           </div>
 
           <div class="col-md-6">
-            <label class="form-label fw-semibold">Total Paid This Month (KES, read only)</label>
+            <label class="form-label fw-semibold" for="{{ form.rent_paid.id_for_label }}">Total Paid This Month (KES, read only)</label>
             {{ form.rent_paid }}
             {% if form.rent_paid.errors %}<div class="text-danger small mt-1">{{ form.rent_paid.errors }}</div>{% endif %}
             <div class="form-hint mt-1">Use “Payment Received Now” below to add a payment. The total is calculated from payment records.</div>
@@ -122,7 +106,7 @@
           <div class="col-12">
             <div class="row g-3">
               <div class="col-md-6">
-                <label class="form-label fw-semibold">Payment Received Now (KES)</label>
+                <label class="form-label fw-semibold" for="{{ form.payment_amount.id_for_label }}">Payment Received Now (KES)</label>
                 {{ form.payment_amount }}
                 {% if form.payment_amount.errors %}<div class="text-danger small mt-1">{{ form.payment_amount.errors }}</div>{% endif %}
                 <div class="form-hint mt-1">Recorded separately for the selected month.</div>

@@ -2,291 +2,326 @@
 {% block title %}Landlord Dashboard - EasyRent{% endblock %}
 
 {% block content %}
-<style>
-  .dash-hero{
-    background: linear-gradient(120deg, var(--primary-dark) 0%, var(--primary-color) 70%, #268b78 100%);
-    color:#fff; padding:32px 18px; border-radius:14px;
-    box-shadow: 0 8px 24px rgba(0,0,0,.12);
-    margin-bottom: 22px;
-  }
-  .dash-hero h1{font-weight:800; font-size: 2rem; margin:0 0 6px;}
-  .dash-hero p{margin:0; opacity:.95}
-
-  .kpi{background:#fff;border-radius:8px;padding:18px;border:1px solid rgba(0,0,0,.06);
-    box-shadow: 0 2px 14px rgba(0,0,0,.06); height:100%;}
-  .kpi .label{font-size:.82rem;color:#7a7a7a;font-weight:700;text-transform:uppercase;letter-spacing:.5px;}
-  .kpi .value{font-size:1.65rem;font-weight:800;margin-top:6px;}
-  .kpi .sub{font-size:.85rem;color:#666;margin-top:4px}
-  .kpi.expected{border-left:5px solid var(--primary-color);}
-  .kpi.collected{border-left:5px solid #2ecc71;}
-  .kpi.remaining{border-left:5px solid #398c91;}
-  .kpi.outstanding{border-left:5px solid var(--warning-color);}
-
-  .quick-actions a{border-radius:12px; padding:12px 14px; font-weight:700;}
-  .cardx{background:#fff;border-radius:8px;border:1px solid rgba(0,0,0,.06);box-shadow: 0 2px 14px rgba(0,0,0,.06);}
-  .cardx .cardx-h{padding:14px 16px;border-bottom:1px solid rgba(0,0,0,.06);display:flex;align-items:center;justify-content:space-between}
-  .cardx .cardx-b{padding:16px;}
-
-  .pill{display:inline-flex;gap:6px;align-items:center;padding:6px 10px;border-radius:6px;font-size:.82rem;font-weight:700;}
-  .pill.pending{background:#fff3cd;color:#856404;}
-  .pill.full{background:#d4edda;color:#155724;}
-  .pill.vacant{background:#f8d7da;color:#721c24;}
-  .pill.booked{background:#d1ecf1;color:#0c5460;}
-
-  .prop-row{display:flex;gap:12px;align-items:flex-start;padding:12px;border:1px solid rgba(0,0,0,.06);border-radius:8px;}
-  .prop-thumb{width:64px;height:64px;border-radius:12px;overflow:hidden;background:#f2f2f2;flex:0 0 64px;display:flex;align-items:center;justify-content:center}
-  .prop-thumb img{width:100%;height:100%;object-fit:cover}
-  .prop-meta{flex:1}
-  .prop-title{font-weight:800;margin:0}
-  .prop-sub{color:#666;font-size:.9rem;margin:2px 0 0}
-  .prop-actions{display:flex;gap:8px;flex-wrap:wrap}
-
-  .table thead th{background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color:#fff; border:0;}
-  .table td{vertical-align:middle;}
-</style>
-
-<div class="dash-hero">
-  <div class="d-flex justify-content-between align-items-start flex-wrap gap-2">
+<div class="landlord-dashboard">
+  <header class="dashboard-welcome">
     <div>
-      <h1>🏠 Landlord Dashboard</h1>
-      <p>Manage properties, units, tenants and bookings.</p>
+      <div class="dashboard-eyebrow">Landlord workspace</div>
+      <h1>Welcome back, {{ user.get_short_name|default:user.username }}</h1>
+      <p>Here is what is happening across your properties this month.</p>
     </div>
-    <div class="quick-actions d-flex gap-2 flex-wrap">
+    <div class="dashboard-actions">
       <a href="{% url 'add_property' %}" class="btn btn-light">
-        <i class="bi bi-plus-lg"></i> Add Property
+        <i class="bi bi-plus-lg" aria-hidden="true"></i> Add property
       </a>
-      <a href="{% url 'landlord_bookings' %}" class="btn btn-outline-light">
-        <i class="bi bi-calendar2-check"></i> Bookings
+      <a href="{% url 'landlord_bookings' %}" class="btn dashboard-btn-outline">
+        <i class="bi bi-calendar2-check" aria-hidden="true"></i> Review bookings
+        {% if pending_count %}<span class="dashboard-action-count">{{ pending_count }}</span>{% endif %}
       </a>
     </div>
-  </div>
-</div>
+  </header>
 
-<div class="container py-2">
+  <section class="dashboard-metrics" aria-label="Monthly rent overview">
+    <article class="dashboard-metric">
+      <div class="dashboard-metric-top">
+        <span class="dashboard-metric-icon"><i class="bi bi-house-check" aria-hidden="true"></i></span>
+        <span class="dashboard-metric-label">Expected monthly rent</span>
+      </div>
+      <strong class="dashboard-metric-value">Ksh {{ expected_monthly_rent|floatformat:0 }}</strong>
+      <span class="dashboard-metric-note">From active units</span>
+    </article>
+    <article class="dashboard-metric metric-collected">
+      <div class="dashboard-metric-top">
+        <span class="dashboard-metric-icon"><i class="bi bi-cash-stack" aria-hidden="true"></i></span>
+        <span class="dashboard-metric-label">Collected · {{ current_month }}</span>
+      </div>
+      <strong class="dashboard-metric-value">Ksh {{ rent_paid_month|floatformat:0 }}</strong>
+      <span class="dashboard-metric-note">Rent payments recorded for {{ current_month }}</span>
+    </article>
+    <article class="dashboard-metric metric-gap">
+      <div class="dashboard-metric-top">
+        <span class="dashboard-metric-icon"><i class="bi bi-graph-down-arrow" aria-hidden="true"></i></span>
+        <span class="dashboard-metric-label">Expected less collected</span>
+      </div>
+      <strong class="dashboard-metric-value">Ksh {{ rent_remaining_month|floatformat:0 }}</strong>
+      <span class="dashboard-metric-note">Portfolio-level monthly difference</span>
+    </article>
+    <article class="dashboard-metric metric-balance">
+      <div class="dashboard-metric-top">
+        <span class="dashboard-metric-icon"><i class="bi bi-hourglass-split" aria-hidden="true"></i></span>
+        <span class="dashboard-metric-label">Active tenancy balance</span>
+      </div>
+      <strong class="dashboard-metric-value">Ksh {{ outstanding_balance_total|floatformat:0 }}</strong>
+      <span class="dashboard-metric-note">Current balances recorded on tenancies</span>
+    </article>
+  </section>
 
-  <!-- KPI row (UNIT-FIRST) -->
-  <div class="row g-3 mb-4">
-    <div class="col-md-3">
-      <div class="kpi expected">
-        <div class="label">Expected Monthly Rent</div>
-        <div class="value">Ksh {{ expected_monthly_rent|floatformat:0 }}</div>
-        <div class="sub">Sum of active unit prices</div>
+  <section class="dashboard-inventory" aria-label="Unit occupancy summary">
+    <div class="dashboard-section-heading">
+      <div>
+        <h2>Portfolio at a glance</h2>
+        <p>Availability and occupancy across your active units.</p>
+      </div>
+      <span class="dashboard-occupancy">{{ occupancy_rate }}% occupied</span>
+    </div>
+    <div class="dashboard-inventory-grid">
+      <div class="dashboard-inventory-stat">
+        <span class="inventory-dot dot-occupied"></span>
+        <span>Occupied</span>
+        <strong>{{ occupied_units }}<small> / {{ total_units }}</small></strong>
+      </div>
+      <div class="dashboard-inventory-stat">
+        <span class="inventory-dot dot-vacant"></span>
+        <span>Available</span>
+        <strong>{{ vacant_units }}</strong>
+      </div>
+      <div class="dashboard-inventory-stat">
+        <span class="inventory-dot dot-booked"></span>
+        <span>Booked</span>
+        <strong>{{ booked_units }}</strong>
+      </div>
+      <div class="dashboard-inventory-stat">
+        <span class="inventory-dot dot-maintenance"></span>
+        <span>Maintenance</span>
+        <strong>{{ maintenance_units }}</strong>
       </div>
     </div>
-    <div class="col-md-3">
-      <div class="kpi collected">
-        <div class="label">Paid This Month</div>
-        <div class="value">Ksh {{ rent_paid_month|floatformat:0 }}</div>
-        <div class="sub">{{ recent_payments|length }} recent payment(s)</div>
-      </div>
-    </div>
-    <div class="col-md-3">
-      <div class="kpi remaining">
-        <div class="label">Remaining This Month</div>
-        <div class="value">Ksh {{ rent_remaining_month|floatformat:0 }}</div>
-        <div class="sub">Expected minus recorded payments</div>
-      </div>
-    </div>
-    <div class="col-md-3">
-      <div class="kpi outstanding">
-        <div class="label">Outstanding Balance</div>
-        <div class="value">Ksh {{ outstanding_balance_total|floatformat:0 }}</div>
-        <div class="sub">Across all tenants</div>
-      </div>
-    </div>
-  </div>
+  </section>
 
-  <!-- Unit stats -->
-  <div class="row g-3 mb-4">
-    <div class="col-md-3">
-      <div class="cardx">
-        <div class="cardx-b text-center">
-          <div class="text-muted small fw-bold">Occupancy Rate</div>
-          <div class="fw-bold" style="font-size:2rem;color:var(--primary-color);">{{ occupancy_rate }}%</div>
+  <section class="dashboard-panel dashboard-collection" aria-labelledby="rent-followup-heading">
+    <div class="dashboard-panel-heading">
+      <div>
+        <div class="dashboard-eyebrow dashboard-eyebrow-dark">Action needed</div>
+        <h2 id="rent-followup-heading">Rent collection</h2>
+        <p>
+          Ksh {{ rent_followup_total|floatformat:0 }} remaining across
+          {{ rent_followup_count }} active tenancy record{{ rent_followup_count|pluralize }} for {{ current_month }}.
+        </p>
+      </div>
+      <a href="{% url 'tenant_list' %}" class="btn btn-outline-primary">
+        <i class="bi bi-people" aria-hidden="true"></i> Tenant directory
+      </a>
+    </div>
+
+    {% if rent_followups %}
+      <div class="dashboard-table-scroll">
+        <table class="table dashboard-table">
+          <thead>
+            <tr>
+              <th scope="col">Tenant</th>
+              <th scope="col">Property / unit</th>
+              <th scope="col">Monthly rent</th>
+              <th scope="col">Paid this month</th>
+              <th scope="col">Remaining</th>
+              <th scope="col"><span class="visually-hidden">Actions</span></th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for tenancy in rent_followups %}
+              <tr>
+                <td>
+                  <strong>{{ tenancy.name }}</strong>
+                  <span class="dashboard-subtext">{{ tenancy.collection_status }}</span>
+                </td>
+                <td>{{ tenancy.unit_fk.property.name }} <span class="dashboard-subtext">Unit {{ tenancy.unit_fk.unit_code }}</span></td>
+                <td>Ksh {{ tenancy.monthly_rent|floatformat:0 }}</td>
+                <td>Ksh {{ tenancy.current_month_paid|floatformat:0 }}</td>
+                <td><strong class="dashboard-amount-due">Ksh {{ tenancy.current_month_due|floatformat:0 }}</strong></td>
+                <td class="dashboard-table-action">
+                  <a href="{% url 'edit_tenant' tenancy.id %}" class="btn btn-sm btn-outline-primary">Record payment</a>
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% if rent_followup_count > rent_followups|length %}
+        <p class="dashboard-footnote">Showing the 8 largest remaining amounts. Visit the tenant directory to review all records.</p>
+      {% endif %}
+    {% else %}
+      <div class="dashboard-success-empty">
+        <i class="bi bi-check-circle" aria-hidden="true"></i>
+        <div>
+          <strong>No rent follow-ups for {{ current_month }}</strong>
+          <p>All active tenants have recorded payments covering their monthly rent. This is based on payment records, not contractual due dates.</p>
         </div>
       </div>
-    </div>
-    <div class="col-md-3">
-      <div class="cardx">
-        <div class="cardx-b text-center">
-          <div class="text-muted small fw-bold">Occupied Units</div>
-          <div class="fw-bold" style="font-size:2rem;color:#2ecc71;">{{ occupied_units }}/{{ total_units }}</div>
+    {% endif %}
+  </section>
+
+  <div class="dashboard-main-grid">
+    <section class="dashboard-panel dashboard-properties" aria-labelledby="properties-heading">
+      <div class="dashboard-panel-heading">
+        <div>
+          <h2 id="properties-heading">Your properties <span class="dashboard-count">{{ total_properties }}</span></h2>
+          <p>Manage your listings, unit availability, and property details.</p>
         </div>
+        <a href="{% url 'add_property' %}" class="btn btn-sm btn-primary">
+          <i class="bi bi-plus-lg" aria-hidden="true"></i> Add property
+        </a>
       </div>
-    </div>
-    <div class="col-md-3">
-      <div class="cardx">
-        <div class="cardx-b text-center">
-          <div class="text-muted small fw-bold">Vacant Units</div>
-          <div class="fw-bold" style="font-size:2rem;color:#e74c3c;">{{ vacant_units }}</div>
-        </div>
-      </div>
-    </div>
-    <div class="col-md-3">
-      <div class="cardx">
-        <div class="cardx-b text-center">
-          <div class="text-muted small fw-bold">Booked Units</div>
-          <div class="fw-bold" style="font-size:2rem;color:#00bcd4;">{{ booked_units }}</div>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- Main grid -->
-  <div class="row g-4">
-
-    <!-- Properties management -->
-    <div class="col-lg-8">
-      <div class="cardx">
-        <div class="cardx-h">
-          <div class="fw-bold">
-            <i class="bi bi-buildings"></i> Properties ({{ total_properties }})
-          </div>
-          <a href="{% url 'add_property' %}" class="btn btn-sm btn-primary">
-            <i class="bi bi-plus-lg"></i> Add
-          </a>
-        </div>
-        <div class="cardx-b">
-          {% if properties %}
-            <div class="d-flex flex-column gap-3">
-              {% for prop in properties %}
-                <div class="prop-row">
-                  <div class="prop-thumb">
-                    {% with primary=prop.images.all.0 %}
-                      {% if primary %}
-                        <img src="{{ primary.image.url }}" alt="{{ prop.name }}">
-                      {% else %}
-                        <i class="bi bi-image text-muted"></i>
-                      {% endif %}
-                    {% endwith %}
-                  </div>
-
-                  <div class="prop-meta">
-                    <p class="prop-title">{{ prop.name }}</p>
-                    <p class="prop-sub">
-                      <i class="bi bi-geo-alt"></i> {{ prop.county|default:"—" }}, {{ prop.town }}
-                      • Default: {{ prop.property_type }} • Ksh {{ prop.price|floatformat:0 }}
-                    </p>
-
-                    <div class="d-flex flex-wrap gap-2 mt-2">
-                      <span class="pill pending"><i class="bi bi-house"></i> Units {{ prop.total_units_count|default:0 }}</span>
-                      <span class="pill booked"><i class="bi bi-bookmark-check"></i> Booked {{ prop.booked_units_count|default:0 }}</span>
-
-                      {% if prop.vacant_units_count|default:0 == 0 and prop.total_units_count|default:0 > 0 %}
-                        <span class="pill full"><i class="bi bi-check-circle-fill"></i> Full</span>
-                      {% else %}
-                        <span class="pill vacant"><i class="bi bi-exclamation-triangle-fill"></i> Vacant {{ prop.vacant_units_count|default:0 }}</span>
-                      {% endif %}
-                    </div>
-
-                    <div class="text-muted small mt-2">
-                      Expected: <strong>Ksh {{ prop.expected_monthly_rent|default:0|floatformat:0 }}</strong>
-                      • Occupied: <strong>{{ prop.occupied_units_count|default:0 }}</strong>
-                    </div>
-                  </div>
-
-                  <div class="prop-actions">
-                    <a href="{% url 'edit_property' prop.id %}" class="btn btn-sm btn-primary" title="Edit Property">
-                      <i class="bi bi-sliders"></i> Manage
-                    </a>
-                  </div>
-                </div>
-              {% endfor %}
+      <div class="dashboard-property-list">
+        {% for prop in properties %}
+          <article class="dashboard-property">
+            <div class="dashboard-property-image">
+              {% with primary=prop.images.all.0 %}
+                {% if primary %}
+                  <img src="{{ primary.image.url }}" alt="{{ prop.name }}">
+                {% else %}
+                  <i class="bi bi-buildings" aria-hidden="true"></i>
+                  <span class="visually-hidden">No property photo</span>
+                {% endif %}
+              {% endwith %}
             </div>
-          {% else %}
-            <div class="text-center text-muted py-4">
-              <div style="font-size:2.5rem;">🏠</div>
-              <div class="fw-bold mb-2">No properties yet</div>
-              <a href="{% url 'add_property' %}" class="btn btn-primary">
-                <i class="bi bi-plus-lg"></i> Add your first property
+            <div class="dashboard-property-content">
+              <div class="dashboard-property-title">
+                <div>
+                  <h3>{{ prop.name }}</h3>
+                  <p><i class="bi bi-geo-alt" aria-hidden="true"></i> {{ prop.town }}{% if prop.county %}, {{ prop.county }}{% endif %}</p>
+                </div>
+                <a href="{% url 'edit_property' prop.id %}" class="btn btn-sm btn-outline-primary">
+                  <i class="bi bi-sliders" aria-hidden="true"></i> Manage
+                </a>
+              </div>
+              <div class="dashboard-property-tags">
+                <span>{{ prop.total_units_count|default:0 }} units</span>
+                <span>{{ prop.occupied_units_count|default:0 }} occupied</span>
+                <span>{{ prop.vacant_units_count|default:0 }} available</span>
+                <span>{{ prop.booked_units_count|default:0 }} booked</span>
+              </div>
+              <div class="dashboard-property-rent">
+                <span>{{ prop.property_type }} · Default Ksh {{ prop.price|floatformat:0 }}</span>
+                <strong>Ksh {{ prop.expected_monthly_rent|default:0|floatformat:0 }} <small>potential monthly rent</small></strong>
+              </div>
+            </div>
+          </article>
+        {% empty %}
+          <div class="dashboard-empty">
+            <span class="dashboard-empty-icon"><i class="bi bi-buildings" aria-hidden="true"></i></span>
+            <h3>Your portfolio starts here</h3>
+            <p>Add your first property to manage its units, availability, tenants, and rent.</p>
+            <a href="{% url 'add_property' %}" class="btn btn-primary"><i class="bi bi-plus-lg" aria-hidden="true"></i> Add your first property</a>
+          </div>
+        {% endfor %}
+      </div>
+    </section>
+
+    <aside class="dashboard-side-column">
+      <section class="dashboard-panel" aria-labelledby="bookings-heading">
+        <div class="dashboard-panel-heading">
+          <div>
+            <h2 id="bookings-heading">Booking requests <span class="dashboard-count">{{ pending_count }}</span></h2>
+            <p>Requests waiting for your response.</p>
+          </div>
+          <a href="{% url 'landlord_bookings' %}" class="dashboard-inline-link">All bookings</a>
+        </div>
+        <div class="dashboard-activity-list">
+          {% for booking in pending_bookings %}
+            <article class="dashboard-activity">
+              <span class="dashboard-activity-icon booking-icon"><i class="bi bi-calendar-plus" aria-hidden="true"></i></span>
+              <div class="dashboard-activity-content">
+                <strong>{{ booking.tenant.get_full_name|default:booking.tenant.username }}</strong>
+                <span>{{ booking.unit.property.name }} · Unit {{ booking.unit.unit_code }}</span>
+                <small>{{ booking.created_at|date:"d M Y" }}</small>
+              </div>
+              <a href="{% url 'landlord_bookings' %}" class="dashboard-review-link">Review</a>
+            </article>
+          {% empty %}
+            <div class="dashboard-compact-empty">
+              <i class="bi bi-check2-circle" aria-hidden="true"></i>
+              <span>No requests need a response right now.</span>
+            </div>
+          {% endfor %}
+        </div>
+      </section>
+
+      <section class="dashboard-panel" aria-labelledby="tenants-heading">
+        <div class="dashboard-panel-heading">
+          <div>
+            <h2 id="tenants-heading">Recent tenants</h2>
+            <p>Your latest active tenancy records.</p>
+          </div>
+          <a href="{% url 'tenant_list' %}" class="dashboard-inline-link">All tenants</a>
+        </div>
+        <div class="dashboard-activity-list">
+          {% for tenancy in recent_tenants %}
+            <article class="dashboard-activity">
+              <span class="dashboard-activity-icon tenant-icon"><i class="bi bi-person" aria-hidden="true"></i></span>
+              <div class="dashboard-activity-content">
+                <strong>{{ tenancy.name }}</strong>
+                <span>{{ tenancy.unit_fk.property.name }} · Unit {{ tenancy.unit_fk.unit_code }}</span>
+                <small>Balance Ksh {{ tenancy.rent_balance|floatformat:0 }}</small>
+              </div>
+              <a href="{% url 'edit_tenant' tenancy.id %}" class="dashboard-icon-link" aria-label="Edit tenancy for {{ tenancy.name }}">
+                <i class="bi bi-arrow-up-right" aria-hidden="true"></i>
               </a>
+            </article>
+          {% empty %}
+            <div class="dashboard-compact-empty">
+              <i class="bi bi-people" aria-hidden="true"></i>
+              <span>No active tenancies yet.</span>
+              <a href="{% url 'manage_tenants' %}">Add a tenant</a>
             </div>
-          {% endif %}
+          {% endfor %}
         </div>
-      </div>
-    </div>
-
-    <!-- Right column: bookings + tenants -->
-    <div class="col-lg-4">
-
-      <!-- Pending bookings -->
-      <div class="cardx mb-4">
-        <div class="cardx-h">
-          <div class="fw-bold"><i class="bi bi-clock-history"></i> Pending Bookings ({{ pending_count }})</div>
-          <a href="{% url 'landlord_bookings' %}" class="btn btn-sm btn-outline-secondary">All</a>
-        </div>
-        <div class="cardx-b">
-          {% if pending_bookings %}
-            <div class="d-flex flex-column gap-2">
-              {% for b in pending_bookings %}
-                <div class="d-flex justify-content-between align-items-start border rounded-3 p-2">
-                  <div>
-                    <div class="fw-bold">{{ b.unit.property.name }}</div>
-                    <div class="text-muted small">Unit {{ b.unit.unit_code }} • {{ b.tenant.get_full_name|default:b.tenant.username }}</div>
-                    <div class="text-muted small">{{ b.created_at|date:"M d, Y" }}</div>
-                  </div>
-                  <a href="{% url 'landlord_bookings' %}" class="btn btn-sm btn-warning">
-                    Respond
-                  </a>
-                </div>
-              {% endfor %}
-            </div>
-          {% else %}
-            <div class="text-muted">No pending bookings right now.</div>
-          {% endif %}
-        </div>
-      </div>
-
-      <!-- Tenants management -->
-      <div class="cardx">
-        <div class="cardx-h">
-          <div class="fw-bold"><i class="bi bi-people-fill"></i> Tenants</div>
-          <div class="d-flex gap-2">
-            <a href="{% url 'manage_tenants' %}" class="btn btn-sm btn-primary">
-              <i class="bi bi-person-plus"></i> Add
-            </a>
-            <a href="{% url 'tenant_list' %}" class="btn btn-sm btn-outline-secondary">List</a>
-          </div>
-        </div>
-        <div class="cardx-b">
-          {% if recent_tenants %}
-            <div class="d-flex flex-column gap-2">
-              {% for t in recent_tenants %}
-                <div class="border rounded-3 p-2">
-                  <div class="fw-bold">{{ t.name }}</div>
-                  <div class="text-muted small">
-                    {{ t.unit_fk.property.name }} — Unit {{ t.unit_fk.unit_code }}
-                  </div>
-                  <div class="text-muted small">
-                    Balance: <strong>Ksh {{ t.rent_balance|floatformat:0 }}</strong>
-                  </div>
-                  <div class="d-flex gap-2 mt-2 flex-wrap">
-                    <a href="{% url 'edit_tenant' t.id %}" class="btn btn-sm btn-outline-primary">
-                      <i class="bi bi-pencil"></i> Edit
-                    </a>
-                    {% if t.payments.all.0 %}
-                      <form method="post" action="{% url 'generate_receipt' t.id %}">
-                        {% csrf_token %}
-                        <button type="submit" class="btn btn-sm btn-outline-success">
-                          <i class="bi bi-file-earmark-pdf"></i> Latest PDF receipt
-                        </button>
-                      </form>
-                    {% endif %}
-                    <a href="{% url 'receipt_history' t.id %}" class="btn btn-sm btn-outline-secondary">
-                      <i class="bi bi-clock-history"></i> Payment history
-                    </a>
-                  </div>
-                </div>
-              {% endfor %}
-            </div>
-          {% else %}
-            <div class="text-muted">No tenants added yet.</div>
-          {% endif %}
-        </div>
-      </div>
-
-    </div>
+      </section>
+    </aside>
   </div>
 
+  <section class="dashboard-panel dashboard-payments" aria-labelledby="payments-heading">
+    <div class="dashboard-panel-heading">
+      <div>
+        <h2 id="payments-heading">Recent rent payments</h2>
+        <p>Latest rent transactions recorded across your tenancies. Deposits are tracked separately.</p>
+      </div>
+      <a href="{% url 'tenant_list' %}" class="btn btn-sm btn-outline-primary">
+        <i class="bi bi-clock-history" aria-hidden="true"></i> Payment history
+      </a>
+    </div>
+    {% if recent_payments %}
+      <div class="dashboard-table-scroll">
+        <table class="table dashboard-table">
+          <thead>
+            <tr>
+              <th scope="col">Date</th>
+              <th scope="col">Tenant</th>
+              <th scope="col">Property / unit</th>
+              <th scope="col">Month paid for</th>
+              <th scope="col" class="text-end">Amount</th>
+              <th scope="col" class="text-end"><span class="visually-hidden">Receipt</span></th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for payment in recent_payments %}
+              <tr>
+                <td>{{ payment.date_paid|date:"d M Y" }}</td>
+                <td><strong>{{ payment.tenant.name }}</strong></td>
+                <td>{{ payment.tenant.unit_fk.property.name }} · Unit {{ payment.tenant.unit_fk.unit_code }}</td>
+                <td>{{ payment.month_paid_for }}</td>
+                <td class="text-end"><strong>Ksh {{ payment.amount|floatformat:0 }}</strong></td>
+                <td class="text-end">
+                  <form method="post" action="{% url 'generate_receipt' payment.tenant_id %}">
+                    {% csrf_token %}
+                    <input type="hidden" name="payment_id" value="{{ payment.id }}">
+                    <button type="submit" class="btn btn-sm btn-outline-primary" aria-label="Download receipt for {{ payment.tenant.name }}">
+                      <i class="bi bi-file-earmark-pdf" aria-hidden="true"></i>
+                    </button>
+                  </form>
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <div class="dashboard-compact-empty dashboard-payment-empty">
+        <i class="bi bi-receipt" aria-hidden="true"></i>
+        <span>No rent payments recorded yet. Recorded payments will appear here with receipt downloads.</span>
+      </div>
+    {% endif %}
+  </section>
+
+  <p class="dashboard-disclaimer">
+    Occupancy is based on unit status. Rent totals reflect saved payment and tenancy records and are not contractual due-date calculations.
+  </p>
 </div>
 {% endblock %}

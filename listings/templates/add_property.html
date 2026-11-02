@@ -3,17 +3,24 @@
 {% block title %}Add Property - EasyRent{% endblock %}
 
 {% block content %}
-<div class="container py-4" style="background: linear-gradient(135deg, #6a11cb, #2575fc); border-radius: 8px;">
+<div class="landlord-page">
+  <header class="landlord-page-head">
+    <div>
+      <div class="landlord-eyebrow">Portfolio setup</div>
+      <h1>Add a property</h1>
+      <p>Set up listing details and create the units you want to manage.</p>
+    </div>
+    <a href="{% url 'landlord_dashboard' %}" class="btn btn-light"><i class="bi bi-arrow-left"></i> Dashboard</a>
+  </header>
   <div class="row justify-content-center">
     <div class="col-lg-8 col-xl-7">
-      <div class="card shadow-sm mt-4">
-        <div class="card-header text-white"
-             style="background: linear-gradient(135deg, #6a11cb, #2575fc); border-bottom: none;">
+      <div class="card landlord-form-card">
+        <div class="card-header">
           <div class="d-flex justify-content-between align-items-center">
-            <h4 class="mb-0">Add a New Property</h4>
-            <a href="{% url 'landlord_dashboard' %}" class="btn btn-sm btn-light">
-              <i class="bi bi-arrow-left"></i> Back
-            </a>
+            <div>
+              <h2 class="landlord-section-title mb-1">Property details</h2>
+              <div class="small text-muted">Fields marked as required must be completed.</div>
+            </div>
           </div>
         </div>
 
@@ -81,8 +88,11 @@
 
             <hr class="my-4">
 
-            <div class="d-flex justify-content-between align-items-center mb-2">
-              <h5 class="mb-0 fw-bold">Units</h5>
+            <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-2">
+              <div>
+                <h3 class="landlord-section-title mb-1">Units</h3>
+                <div class="small text-muted">Add each rentable room or unit with a unique code and rent.</div>
+              </div>
               <span class="badge bg-light text-dark" style="border:1px solid rgba(0,0,0,0.08);">
                 Use unique unit codes like A1, B3, 101, Shop-02
               </span>
@@ -125,9 +135,6 @@
         </div>
       </div>
 
-      <div class="text-center mt-3">
-        <a href="{% url 'landlord_dashboard' %}" class="btn btn-secondary">Back to Dashboard</a>
-      </div>
     </div>
   </div>
 </div>
