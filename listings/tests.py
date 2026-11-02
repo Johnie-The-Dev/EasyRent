@@ -258,6 +258,29 @@ class LandlordWorkflowSecurityTests(TestCase):
 		self.assertContains(response, "My Collection")
 		self.assertContains(response, "Request Unit")
 		self.assertContains(response, "Save listing")
+		self.assertContains(response, "Welcome, tenant.")
+		self.assertContains(response, "rentals match your search")
+
+	def test_landlord_dashboard_welcome_surfaces_workspace_and_pending_requests(self):
+		pending_unit = Unit.objects.create(
+			property=self.property,
+			unit_code="B1",
+			unit_type="Single Room",
+			price=Decimal("12000.00"),
+			vacancy=Unit.BOOKED,
+		)
+		Booking.objects.create(
+			unit=pending_unit,
+			tenant=self.tenant_user,
+			status=Booking.STATUS_PENDING,
+		)
+		self.client.force_login(self.landlord)
+
+		response = self.client.get(reverse("landlord_dashboard"))
+
+		self.assertContains(response, "Your landlord workspace")
+		self.assertContains(response, "You have 1 booking request to review.")
+		self.assertContains(response, "Properties · People · Payments")
 
 	def test_suspended_landlord_listings_are_hidden_from_tenant_browse_and_collection(self):
 		market_property = Property.objects.create(

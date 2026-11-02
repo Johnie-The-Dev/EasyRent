@@ -4,10 +4,20 @@
 {% block content %}
 <div class="landlord-dashboard">
   <header class="dashboard-welcome">
-    <div>
-      <div class="dashboard-eyebrow">Landlord workspace</div>
+    <div class="dashboard-welcome-copy">
+      <div class="dashboard-eyebrow"><i class="bi bi-sunrise" aria-hidden="true"></i> Your landlord workspace</div>
       <h1>Welcome back, {{ user.get_short_name|default:user.username }}</h1>
-      <p>Here is what is happening across your properties this month.</p>
+      <p>Stay on top of your properties, tenant requests, and rent activity from one place.</p>
+      <div class="dashboard-welcome-hint">
+        <i class="bi bi-lightbulb" aria-hidden="true"></i>
+        <span>
+          {% if pending_count %}
+            You have {{ pending_count }} booking request{{ pending_count|pluralize }} to review.
+          {% else %}
+            Start with a quick look at your portfolio or add a new property.
+          {% endif %}
+        </span>
+      </div>
     </div>
     <div class="dashboard-actions">
       <a href="{% url 'add_property' %}" class="btn btn-light">
@@ -17,6 +27,12 @@
         <i class="bi bi-calendar2-check" aria-hidden="true"></i> Review bookings
         {% if pending_count %}<span class="dashboard-action-count">{{ pending_count }}</span>{% endif %}
       </a>
+    </div>
+    <div class="dashboard-welcome-visual" aria-hidden="true">
+      <span class="dashboard-welcome-orbit orbit-one"></span>
+      <span class="dashboard-welcome-orbit orbit-two"></span>
+      <div class="dashboard-welcome-building"><i class="bi bi-buildings"></i></div>
+      <div class="dashboard-welcome-tag"><i class="bi bi-check2-circle"></i> Properties · People · Payments</div>
     </div>
   </header>
 

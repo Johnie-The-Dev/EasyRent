@@ -5,15 +5,6 @@
 
 {% block content %}
 <style>
-  .page-header {
-    background: linear-gradient(120deg, var(--primary-dark) 0%, var(--primary-color) 68%, #268b78 100%);
-    color: white;
-    padding: 34px 20px;
-    margin: -1rem -12px 2rem;
-  }
-  .page-header h1 { font-size: 2.35rem; font-weight: 800; margin-bottom: 10px; }
-  .page-header p { font-size: 1.05rem; opacity: 0.95; margin-bottom: 0; }
-
   .filter-form {
     background: #fff;
     border-radius: 8px;
@@ -51,24 +42,50 @@
   .pagination .page-link:hover { background-color: var(--primary-color); color: white; }
 </style>
 
-<div class="page-header">
-  <h1>Available rentals</h1>
-  <p>Find your next room or small flat. Filter, call, and arrange viewings quickly.</p>
-</div>
+<section class="tenant-feed-welcome" aria-labelledby="tenant-feed-welcome-title">
+  <div class="tenant-feed-welcome-copy">
+    <span class="tenant-feed-eyebrow"><i class="bi bi-geo-alt" aria-hidden="true"></i> EasyRent · rentals across Kenya</span>
+    {% if user.is_authenticated and user.is_tenant %}
+      <h1 id="tenant-feed-welcome-title">Welcome, {{ user.get_short_name|default:user.username }}.</h1>
+      <p>Find a place that fits your life. Compare rental details, save options, and contact landlords directly.</p>
+    {% else %}
+      <h1 id="tenant-feed-welcome-title">Find a place that feels like home.</h1>
+      <p>Explore rentals by location, unit type, and monthly rent. Compare the details and contact landlords directly.</p>
+    {% endif %}
+    <div class="tenant-feed-welcome-actions">
+      {% if user.is_authenticated and user.is_tenant %}
+        <a href="{% url 'view_collection' %}" class="btn tenant-feed-action-secondary">
+          <i class="bi bi-bookmark-heart" aria-hidden="true"></i> My Collection
+        </a>
+        <a href="{% url 'tenant_bookings' %}" class="btn tenant-feed-action-primary">
+          <i class="bi bi-calendar2-check" aria-hidden="true"></i> My bookings
+        </a>
+      {% elif user.is_authenticated and user.is_landlord %}
+        <a href="{% url 'landlord_dashboard' %}" class="btn tenant-feed-action-primary">
+          <i class="bi bi-grid-1x2" aria-hidden="true"></i> Go to dashboard
+        </a>
+      {% else %}
+        <a href="{% url 'signup' %}" class="btn tenant-feed-action-primary">
+          <i class="bi bi-person-plus" aria-hidden="true"></i> Create an account
+        </a>
+      {% endif %}
+    </div>
+  </div>
+  <div class="tenant-feed-welcome-side" aria-hidden="true">
+    <div class="tenant-feed-welcome-illustration"><i class="bi bi-house-heart"></i></div>
+    <div class="tenant-feed-welcome-points">
+      <span><i class="bi bi-search"></i> Browse</span>
+      <span><i class="bi bi-bookmark"></i> Compare</span>
+      <span><i class="bi bi-chat-dots"></i> Connect</span>
+    </div>
+    <div class="tenant-feed-match-count">
+      <i class="bi bi-houses" aria-hidden="true"></i>
+      <span><strong>{{ properties.paginator.count }}</strong> rentals match your search</span>
+    </div>
+  </div>
+</section>
 
 <div class="container py-3">
-
-  {% if user.is_authenticated and user.is_tenant %}
-    <div class="mb-4 d-flex justify-content-end gap-2 flex-wrap">
-      <a href="{% url 'view_collection' %}" class="btn btn-outline-light"
-         style="border-color: rgba(255,255,255,.45); background: rgba(255,255,255,.10);">
-        <i class="bi bi-heart"></i> My Collection
-      </a>
-      <a href="{% url 'tenant_bookings' %}" class="btn btn-light">
-        <i class="bi bi-bookmark-fill"></i> My bookings
-      </a>
-    </div>
-  {% endif %}
 
   <form method="GET" class="filter-form p-4 mb-5">
     <div class="row g-3">

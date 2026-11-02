@@ -3418,3 +3418,338 @@ body .notif-item.read {
     width: 100%;
   }
 }
+
+/* Role-specific welcome panels */
+.tenant-feed-welcome {
+  position: relative;
+  width: calc(100% + 24px);
+  min-height: 270px;
+  margin: -1rem -12px 1.4rem;
+  padding: clamp(1.7rem, 4vw, 3rem);
+  overflow: hidden;
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(250px, .85fr);
+  align-items: center;
+  gap: 2rem;
+  border-radius: 0 0 20px 20px;
+  background:
+    radial-gradient(ellipse at 82% 15%, rgba(234, 190, 99, .22), transparent 28%),
+    linear-gradient(118deg, #10483f 0%, #176b5b 68%, #28826b 100%);
+  color: #fff;
+}
+
+.tenant-feed-welcome-copy {
+  position: relative;
+  z-index: 1;
+  max-width: 630px;
+}
+
+.tenant-feed-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: .45rem;
+  margin-bottom: .65rem;
+  color: #f0c767;
+  font-size: .73rem;
+  font-weight: 750;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+}
+
+.tenant-feed-welcome h1 {
+  margin: 0 0 .7rem;
+  color: #fff;
+  font-size: clamp(2rem, 4.4vw, 3.2rem);
+  font-weight: 780;
+  letter-spacing: -.05em;
+  line-height: 1.08;
+}
+
+.tenant-feed-welcome-copy > p {
+  max-width: 570px;
+  margin: 0;
+  color: rgba(255, 255, 255, .83);
+  font-size: 1rem;
+  line-height: 1.75;
+}
+
+.tenant-feed-welcome-actions {
+  margin-top: 1.35rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: .65rem;
+}
+
+.tenant-feed-welcome-actions .btn {
+  min-height: 43px;
+  padding: .62rem .9rem;
+  border-radius: 8px;
+  font-size: .84rem;
+  font-weight: 720;
+}
+
+.tenant-feed-welcome-actions .tenant-feed-action-primary {
+  border: 1px solid #fff;
+  background: #fff;
+  color: #176b5b;
+}
+
+.tenant-feed-welcome-actions .tenant-feed-action-primary:hover {
+  border-color: #f4e3ba;
+  background: #f4e3ba;
+  color: #10483f;
+}
+
+.tenant-feed-welcome-actions .tenant-feed-action-secondary {
+  border: 1px solid rgba(255, 255, 255, .6);
+  background: rgba(255, 255, 255, .08);
+  color: #fff;
+}
+
+.tenant-feed-welcome-actions .tenant-feed-action-secondary:hover {
+  border-color: #fff;
+  background: rgba(255, 255, 255, .16);
+  color: #fff;
+}
+
+.tenant-feed-welcome-side {
+  position: relative;
+  min-height: 205px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.tenant-feed-welcome-illustration {
+  width: 170px;
+  height: 170px;
+  display: grid;
+  place-items: center;
+  border: 1px solid rgba(255, 255, 255, .22);
+  border-radius: 50%;
+  background: rgba(255, 255, 255, .1);
+  color: rgba(255, 255, 255, .9);
+  font-size: 6rem;
+}
+
+.tenant-feed-welcome-points {
+  position: absolute;
+  top: 5px;
+  right: 0;
+  display: grid;
+  gap: .45rem;
+}
+
+.tenant-feed-welcome-points span {
+  padding: .42rem .65rem;
+  display: inline-flex;
+  align-items: center;
+  gap: .4rem;
+  border: 1px solid rgba(255, 255, 255, .3);
+  border-radius: 30px;
+  background: rgba(11, 64, 53, .43);
+  color: #fff;
+  font-size: .72rem;
+  font-weight: 700;
+}
+
+.tenant-feed-welcome-points i {
+  color: #f0c767;
+}
+
+.tenant-feed-match-count {
+  position: absolute;
+  bottom: 1px;
+  left: -3%;
+  padding: .65rem .8rem;
+  display: flex;
+  align-items: center;
+  gap: .6rem;
+  border: 1px solid rgba(255, 255, 255, .66);
+  border-radius: 10px;
+  background: #fff;
+  box-shadow: 0 10px 24px rgba(8, 39, 32, .2);
+  color: #52685d;
+  font-size: .7rem;
+}
+
+.tenant-feed-match-count > i {
+  color: #176b5b;
+  font-size: 1.25rem;
+}
+
+.tenant-feed-match-count span {
+  display: flex;
+  flex-direction: column;
+}
+
+.tenant-feed-match-count strong {
+  color: #173c35;
+  font-size: 1rem;
+}
+
+.landlord-dashboard .dashboard-welcome {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) auto minmax(175px, .65fr);
+  gap: 1.2rem;
+  overflow: hidden;
+}
+
+.landlord-dashboard .dashboard-welcome-copy {
+  position: relative;
+  z-index: 1;
+}
+
+.landlord-dashboard .dashboard-eyebrow {
+  display: flex;
+  align-items: center;
+  gap: .4rem;
+}
+
+.landlord-dashboard .dashboard-welcome-hint {
+  margin-top: .9rem;
+  display: flex;
+  align-items: flex-start;
+  gap: .5rem;
+  color: rgba(255, 255, 255, .87);
+  font-size: .8rem;
+  line-height: 1.5;
+}
+
+.landlord-dashboard .dashboard-welcome-hint > i {
+  margin-top: .08rem;
+  color: #f0c767;
+}
+
+.landlord-dashboard .dashboard-actions {
+  position: relative;
+  z-index: 1;
+  align-self: center;
+}
+
+.landlord-dashboard .dashboard-welcome-visual {
+  position: relative;
+  min-width: 175px;
+  min-height: 145px;
+  display: grid;
+  place-items: center;
+}
+
+.landlord-dashboard .dashboard-welcome-building {
+  position: relative;
+  z-index: 1;
+  width: 106px;
+  height: 106px;
+  display: grid;
+  place-items: center;
+  border: 1px solid rgba(255, 255, 255, .27);
+  border-radius: 28px;
+  background: rgba(255, 255, 255, .1);
+  color: #fff;
+  font-size: 3.6rem;
+  transform: rotate(4deg);
+}
+
+.landlord-dashboard .dashboard-welcome-orbit {
+  position: absolute;
+  width: 140px;
+  height: 140px;
+  border: 1px solid rgba(255, 255, 255, .19);
+  border-radius: 50%;
+}
+
+.landlord-dashboard .orbit-two {
+  width: 172px;
+  height: 172px;
+  border-color: rgba(240, 199, 103, .23);
+}
+
+.landlord-dashboard .dashboard-welcome-tag {
+  position: absolute;
+  z-index: 2;
+  bottom: -3px;
+  padding: .45rem .6rem;
+  border: 1px solid rgba(255, 255, 255, .52);
+  border-radius: 7px;
+  background: rgba(12, 69, 57, .86);
+  color: rgba(255, 255, 255, .9);
+  font-size: .64rem;
+  font-weight: 650;
+  white-space: nowrap;
+}
+
+.landlord-dashboard .dashboard-welcome-tag i {
+  margin-right: .25rem;
+  color: #f0c767;
+}
+
+@media (max-width: 900px) {
+  .landlord-dashboard .dashboard-welcome {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .landlord-dashboard .dashboard-welcome-visual {
+    display: none;
+  }
+}
+
+@media (max-width: 650px) {
+  .tenant-feed-welcome {
+    width: calc(100% + 24px);
+    min-height: 0;
+    margin: -.75rem -12px 1rem;
+    padding: 1.55rem 1.2rem;
+    grid-template-columns: minmax(0, 1fr);
+    gap: .5rem;
+    border-radius: 0 0 15px 15px;
+  }
+
+  .tenant-feed-welcome h1 {
+    font-size: 2rem;
+  }
+
+  .tenant-feed-welcome-copy > p {
+    font-size: .9rem;
+  }
+
+  .tenant-feed-welcome-side {
+    min-height: 112px;
+    justify-content: flex-start;
+  }
+
+  .tenant-feed-welcome-illustration {
+    width: 92px;
+    height: 92px;
+    font-size: 3.5rem;
+  }
+
+  .tenant-feed-welcome-points {
+    top: 6px;
+    right: 0;
+    grid-template-columns: repeat(3, auto);
+    gap: .3rem;
+  }
+
+  .tenant-feed-welcome-points span {
+    padding: .35rem .45rem;
+    font-size: .64rem;
+  }
+
+  .tenant-feed-match-count {
+    bottom: 0;
+    left: 80px;
+    padding: .45rem .6rem;
+    font-size: .62rem;
+  }
+
+  .tenant-feed-match-count strong {
+    font-size: .85rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .landlord-dashboard .dashboard-welcome {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
