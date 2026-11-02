@@ -1,3 +1,4 @@
+from unittest.mock import patch
 from datetime import date
 from decimal import Decimal
 
@@ -7,7 +8,7 @@ from django.test import Client, TestCase
 from django.urls import reverse
 from django.utils import timezone
 
-from .forms import TenantForm
+from .forms import SignUpForm, TenantForm
 from .models import (
 	Booking,
 	DepositHistory,
@@ -1303,6 +1304,58 @@ class LandlordWorkflowSecurityTests(TestCase):
 
 
 class SignUpFlowTests(TestCase):
+	def test_signup_shows_validation_error_for_existing_username(self):
+		user_model = get_user_model()
+		user_model.objects.create_user(
+			username="already-registered",
+			password="StrongPassword-12345",
+			role="tenant",
+		)
+
+		response = self.client.post(
+			reverse("signup"),
+			{
+				"username": "already-registered",
+				"email": "new-tenant@example.com",
+				"role": "tenant",
+				"password1": "StrongPassword-12345",
+				"password2": "StrongPassword-12345",
+			},
+		)
+
+		self.assertEqual(response.status_code, 200)
+		self.assertContains(response, "A user with that username already exists.")
+
+	def test_signup_handles_username_taken_after_validation(self):
+		username = "claimed-during-signup"
+		original_is_valid = SignUpForm.is_valid
+
+		def validate_then_claim_username(form):
+			is_valid = original_is_valid(form)
+			if is_valid:
+				get_user_model().objects.create_user(
+					username=form.cleaned_data["username"],
+					password="StrongPassword-12345",
+					role="tenant",
+				)
+			return is_valid
+
+		with patch("listings.views.SignUpForm.is_valid", new=validate_then_claim_username):
+			response = self.client.post(
+				reverse("signup"),
+				{
+					"username": username,
+					"email": "new-tenant@example.com",
+					"role": "tenant",
+					"password1": "StrongPassword-12345",
+					"password2": "StrongPassword-12345",
+				},
+			)
+
+		self.assertEqual(response.status_code, 200)
+		self.assertContains(response, "That username was just registered. Please choose another.")
+		self.assertEqual(get_user_model().objects.filter(username=username).count(), 1)
+
 	def test_signup_accepts_fresh_csrf_token_and_logs_in_new_user(self):
 		client = Client(enforce_csrf_checks=True)
 		signup_page = client.get(reverse("signup"))

@@ -17,6 +17,7 @@ from listings.models import (
     Booking,
     DepositHistory,
     ManagerAuditEvent,
+    Notification,
     Property,
     ReceiptHistory,
     RentPayment,
@@ -225,8 +226,10 @@ class OpsManagerTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertFalse(User.objects.filter(pk=self.tenant_user.pk).exists())
         event = ManagerAuditEvent.objects.get(action=ManagerAuditEvent.ACTION_DELETED)
-        self.assertEqual(event.target_username, "tenant")
+        self.assertEqual(event.target_username, "Deleted account")
         self.assertEqual(event.actor, self.manager)
+        self.assertContains(response, "Personal account details have been removed")
+        self.assertNotContains(response, "tenant")
 
     def test_admin_home_and_user_admin_are_available_to_manager(self):
         self.force_admin_login()
@@ -663,6 +666,49 @@ class OpsManagerTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertFalse(Tenant.objects.filter(pk=tenancy.pk).exists())
         self.assertFalse(RentPayment.objects.exists())
+
+    def test_deleting_account_anonymizes_audit_history_and_removes_its_notifications(self):
+        ManagerAuditEvent.objects.create(
+            actor=self.manager,
+            action=ManagerAuditEvent.ACTION_SUSPENDED,
+            target_username=self.tenant_user.username,
+            target_role=self.tenant_user.role,
+            details="Tenant account suspended.",
+        )
+        sent_notification = Notification.objects.create(
+            recipient=self.landlord,
+            actor=self.tenant_user,
+            message="Booking cancelled by tenant: Test Resident.",
+        )
+        received_notification = Notification.objects.create(
+            recipient=self.tenant_user,
+            actor=self.manager,
+            message="Your account was reviewed.",
+        )
+        unrelated_notification = Notification.objects.create(
+            recipient=self.landlord,
+            actor=self.manager,
+            message="Unrelated account update.",
+        )
+        self.force_admin_login()
+
+        response = self.client.post(
+            reverse("ops:delete_user", args=[self.tenant_user.pk]),
+            {"confirm_username": self.tenant_user.username},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(User.objects.filter(pk=self.tenant_user.pk).exists())
+        self.assertFalse(Notification.objects.filter(pk=sent_notification.pk).exists())
+        self.assertFalse(Notification.objects.filter(pk=received_notification.pk).exists())
+        self.assertTrue(Notification.objects.filter(pk=unrelated_notification.pk).exists())
+        self.assertFalse(
+            ManagerAuditEvent.objects.filter(target_username=self.tenant_user.username).exists()
+        )
+        self.assertEqual(
+            ManagerAuditEvent.objects.filter(target_username="Deleted account").count(),
+            2,
+        )
     def test_deleting_landlord_removes_owned_inventory_and_financial_history(self):
         booking = Booking.objects.create(
             unit=self.unit,

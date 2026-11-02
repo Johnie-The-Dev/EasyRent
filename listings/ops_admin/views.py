@@ -20,6 +20,7 @@ from listings.models import (
     Booking,
     DepositHistory,
     ManagerAuditEvent,
+    Notification,
     PasswordResetCode,
     Property,
     PropertyImage,
@@ -77,6 +78,12 @@ def _delete_user_and_related_data(user, actor):
             user,
             ManagerAuditEvent.ACTION_DELETED,
         )
+        ManagerAuditEvent.objects.using(database).filter(
+            target_username=user.username,
+        ).update(target_username="Deleted account")
+        Notification.objects.using(database).filter(
+            Q(recipient=user) | Q(actor=user)
+        ).delete()
         RentPayment.objects.using(database).filter(tenant_id__in=tenancy_ids).delete()
         ReceiptHistory.objects.using(database).filter(tenant_id__in=tenancy_ids).delete()
         DepositHistory.objects.using(database).filter(
@@ -472,7 +479,6 @@ def delete_user(request, user_id):
                 },
                 status=400,
             )
-        username = managed_user.username
         logger.warning(
             "Manager user %s confirmed deletion of user %s",
             request.user.pk,
@@ -482,7 +488,6 @@ def delete_user(request, user_id):
         return render(
             request,
             "admin/ops_user_deleted.html",
-            {"username": username},
         )
 
     if request.method != "GET":

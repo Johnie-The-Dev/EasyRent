@@ -15,7 +15,7 @@ from django.contrib.auth.views import LoginView
 from django.core.exceptions import PermissionDenied
 from django.core.mail import send_mail
 from django.core.paginator import Paginator
-from django.db import transaction
+from django.db import IntegrityError, transaction
 from django.db.models import Count, DecimalField, Min, Q, Sum
 from django.http import HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
@@ -296,9 +296,17 @@ def signup_view(request):
     if request.method == "POST":
         form = SignUpForm(request.POST)
         if form.is_valid():
-            user = form.save()
-            login(request, user)
-            return redirect("landlord_dashboard" if user.is_landlord() else "tenant_feed")
+            try:
+                with transaction.atomic():
+                    user = form.save()
+            except IntegrityError:
+                if User.objects.filter(username=form.cleaned_data["username"]).exists():
+                    form.add_error("username", "That username was just registered. Please choose another.")
+                else:
+                    raise
+            else:
+                login(request, user)
+                return redirect("landlord_dashboard" if user.is_landlord() else "tenant_feed")
     else:
         form = SignUpForm()
     return render(request, "signup.html", {"form": form})
