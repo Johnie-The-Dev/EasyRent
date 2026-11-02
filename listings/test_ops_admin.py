@@ -217,19 +217,28 @@ class OpsManagerTests(TestCase):
 
     def test_account_deletion_leaves_audit_record(self):
         self.force_admin_login()
+        delete_url = reverse("ops:delete_user", args=[self.tenant_user.pk])
 
         response = self.client.post(
-            reverse("ops:delete_user", args=[self.tenant_user.pk]),
+            delete_url,
             {"confirm_username": self.tenant_user.username},
         )
 
         self.assertEqual(response.status_code, 200)
+        self.assertIn("no-store", response["Cache-Control"])
         self.assertFalse(User.objects.filter(pk=self.tenant_user.pk).exists())
         event = ManagerAuditEvent.objects.get(action=ManagerAuditEvent.ACTION_DELETED)
         self.assertEqual(event.target_username, "Deleted account")
         self.assertEqual(event.actor, self.manager)
         self.assertContains(response, "Personal account details have been removed")
         self.assertNotContains(response, "tenant")
+
+        response = self.client.get(delete_url)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("no-store", response["Cache-Control"])
+        self.assertContains(response, "This account is no longer available.")
+        self.assertNotContains(response, self.tenant_user.username)
 
     def test_admin_home_and_user_admin_are_available_to_manager(self):
         self.force_admin_login()

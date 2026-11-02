@@ -15,6 +15,7 @@ from django.utils.dateparse import parse_date
 from django.http import HttpResponse, HttpResponseForbidden, HttpResponseNotAllowed
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
+from django.views.decorators.cache import never_cache
 
 from listings.models import (
     Booking,
@@ -462,9 +463,20 @@ def toggle_user_active(request, user_id):
     return redirect("ops:user_detail", user_id=managed_user.pk)
 
 
+@never_cache
 @_superuser_required
 def delete_user(request, user_id):
-    managed_user = get_object_or_404(User, pk=user_id)
+    if request.method not in {"GET", "POST"}:
+        return HttpResponseNotAllowed(["GET", "POST"])
+
+    managed_user = User.objects.filter(pk=user_id).first()
+    if managed_user is None:
+        return render(
+            request,
+            "admin/ops_user_deleted.html",
+            {"already_deleted": True},
+        )
+
     if managed_user.is_superuser or managed_user.pk == request.user.pk:
         return HttpResponseForbidden("Manager and superuser accounts cannot be deleted here.")
 
@@ -489,9 +501,6 @@ def delete_user(request, user_id):
             request,
             "admin/ops_user_deleted.html",
         )
-
-    if request.method != "GET":
-        return HttpResponseNotAllowed(["GET", "POST"])
 
     return render(
         request,

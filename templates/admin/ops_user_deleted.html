@@ -5,12 +5,22 @@
   <header class="ops-hero">
     <div>
       <div class="ops-eyebrow">Account management</div>
-      <h1>Account deleted</h1>
-      <p>The requested account removal is complete.</p>
+      <h1>{% if already_deleted %}Account unavailable{% else %}Account deleted{% endif %}</h1>
+      <p>
+        {% if already_deleted %}
+          This account is no longer available. It may have already been deleted.
+        {% else %}
+          The requested account removal is complete.
+        {% endif %}
+      </p>
     </div>
   </header>
   <section class="ops-detail-card">
-    <p>The account and its linked EasyRent data were deleted. Personal account details have been removed from the manager audit history; the deletion event is retained.</p>
+    {% if already_deleted %}
+      <p>No account details are available to show.</p>
+    {% else %}
+      <p>The account and its linked EasyRent data were deleted. Personal account details have been removed from the manager audit history; the deletion event is retained.</p>
+    {% endif %}
     <div class="ops-table-actions">
       <a class="button" href="{% url 'ops:users' %}">Back to accounts</a>
       <a class="button" href="{% url 'ops:audit_log' %}">View audit record</a>
