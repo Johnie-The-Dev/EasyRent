@@ -1,10 +1,13 @@
 {% extends "admin/base_site.html" %}
 
 {% block content %}
-<div class="content">
-  <h1>Delete account</h1>
+<main class="ops-shell">
+  <a class="ops-back-link" href="{% url 'ops:user_detail' managed_user.pk %}">← Back to account review</a>
+  <header class="ops-toolbar">
+    <div><h1>Delete account</h1><p>Confirm the account and review the data that will be removed.</p></div>
+  </header>
   {% if error %}<p class="errornote">{{ error }}</p>{% endif %}
-  <div class="module" style="max-width:760px;padding:18px">
+  <section class="ops-detail-card ops-danger-zone">
     <h2>Delete {{ managed_user.username }}?</h2>
     <p>This permanently deletes this {{ managed_user.get_role_display|lower }} account and data linked to it, including bookings, saved properties, tenancy records, rent payments, receipts, and—if they are a landlord—their properties, units, images, and related records.</p>
     <p>Older manually entered tenancy records that have not been linked to this account are not identifiable as its data. Link them to the account first, or review them separately in <a href="/admin/listings/tenant/">Tenancy records</a>.</p>
@@ -13,13 +16,13 @@
       {% csrf_token %}
       <div>
         <label for="confirm-username">Enter <strong>{{ managed_user.username }}</strong> to confirm:</label><br>
-        <input id="confirm-username" name="confirm_username" type="text" required autocomplete="off">
+        <input id="confirm-username" class="vTextField" name="confirm_username" type="text" required autocomplete="off">
       </div>
-      <p>
-        <button class="button" type="submit" style="background:#ba2121">Permanently delete account and linked data</button>
+      <p class="ops-table-actions" style="margin-top:1rem">
+        <button class="button ops-danger" type="submit">Permanently delete account and linked data</button>
         <a class="button" href="{% url 'ops:user_detail' managed_user.pk %}">Cancel</a>
       </p>
     </form>
-  </div>
-</div>
+  </section>
+</main>
 {% endblock %}

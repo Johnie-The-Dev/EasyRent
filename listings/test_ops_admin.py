@@ -1,18 +1,22 @@
-from datetime import date
+from datetime import date, timedelta
 from decimal import Decimal
 import re
 from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
+from django.contrib import admin
 from django.conf import settings
 from django.db import connections
-from django.test import Client, TestCase
+from django.http import HttpResponse
+from django.test import Client, RequestFactory, TestCase
 from django.urls import reverse
+from django.utils import timezone
 
 from listings.forms import TenantForm
 from listings.models import (
     Booking,
     DepositHistory,
+    ManagerAuditEvent,
     Property,
     ReceiptHistory,
     RentPayment,
@@ -145,6 +149,85 @@ class OpsManagerTests(TestCase):
         self.assertContains(response, "Rent payments")
         self.assertContains(response, "10000.00")
 
+    def test_manager_activity_is_audited_and_filterable(self):
+        self.force_admin_login()
+        self.client.post(reverse("ops:toggle_user_active", args=[self.tenant_user.pk]))
+        self.client.post(reverse("ops:toggle_user_active", args=[self.tenant_user.pk]))
+
+        self.assertEqual(ManagerAuditEvent.objects.count(), 2)
+        response = self.client.get(
+            reverse("ops:audit_log"),
+            {"action": ManagerAuditEvent.ACTION_REACTIVATED, "q": self.tenant_user.username},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Manager activity")
+        self.assertContains(response, self.tenant_user.username)
+        self.assertContains(response, "Account reactivated")
+        self.assertEqual(response.context["total_events"], 1)
+
+    def test_native_admin_account_status_changes_are_audited(self):
+        user_admin = admin.site._registry[User]
+        request = RequestFactory().post("/admin/listings/user/")
+        request.user = self.manager
+
+        self.tenant_user.is_active = False
+        user_admin.save_model(request, self.tenant_user, form=None, change=True)
+        self.tenant_user.is_active = True
+        user_admin.save_model(request, self.tenant_user, form=None, change=True)
+
+        self.assertEqual(
+            list(
+                ManagerAuditEvent.objects.order_by("action").values_list("action", flat=True)
+            ),
+            [
+                ManagerAuditEvent.ACTION_REACTIVATED,
+                ManagerAuditEvent.ACTION_SUSPENDED,
+            ],
+        )
+
+    def test_manager_audit_admin_is_read_only(self):
+        self.force_admin_login()
+        self.client.post(reverse("ops:toggle_user_active", args=[self.tenant_user.pk]))
+
+        response = self.client.get("/admin/listings/managerauditevent/")
+
+        self.assertEqual(response.status_code, 200)
+        audit_admin = admin.site._registry[ManagerAuditEvent]
+        request = RequestFactory().get("/admin/listings/managerauditevent/")
+        request.user = self.manager
+        self.assertFalse(audit_admin.has_add_permission(request))
+        self.assertFalse(audit_admin.has_change_permission(request))
+        self.assertFalse(audit_admin.has_delete_permission(request))
+
+    def test_dashboard_flags_pending_bookings_older_than_seven_days(self):
+        booking = Booking.objects.create(unit=self.unit, tenant=self.tenant_user)
+        Booking.objects.filter(pk=booking.pk).update(
+            created_at=timezone.now() - timedelta(days=8)
+        )
+        self.force_admin_login()
+
+        response = self.client.get(reverse("ops:dashboard"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context["cards"]["stale_pending_count"], 1)
+        self.assertContains(response, "Bookings pending for more than 7 days")
+        self.assertContains(response, "Over 7 days")
+
+    def test_account_deletion_leaves_audit_record(self):
+        self.force_admin_login()
+
+        response = self.client.post(
+            reverse("ops:delete_user", args=[self.tenant_user.pk]),
+            {"confirm_username": self.tenant_user.username},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(User.objects.filter(pk=self.tenant_user.pk).exists())
+        event = ManagerAuditEvent.objects.get(action=ManagerAuditEvent.ACTION_DELETED)
+        self.assertEqual(event.target_username, "tenant")
+        self.assertEqual(event.actor, self.manager)
+
     def test_admin_home_and_user_admin_are_available_to_manager(self):
         self.force_admin_login()
 
@@ -266,6 +349,226 @@ class OpsManagerTests(TestCase):
         self.assertContains(response, "Occupancy uses each active unit’s status, not tenancy records.")
         self.assertContains(response, "Payments recorded for current rent month")
         self.assertContains(response, "Deposits received this month to date")
+
+    def test_dashboard_links_relevant_pdf_exports(self):
+        self.force_admin_login()
+
+        response = self.client.get(reverse("ops:dashboard"))
+
+        self.assertEqual(response.status_code, 200)
+        for report_name in (
+            "operations_snapshot_pdf",
+            "inventory_pdf",
+            "booking_queue_pdf",
+            "data_integrity_pdf",
+            "activity_log_pdf",
+            "market_overview_pdf",
+            "receipts_ledger_pdf",
+            "deposits_ledger_pdf",
+            "user_registry_pdf",
+        ):
+            self.assertContains(response, reverse(f"ops:{report_name}"))
+
+    def test_manager_report_endpoints_return_pdf_attachments(self):
+        self.force_admin_login()
+        report_names = (
+            "operations_snapshot_pdf",
+            "inventory_pdf",
+            "booking_queue_pdf",
+            "data_integrity_pdf",
+            "activity_log_pdf",
+        )
+
+        for report_name in report_names:
+            with self.subTest(report=report_name):
+                response = self.client.get(reverse(f"ops:{report_name}"))
+
+                self.assertEqual(response.status_code, 200)
+                self.assertEqual(response["Content-Type"], "application/pdf")
+                self.assertIn("attachment; filename=", response["Content-Disposition"])
+                self.assertTrue(response.content.startswith(b"%PDF"))
+
+    def test_manager_report_endpoints_reject_staff_without_superuser_status(self):
+        staff_user = User.objects.create_user(username="report-staff", is_staff=True)
+        self.force_admin_login(staff_user)
+
+        for report_name in (
+            "operations_snapshot_pdf",
+            "inventory_pdf",
+            "booking_queue_pdf",
+            "data_integrity_pdf",
+            "activity_log_pdf",
+        ):
+            with self.subTest(report=report_name):
+                response = self.client.get(reverse(f"ops:{report_name}"))
+                self.assertEqual(response.status_code, 403)
+
+    def test_user_registry_can_export_all_roles_and_suspended_users(self):
+        self.tenant_user.is_active = False
+        self.tenant_user.save(update_fields=["is_active"])
+        self.force_admin_login()
+
+        with patch(
+            "listings.ops_admin.views.build_simple_table_pdf",
+            return_value=HttpResponse(b"%PDF", content_type="application/pdf"),
+        ) as build_pdf:
+            response = self.client.get(
+                reverse("ops:user_registry_pdf"),
+                {"scope": "all", "role": "all"},
+            )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response["Content-Type"], "application/pdf")
+        self.assertEqual(build_pdf.call_args.kwargs["filename"], "user_registry_all_all.pdf")
+        self.assertIn(
+            [
+                self.tenant_user.username,
+                self.tenant_user.email,
+                "tenant",
+                "Suspended",
+                self.tenant_user.date_joined.strftime("%Y-%m-%d %H:%M"),
+                "—",
+            ],
+            build_pdf.call_args.kwargs["rows"],
+        )
+
+    def test_inventory_and_booking_exports_include_record_details(self):
+        booking = Booking.objects.create(unit=self.unit, tenant=self.tenant_user)
+        self.force_admin_login()
+
+        with patch(
+            "listings.ops_admin.views.build_simple_table_pdf",
+            return_value=HttpResponse(b"%PDF", content_type="application/pdf"),
+        ) as build_pdf:
+            inventory_response = self.client.get(reverse("ops:inventory_pdf"))
+        self.assertEqual(inventory_response.status_code, 200)
+        self.assertIn(
+            [
+                self.property.name,
+                self.property.town,
+                self.landlord.username,
+                self.unit.unit_code,
+                self.unit.unit_type,
+                "10,000.00",
+                "Vacant",
+                "Yes",
+            ],
+            build_pdf.call_args.kwargs["rows"],
+        )
+
+        with patch(
+            "listings.ops_admin.views.build_simple_table_pdf",
+            return_value=HttpResponse(b"%PDF", content_type="application/pdf"),
+        ) as build_pdf:
+            booking_response = self.client.get(reverse("ops:booking_queue_pdf"))
+        self.assertEqual(booking_response.status_code, 200)
+        self.assertIn(
+            [
+                booking.created_at.strftime("%Y-%m-%d %H:%M"),
+                self.tenant_user.username,
+                self.property.name,
+                self.unit.unit_code,
+                self.landlord.username,
+                "0",
+            ],
+            build_pdf.call_args.kwargs["rows"],
+        )
+
+    def test_integrity_export_includes_dashboard_flag_categories(self):
+        self.unit.vacancy = Unit.BOOKED
+        self.unit.save(update_fields=["vacancy"])
+        occupied_unit = Unit.objects.create(
+            property=self.property,
+            unit_code="A2",
+            unit_type="Single Room",
+            price=Decimal("12000.00"),
+            vacancy=Unit.OCCUPIED,
+        )
+        tenancy = self.create_tenancy_history()
+        tenancy.cumulative_rent_balance = Decimal("-100.00")
+        tenancy.save(update_fields=["cumulative_rent_balance"])
+        self.force_admin_login()
+
+        with patch(
+            "listings.ops_admin.views.build_simple_table_pdf",
+            return_value=HttpResponse(b"%PDF", content_type="application/pdf"),
+        ) as build_pdf:
+            response = self.client.get(reverse("ops:data_integrity_pdf"))
+
+        rows = build_pdf.call_args.kwargs["rows"]
+        self.assertEqual(response.status_code, 200)
+        self.assertIn(
+            ["Booked without active booking", "Manager Test Property / A1", "landlord", "—", "—"],
+            rows,
+        )
+        self.assertIn(
+            ["Occupied without active tenancy", "Manager Test Property / A2", "landlord", "—", "—"],
+            rows,
+        )
+        self.assertIn(
+            [
+                "Negative active tenancy balance",
+                "Manager Test Property / A1",
+                "Test Resident",
+                "0.00",
+                "-100.00",
+            ],
+            rows,
+        )
+        self.assertTrue(Unit.objects.filter(pk=occupied_unit.pk).exists())
+
+    def test_snapshot_and_activity_exports_reflect_selected_data(self):
+        old_event = ManagerAuditEvent.objects.create(
+            actor=self.manager,
+            action=ManagerAuditEvent.ACTION_SUSPENDED,
+            target_username="older-account",
+            target_role="tenant",
+            details="Suspended by manager",
+        )
+        old_timestamp = timezone.now() - timedelta(days=60)
+        ManagerAuditEvent.objects.filter(pk=old_event.pk).update(created_at=old_timestamp)
+        self.force_admin_login()
+
+        with patch(
+            "listings.ops_admin.views.build_simple_table_pdf",
+            return_value=HttpResponse(b"%PDF", content_type="application/pdf"),
+        ) as build_pdf:
+            snapshot_response = self.client.get(reverse("ops:operations_snapshot_pdf"))
+        self.assertEqual(snapshot_response.status_code, 200)
+        self.assertIn(
+            ["Inventory", "Active units", "1"],
+            build_pdf.call_args.kwargs["rows"],
+        )
+        self.assertIn(
+            ["Rent and deposits", "Potential monthly rent (KES)", "10,000.00"],
+            build_pdf.call_args.kwargs["rows"],
+        )
+
+        with patch(
+            "listings.ops_admin.views.build_simple_table_pdf",
+            return_value=HttpResponse(b"%PDF", content_type="application/pdf"),
+        ) as build_pdf:
+            activity_response = self.client.get(
+                reverse("ops:activity_log_pdf"),
+                {
+                    "action": ManagerAuditEvent.ACTION_SUSPENDED,
+                    "q": "older-account",
+                    "from": old_timestamp.date().isoformat(),
+                    "to": old_timestamp.date().isoformat(),
+                },
+            )
+        self.assertEqual(activity_response.status_code, 200)
+        self.assertIn(
+            [
+                old_timestamp.strftime("%Y-%m-%d %H:%M"),
+                "Account suspended",
+                "older-account",
+                "tenant",
+                "manager",
+                "Suspended by manager",
+            ],
+            build_pdf.call_args.kwargs["rows"],
+        )
 
     def test_manager_can_create_an_account_with_selected_role(self):
         self.force_admin_login()

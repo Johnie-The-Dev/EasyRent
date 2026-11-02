@@ -15,6 +15,10 @@ account review and deletion can include that tenancy history. Older manual
 tenancy records remain unlinked until someone matches them to an account.
 Suspending a landlord hides their listings and contact details from tenants
 without deleting property, booking, or tenancy records.
+Account suspensions, reactivations, and deletions are retained in the
+read-only manager activity log at `/admin/ops/activity/`. The operations
+dashboard also flags pending bookings older than seven days and data-integrity
+items for review.
 
 The site and Django admin use separate browser sessions, so signing in or out
 of one does not replace the other. Admin sessions and CSRF tokens are scoped

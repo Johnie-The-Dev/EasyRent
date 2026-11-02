@@ -1,10 +1,12 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as DjangoUserAdmin
 from django.contrib.auth.forms import AdminUserCreationForm
+from django.db import transaction
 
 from .models import (
     Booking,
     DepositHistory,
+    ManagerAuditEvent,
     Notification,
     PasswordResetCode,
     Property,
@@ -34,6 +36,76 @@ class UserAdmin(DjangoUserAdmin):
     list_display = ("username", "email", "first_name", "last_name", "role", "is_active", "is_staff")
     list_filter = ("role", "is_active", "is_staff", "is_superuser")
     search_fields = ("username", "email", "first_name", "last_name")
+
+    def save_model(self, request, obj, form, change):
+        was_active = None
+        if change:
+            was_active = User.objects.filter(pk=obj.pk).values_list("is_active", flat=True).first()
+        with transaction.atomic(using=obj._state.db or "default"):
+            super().save_model(request, obj, form, change)
+            if was_active is not None and was_active != obj.is_active:
+                ManagerAuditEvent.objects.create(
+                    actor=request.user,
+                    action=(
+                        ManagerAuditEvent.ACTION_REACTIVATED
+                        if obj.is_active
+                        else ManagerAuditEvent.ACTION_SUSPENDED
+                    ),
+                    target_username=obj.username,
+                    target_role=obj.role,
+                    details=f"Account status changed in Django admin to {'active' if obj.is_active else 'suspended'}.",
+                )
+
+    def delete_model(self, request, obj):
+        with transaction.atomic():
+            super().delete_model(request, obj)
+            ManagerAuditEvent.objects.create(
+                actor=request.user,
+                action=ManagerAuditEvent.ACTION_DELETED,
+                target_username=obj.username,
+                target_role=obj.role,
+                details="Account deleted in Django admin.",
+            )
+
+    def delete_queryset(self, request, queryset):
+        audit_details = list(queryset.values_list("username", "role"))
+        with transaction.atomic():
+            super().delete_queryset(request, queryset)
+            ManagerAuditEvent.objects.bulk_create(
+                [
+                    ManagerAuditEvent(
+                        actor=request.user,
+                        action=ManagerAuditEvent.ACTION_DELETED,
+                        target_username=username,
+                        target_role=role,
+                        details="Account deleted in a Django admin bulk action.",
+                    )
+                    for username, role in audit_details
+                ]
+            )
+
+
+@admin.register(ManagerAuditEvent)
+class ManagerAuditEventAdmin(admin.ModelAdmin):
+    list_display = ("created_at", "actor", "get_action_display", "target_username", "target_role")
+    list_filter = ("action", "created_at")
+    search_fields = ("target_username", "actor__username", "details")
+    readonly_fields = ("actor", "action", "target_username", "target_role", "details", "created_at")
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_module_permission(self, request):
+        return request.user.is_superuser
+
+    def has_view_permission(self, request, obj=None):
+        return request.user.is_superuser
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
 
 
 @admin.register(Property)

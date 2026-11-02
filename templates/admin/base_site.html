@@ -7,6 +7,26 @@
 <h1 id="site-name"><a href="{% url 'admin:index' %}">EasyRent Management</a></h1>
 {% endblock %}
 
+{% block nav-global %}
+{% if request.user.is_superuser %}
+<nav class="ops-global-nav" aria-label="Management navigation">
+  <div class="ops-global-inner">
+    <a href="{% url 'ops:dashboard' %}" class="ops-nav-brand">
+      <span class="ops-brand-mark">E</span>
+      EasyRent <span>OPERATIONS</span>
+    </a>
+    <div class="ops-global-links">
+      <a href="{% url 'ops:dashboard' %}">Overview</a>
+      <a href="{% url 'ops:users' %}">Accounts</a>
+      <a href="{% url 'ops:audit_log' %}">Activity log</a>
+      <a href="/admin/">Site data</a>
+    </div>
+    <a class="ops-nav-reset" href="{% url 'ops:reset_data' %}">Data reset</a>
+  </div>
+</nav>
+{% endif %}
+{% endblock %}
+
 {% block extrastyle %}
 {{ block.super }}
 <link rel="stylesheet" href="{% static 'css/admin.css' %}">

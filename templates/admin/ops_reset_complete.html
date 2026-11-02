@@ -1,13 +1,20 @@
 {% extends "admin/base_site.html" %}
 
 {% block content %}
-<div class="content">
-  <h1>Database reset complete</h1>
-  <div class="module" style="max-width:760px;padding:18px">
+<main class="ops-shell">
+  <header class="ops-hero">
+    <div>
+      <div class="ops-eyebrow">Maintenance completed</div>
+      <h1>Database reset complete</h1>
+      <p>The configured database was cleared successfully.</p>
+    </div>
+  </header>
+  <section class="ops-detail-card">
     <p>All Django-managed data has been removed from <strong>{{ database_name }}</strong>. Database tables and migration history remain.</p>
+    <p>All manager activity records were cleared with the database contents.</p>
     <p>Create a new superuser to regain access:</p>
-    <pre>docker compose exec web python manage.py createsuperuser</pre>
-    <p><a class="button" href="/admin/">Go to admin sign in</a></p>
-  </div>
-</div>
+    <pre><code>docker compose exec web python manage.py createsuperuser</code></pre>
+    <a class="button" href="/admin/">Go to admin sign in</a>
+  </section>
+</main>
 {% endblock %}

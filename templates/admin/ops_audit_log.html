@@ -1,0 +1,92 @@
+{% extends "admin/base_site.html" %}
+
+{% block content %}
+<main class="ops-shell">
+  <a class="ops-back-link" href="{% url 'ops:dashboard' %}">← Operations overview</a>
+  <header class="ops-toolbar">
+    <div>
+      <h1>Manager activity</h1>
+      <p>Review account status changes and deletions performed in EasyRent administration.</p>
+    </div>
+    <div class="d-flex gap-2 align-items-center">
+      <a class="button" href="{% url 'ops:activity_log_pdf' %}?q={{ search|urlencode }}&amp;action={{ action }}&amp;from={{ start_date|date:'Y-m-d' }}&amp;to={{ end_date|date:'Y-m-d' }}&amp;scope=all">Download filtered PDF</a>
+      <span class="ops-badge">{{ total_events }} event{{ total_events|pluralize }}</span>
+    </div>
+  </header>
+
+  <form method="get" class="ops-filter-card">
+    <div class="row g-3 align-items-end">
+      <div class="col-lg-4 col-md-6">
+        <label for="activity-search" class="form-label">Search</label>
+        <input id="activity-search" class="form-control" type="search" name="q" value="{{ search }}" placeholder="Account, admin, or details">
+      </div>
+      <div class="col-lg-3 col-md-6">
+        <label for="activity-action" class="form-label">Action</label>
+        <select id="activity-action" class="form-select" name="action">
+          <option value="all" {% if action == "all" %}selected{% endif %}>All actions</option>
+          {% for value, label in actions %}
+            <option value="{{ value }}" {% if action == value %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-lg-2 col-md-6">
+        <label for="activity-from" class="form-label">From date</label>
+        <input id="activity-from" class="form-control" type="date" name="from" value="{{ start_date|date:'Y-m-d' }}">
+      </div>
+      <div class="col-lg-2 col-md-6">
+        <label for="activity-to" class="form-label">To date</label>
+        <input id="activity-to" class="form-control" type="date" name="to" value="{{ end_date|date:'Y-m-d' }}">
+      </div>
+      <div class="col-lg-1 col-md-6 d-flex gap-2">
+        <button class="button" type="submit">Filter</button>
+      </div>
+      <div class="col-12"><a class="ops-text-link" href="{% url 'ops:audit_log' %}">Clear filters</a></div>
+    </div>
+  </form>
+
+  <section class="ops-panel">
+    <div class="ops-table-wrap">
+      <table class="ops-table">
+        <thead>
+          <tr><th>Date and time</th><th>Action</th><th>Account</th><th>Account type</th><th>Performed by</th><th>Details</th></tr>
+        </thead>
+        <tbody>
+          {% for event in page %}
+            <tr>
+              <td><time datetime="{{ event.created_at|date:'c' }}">{{ event.created_at|date:"d M Y, H:i" }}</time></td>
+              <td>
+                {% if event.action == "account_deleted" %}
+                  <span class="ops-badge ops-badge-danger">{{ event.get_action_display }}</span>
+                {% elif event.action == "account_suspended" %}
+                  <span class="ops-badge ops-badge-warning">{{ event.get_action_display }}</span>
+                {% else %}
+                  <span class="ops-badge">{{ event.get_action_display }}</span>
+                {% endif %}
+              </td>
+              <td><strong>{{ event.target_username }}</strong></td>
+              <td>{{ event.target_role|title|default:"—" }}</td>
+              <td>{{ event.actor.username|default:"Former admin" }}</td>
+              <td class="ops-muted">{{ event.details|default:"—" }}</td>
+            </tr>
+          {% empty %}
+            <tr><td class="ops-empty" colspan="6">No manager activity matches these filters.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <nav class="ops-pagination" aria-label="Activity pages">
+    <span>Showing {{ page.start_index|default:0 }}–{{ page.end_index|default:0 }} of {{ total_events }}</span>
+    <span class="d-flex gap-2 align-items-center">
+      {% if page.has_previous %}
+        <a href="?q={{ search|urlencode }}&action={{ action }}&from={{ start_date|date:'Y-m-d' }}&to={{ end_date|date:'Y-m-d' }}&page={{ page.previous_page_number }}">Previous</a>
+      {% endif %}
+      <span>Page {{ page.number }} of {{ page.paginator.num_pages }}</span>
+      {% if page.has_next %}
+        <a href="?q={{ search|urlencode }}&action={{ action }}&from={{ start_date|date:'Y-m-d' }}&to={{ end_date|date:'Y-m-d' }}&page={{ page.next_page_number }}">Next</a>
+      {% endif %}
+    </span>
+  </nav>
+</main>
+{% endblock %}

@@ -1,15 +1,25 @@
 {% extends "admin/base_site.html" %}
 
 {% block content %}
-{% if request.user.is_superuser %}
-  <div class="module" style="padding: 12px 14px; margin-bottom: 12px;">
-    <h2 style="margin-top:0;">EasyRent manager</h2>
-    <p>
-      <a class="button" href="{% url 'ops:dashboard' %}">Manager dashboard</a>
-      <a class="button" href="{% url 'ops:users' %}">Manage landlords and tenants</a>
-    </p>
-  </div>
-{% endif %}
-
-{{ block.super }}
+<div class="ops-shell">
+  {% if request.user.is_superuser %}
+    <header class="ops-hero">
+      <div>
+        <div class="ops-eyebrow">EasyRent administration</div>
+        <h1>Welcome to site management</h1>
+        <p>Manage people, inspect platform activity, and maintain site records from one place.</p>
+      </div>
+      <div class="ops-hero-actions">
+        <a class="button" href="{% url 'ops:dashboard' %}">Open operations</a>
+        <a class="button ops-hero-secondary" href="{% url 'ops:users' %}">Manage accounts</a>
+      </div>
+    </header>
+  {% else %}
+    <header class="ops-detail-header">
+      <h1>Site administration</h1>
+      <p class="ops-muted mb-0">Manage the records and content available to your administrator account.</p>
+    </header>
+  {% endif %}
+  <div class="ops-panel">{{ block.super }}</div>
+</div>
 {% endblock %}

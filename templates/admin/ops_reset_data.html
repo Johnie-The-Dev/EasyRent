@@ -1,23 +1,27 @@
 {% extends "admin/base_site.html" %}
 
 {% block content %}
-<div class="content">
-  <p><a href="{% url 'ops:dashboard' %}">← Back to manager dashboard</a></p>
-  <h1>Reset all site data</h1>
+<main class="ops-shell">
+  <a class="ops-back-link" href="{% url 'ops:dashboard' %}">← Operations overview</a>
+  <header class="ops-toolbar">
+    <div><h1>Reset all site data</h1><p>Irreversible maintenance action. Verify the target carefully before proceeding.</p></div>
+  </header>
   {% if error %}<p class="errornote">{{ error }}</p>{% endif %}
-  <div class="module" style="max-width:760px;padding:18px">
+  <section class="ops-detail-card ops-danger-zone">
+    <span class="ops-badge ops-badge-danger">High impact action</span>
     <p>This permanently removes all Django-managed data from database <strong>{{ database_name }}</strong>, including every user account, property, unit, booking, tenancy, payment, receipt, notification, and login session.</p>
+    <p>Manager audit events are also removed with the rest of the database contents.</p>
     <p>The database tables and migration history remain. You will need to create a new superuser after the reset to access the manager area again.</p>
     <p><strong>This cannot be undone. Export or back up anything you may need before continuing.</strong></p>
     <form method="post">
       {% csrf_token %}
       <p><label for="confirm-database">Enter the database name <strong>{{ database_name }}</strong>:</label><br>
-        <input id="confirm-database" name="confirm_database" type="text" required autocomplete="off"></p>
+        <input id="confirm-database" class="vTextField" name="confirm_database" type="text" required autocomplete="off"></p>
       <p><label for="confirm-action">Then type <strong>DELETE ALL DATA</strong>:</label><br>
-        <input id="confirm-action" name="confirm_action" type="text" required autocomplete="off"></p>
-      <button class="button" type="submit" style="background:#ba2121">Permanently reset all site data</button>
+        <input id="confirm-action" class="vTextField" name="confirm_action" type="text" required autocomplete="off"></p>
+      <button class="button ops-danger" type="submit">Permanently reset all site data</button>
       <a class="button" href="{% url 'ops:dashboard' %}">Cancel</a>
     </form>
-  </div>
-</div>
+  </section>
+</main>
 {% endblock %}

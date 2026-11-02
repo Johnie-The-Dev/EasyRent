@@ -11,6 +11,7 @@ from django.core.management import call_command
 from django.core.paginator import Paginator
 from django.db import connections, transaction
 from django.db.models import Count, DecimalField, Q, Sum
+from django.utils.dateparse import parse_date
 from django.http import HttpResponse, HttpResponseForbidden, HttpResponseNotAllowed
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
@@ -18,6 +19,7 @@ from django.utils import timezone
 from listings.models import (
     Booking,
     DepositHistory,
+    ManagerAuditEvent,
     PasswordResetCode,
     Property,
     PropertyImage,
@@ -70,6 +72,11 @@ def _delete_user_and_related_data(user, actor):
 
     with transaction.atomic(using=database):
         tenancy_ids = related_tenancies.order_by().values("pk")
+        _record_account_audit_event(
+            actor,
+            user,
+            ManagerAuditEvent.ACTION_DELETED,
+        )
         RentPayment.objects.using(database).filter(tenant_id__in=tenancy_ids).delete()
         ReceiptHistory.objects.using(database).filter(tenant_id__in=tenancy_ids).delete()
         DepositHistory.objects.using(database).filter(
@@ -96,6 +103,17 @@ def _delete_user_and_related_data(user, actor):
         "Manager user %s deleted user %s and related EasyRent data",
         actor.pk,
         user.pk,
+    )
+
+
+def _record_account_audit_event(actor, managed_user, action):
+    database = managed_user._state.db or "default"
+    return ManagerAuditEvent.objects.using(database).create(
+        actor_id=actor.pk,
+        action=action,
+        target_username=managed_user.username,
+        target_role=managed_user.role,
+        details=f"{managed_user.get_role_display()} account {action.removeprefix('account_')}.",
     )
 
 
@@ -136,6 +154,8 @@ def ops_dashboard(request):
     # Bookings
     pending_qs = Booking.objects.filter(status=Booking.STATUS_PENDING)
     pending_count = pending_qs.count()
+    stale_pending_cutoff = now - timedelta(days=7)
+    stale_pending_count = pending_qs.filter(created_at__lt=stale_pending_cutoff).count()
     confirmed_count = Booking.objects.filter(status=Booking.STATUS_CONFIRMED).count()
     cancelled_count = Booking.objects.filter(status=Booking.STATUS_CANCELLED).count()
     moved_in_count = Booking.objects.filter(status=Booking.STATUS_MOVED_IN).count()
@@ -150,6 +170,7 @@ def ops_dashboard(request):
         pending_qs.select_related("tenant", "unit", "unit__property")
         .order_by("-created_at")[:12]
     )
+    recent_admin_activity = ManagerAuditEvent.objects.select_related("actor")[:8]
 
     # Demand: top saved properties
     top_saved = (
@@ -231,6 +252,7 @@ def ops_dashboard(request):
             "active_users": User.objects.filter(is_active=True).count(),
             "inactive_users": User.objects.filter(is_active=False).count(),
             "new_users_7d": new_users_7d,
+            "generated_at": now,
             "total_properties": total_properties,
             "total_units": total_units,
             "active_tenancy_records": active_tenancy_records,
@@ -240,6 +262,7 @@ def ops_dashboard(request):
             "maintenance_units": maintenance_units,
             "occupancy_rate": occupancy_rate,
             "pending_count": pending_count,
+            "stale_pending_count": stale_pending_count,
             "confirmed_count": confirmed_count,
             "cancelled_count": cancelled_count,
             "moved_in_count": moved_in_count,
@@ -250,6 +273,8 @@ def ops_dashboard(request):
         },
         "oldest_pending": oldest_pending,
         "pending_queue": pending_queue,
+        "recent_admin_activity": recent_admin_activity,
+        "stale_pending_cutoff": stale_pending_cutoff,
 
         # Demand
         "top_saved": top_saved,
@@ -299,6 +324,47 @@ def manage_users(request):
             "status": status if status in ("active", "inactive") else "all",
             "search": search,
             "total_users": paginator.count,
+        },
+    )
+
+
+@_superuser_required
+def audit_log(request):
+    action = (request.GET.get("action") or "all").strip()
+    search = (request.GET.get("q") or "").strip()
+    start_date = parse_date(request.GET.get("from", "").strip())
+    end_date = parse_date(request.GET.get("to", "").strip())
+
+    events = ManagerAuditEvent.objects.select_related("actor")
+    valid_actions = {value for value, _label in ManagerAuditEvent.ACTION_CHOICES}
+    if action in valid_actions:
+        events = events.filter(action=action)
+    else:
+        action = "all"
+    if search:
+        events = events.filter(
+            Q(target_username__icontains=search)
+            | Q(actor__username__icontains=search)
+            | Q(details__icontains=search)
+        )
+    if start_date:
+        events = events.filter(created_at__date__gte=start_date)
+    if end_date:
+        events = events.filter(created_at__date__lte=end_date)
+
+    paginator = Paginator(events, 50)
+    page = paginator.get_page(request.GET.get("page"))
+    return render(
+        request,
+        "admin/ops_audit_log.html",
+        {
+            "page": page,
+            "action": action,
+            "search": search,
+            "start_date": start_date,
+            "end_date": end_date,
+            "total_events": paginator.count,
+            "actions": ManagerAuditEvent.ACTION_CHOICES,
         },
     )
 
@@ -368,9 +434,17 @@ def toggle_user_active(request, user_id):
     if managed_user.is_superuser or managed_user.pk == request.user.pk:
         return HttpResponseForbidden("Manager and superuser accounts cannot be changed here.")
 
-    managed_user.is_active = not managed_user.is_active
-    managed_user.save(update_fields=["is_active"])
-    status = "activated" if managed_user.is_active else "suspended"
+    database = managed_user._state.db or "default"
+    with transaction.atomic(using=database):
+        managed_user.is_active = not managed_user.is_active
+        managed_user.save(update_fields=["is_active"])
+        action = (
+            ManagerAuditEvent.ACTION_REACTIVATED
+            if managed_user.is_active
+            else ManagerAuditEvent.ACTION_SUSPENDED
+        )
+        _record_account_audit_event(request.user, managed_user, action)
+    status = "reactivated" if managed_user.is_active else "suspended"
     logger.info(
         "Manager user %s %s user %s",
         request.user.pk,
@@ -628,27 +702,309 @@ def report_user_registry_pdf(request):
     since = now - timedelta(days=days)
 
     role = (request.GET.get("role") or "all").strip().lower()
-    qs = User.objects.filter(date_joined__gte=since)
+    scope = (request.GET.get("scope") or "recent").strip().lower()
+    if scope not in {"all", "recent"}:
+        scope = "recent"
+    qs = User.objects.all() if scope == "all" else User.objects.filter(date_joined__gte=since)
     if role in ("tenant", "landlord"):
         qs = qs.filter(role=role)
 
     qs = qs.order_by("-date_joined")
 
-    rows = [["Username", "Email", "Role", "Active", "Joined", "Last login"]]
+    rows = [["Username", "Email", "Role", "Status", "Joined", "Last login"]]
     for u in qs[:4000]:
         rows.append([
             u.username,
             u.email or "—",
             getattr(u, "role", "—"),
-            "yes" if u.is_active else "no",
+            "Active" if u.is_active else "Suspended",
             u.date_joined.strftime("%Y-%m-%d %H:%M") if u.date_joined else "—",
             u.last_login.strftime("%Y-%m-%d %H:%M") if u.last_login else "—",
         ])
 
+    report_scope = "all accounts" if scope == "all" else f"new accounts in last {days} days"
     return build_simple_table_pdf(
-        title=f"EasyRent — User Registry (new in last {days} days, role={role})",
-        subtitle=f"Rows shown: {len(rows)-1} (capped). Generated: {now.strftime('%Y-%m-%d %H:%M')}",
+        title=f"EasyRent — User Registry ({report_scope}, role={role})",
+        subtitle=(
+            f"Rows shown: {len(rows)-1}"
+            f"{' (capped at 4,000)' if qs.count() > 4000 else ''}. "
+            f"Generated: {now.strftime('%Y-%m-%d %H:%M')}"
+        ),
         rows=rows,
-        filename=f"user_registry_last_{days}_days_{role}.pdf",
+        filename=(
+            f"user_registry_all_{role}.pdf"
+            if scope == "all"
+            else f"user_registry_last_{days}_days_{role}.pdf"
+        ),
+        landscape=True,
+    )
+
+
+@_superuser_required
+def report_operations_snapshot_pdf(request):
+    now = timezone.now()
+    current_month = now.strftime("%Y-%m")
+    units = Unit.objects.filter(is_active=True)
+    active_tenancies = Tenant.objects.filter(is_active=True)
+    pending = Booking.objects.filter(status=Booking.STATUS_PENDING)
+    stale_cutoff = now - timedelta(days=7)
+    expected_rent = (
+        units.aggregate(total=Sum("price", output_field=DecimalField()))["total"]
+        or Decimal("0")
+    )
+    rent_collected = (
+        RentPayment.objects.filter(month_paid_for=current_month)
+        .aggregate(total=Sum("amount", output_field=DecimalField()))["total"]
+        or Decimal("0")
+    )
+    deposits_month = (
+        DepositHistory.objects.filter(
+            date_received__gte=date(now.year, now.month, 1),
+            date_received__lte=now.date(),
+        ).aggregate(total=Sum("amount", output_field=DecimalField()))["total"]
+        or Decimal("0")
+    )
+    outstanding = (
+        active_tenancies.aggregate(
+            total=Sum("cumulative_rent_balance", output_field=DecimalField())
+        )["total"]
+        or Decimal("0")
+    )
+    unit_counts = {
+        row["vacancy"]: row["total"]
+        for row in units.values("vacancy").annotate(total=Count("id"))
+    }
+
+    rows = [
+        ["Area", "Metric", "Value"],
+        ["Accounts", "Landlords", str(User.objects.filter(role="landlord", is_staff=False, is_superuser=False).count())],
+        ["Accounts", "Tenants", str(User.objects.filter(role="tenant", is_staff=False, is_superuser=False).count())],
+        ["Accounts", "Active accounts", str(User.objects.filter(is_active=True).count())],
+        ["Accounts", "Suspended accounts", str(User.objects.filter(is_active=False).count())],
+        ["Accounts", "New accounts in last 7 days", str(User.objects.filter(date_joined__gte=now - timedelta(days=7)).count())],
+        ["Inventory", "Properties", str(Property.objects.count())],
+        ["Inventory", "Active units", str(units.count())],
+        ["Inventory", "Vacant units", str(unit_counts.get(Unit.VACANT, 0))],
+        ["Inventory", "Booked units", str(unit_counts.get(Unit.BOOKED, 0))],
+        ["Inventory", "Occupied units", str(unit_counts.get(Unit.OCCUPIED, 0))],
+        ["Inventory", "Maintenance units", str(unit_counts.get(Unit.MAINTENANCE, 0))],
+        ["Inventory", "Recorded occupancy rate", f"{(unit_counts.get(Unit.OCCUPIED, 0) / units.count() * 100):.1f}%" if units.exists() else "0.0%"],
+        ["Tenancies", "Active tenancy records", str(active_tenancies.count())],
+        ["Bookings", "Pending", str(pending.count())],
+        ["Bookings", "Pending over 7 days", str(pending.filter(created_at__lt=stale_cutoff).count())],
+        ["Bookings", "Confirmed", str(Booking.objects.filter(status=Booking.STATUS_CONFIRMED).count())],
+        ["Bookings", "Moved in", str(Booking.objects.filter(status=Booking.STATUS_MOVED_IN).count())],
+        ["Bookings", "Cancelled", str(Booking.objects.filter(status=Booking.STATUS_CANCELLED).count())],
+        ["Rent and deposits", "Potential monthly rent (KES)", f"{expected_rent:,.2f}"],
+        ["Rent and deposits", f"Payments recorded for {current_month} (KES)", f"{rent_collected:,.2f}"],
+        ["Rent and deposits", "Deposits received this month to date (KES)", f"{deposits_month:,.2f}"],
+        ["Rent and deposits", "Outstanding balances (KES)", f"{outstanding:,.2f}"],
+    ]
+
+    return build_simple_table_pdf(
+        title="EasyRent — Operations Snapshot",
+        subtitle=f"Current platform data. Generated: {now.strftime('%Y-%m-%d %H:%M')}",
+        rows=rows,
+        filename=f"easyrent_operations_snapshot_{now:%Y%m%d_%H%M}.pdf",
+        landscape=True,
+    )
+
+
+@_superuser_required
+def report_inventory_pdf(request):
+    now = timezone.now()
+    units = Unit.objects.select_related("property", "property__landlord").order_by(
+        "property__name", "unit_code"
+    )
+    total = units.count()
+    rows = [["Property", "Town", "Landlord", "Unit", "Type", "Monthly rent (KES)", "Unit status", "Active"]]
+    for unit in units[:4000]:
+        rows.append([
+            unit.property.name,
+            unit.property.town or "—",
+            unit.property.landlord.username,
+            unit.unit_code,
+            unit.unit_type,
+            f"{unit.price:,.2f}",
+            unit.get_vacancy_display(),
+            "Yes" if unit.is_active else "No",
+        ])
+
+    return build_simple_table_pdf(
+        title="EasyRent — Property and Unit Inventory",
+        subtitle=(
+            f"{len(rows) - 1} of {total} units shown"
+            f"{' (capped at 4,000)' if total > 4000 else ''}. "
+            f"Generated: {now.strftime('%Y-%m-%d %H:%M')}"
+        ),
+        rows=rows,
+        filename=f"easyrent_inventory_{now:%Y%m%d}.pdf",
+        landscape=True,
+    )
+
+
+@_superuser_required
+def report_booking_queue_pdf(request):
+    now = timezone.now()
+    cutoff = now - timedelta(days=7)
+    pending = Booking.objects.filter(status=Booking.STATUS_PENDING).select_related(
+        "tenant", "unit", "unit__property", "unit__property__landlord"
+    ).order_by("created_at")
+    total = pending.count()
+    rows = [["Requested", "Tenant", "Property", "Unit", "Landlord", "Days waiting"]]
+    for booking in pending[:4000]:
+        wait_days = max((now - booking.created_at).days, 0)
+        rows.append([
+            booking.created_at.strftime("%Y-%m-%d %H:%M"),
+            booking.tenant.username,
+            booking.unit.property.name,
+            booking.unit.unit_code,
+            booking.unit.property.landlord.username,
+            f"{wait_days}{' (over 7 days)' if booking.created_at < cutoff else ''}",
+        ])
+
+    stale_count = pending.filter(created_at__lt=cutoff).count()
+    return build_simple_table_pdf(
+        title="EasyRent — Pending Booking Queue",
+        subtitle=(
+            f"{len(rows) - 1} of {total} pending bookings shown; "
+            f"{stale_count} pending over 7 days. Generated: {now.strftime('%Y-%m-%d %H:%M')}"
+        ),
+        rows=rows,
+        filename=f"easyrent_pending_bookings_{now:%Y%m%d}.pdf",
+        landscape=True,
+    )
+
+
+@_superuser_required
+def report_data_integrity_pdf(request):
+    now = timezone.now()
+    active_units = Unit.objects.filter(is_active=True)
+    active_booking_unit_ids = Booking.objects.filter(
+        status__in=[Booking.STATUS_PENDING, Booking.STATUS_CONFIRMED]
+    ).values_list("unit_id", flat=True)
+    active_tenant_unit_ids = Tenant.objects.filter(is_active=True).values_list(
+        "unit_fk_id", flat=True
+    )
+    booked_without_booking = active_units.filter(vacancy=Unit.BOOKED).exclude(
+        id__in=active_booking_unit_ids
+    ).select_related("property", "property__landlord").order_by(
+        "property__name", "unit_code"
+    )
+    occupied_without_tenant = active_units.filter(vacancy=Unit.OCCUPIED).exclude(
+        id__in=active_tenant_unit_ids
+    ).select_related("property", "property__landlord").order_by(
+        "property__name", "unit_code"
+    )
+    negative_balances = Tenant.objects.filter(is_active=True).filter(
+        Q(rent_balance__lt=0) | Q(cumulative_rent_balance__lt=0)
+    ).select_related("unit_fk", "unit_fk__property", "unit_fk__property__landlord").order_by(
+        "cumulative_rent_balance", "rent_balance"
+    )
+    rows = [
+        [
+            "Issue",
+            "Property / unit",
+            "Landlord / tenant",
+            "Rent balance (KES)",
+            "Cumulative balance (KES)",
+        ]
+    ]
+
+    for unit in booked_without_booking[:2000]:
+        rows.append([
+            "Booked without active booking",
+            f"{unit.property.name} / {unit.unit_code}",
+            unit.property.landlord.username,
+            "—",
+            "—",
+        ])
+    for unit in occupied_without_tenant[:2000]:
+        rows.append([
+            "Occupied without active tenancy",
+            f"{unit.property.name} / {unit.unit_code}",
+            unit.property.landlord.username,
+            "—",
+            "—",
+        ])
+    for tenancy in negative_balances[:2000]:
+        rows.append([
+            "Negative active tenancy balance",
+            f"{tenancy.unit_fk.property.name} / {tenancy.unit_fk.unit_code}",
+            tenancy.name,
+            f"{tenancy.rent_balance:,.2f}",
+            f"{tenancy.cumulative_rent_balance:,.2f}",
+        ])
+
+    total = (
+        booked_without_booking.count()
+        + occupied_without_tenant.count()
+        + negative_balances.count()
+    )
+    return build_simple_table_pdf(
+        title="EasyRent — Data Integrity Review",
+        subtitle=(
+            f"{total} flagged record(s); at most 2,000 per check shown. "
+            f"Generated: {now.strftime('%Y-%m-%d %H:%M')}"
+        ),
+        rows=rows,
+        filename=f"easyrent_data_integrity_{now:%Y%m%d}.pdf",
+        landscape=True,
+    )
+
+
+@_superuser_required
+def report_activity_log_pdf(request):
+    now = timezone.now()
+    days = parse_range_days(request, default=30)
+    scope = (request.GET.get("scope") or "recent").strip().lower()
+    events = ManagerAuditEvent.objects.select_related("actor").order_by("-created_at")
+    action = (request.GET.get("action") or "all").strip()
+    valid_actions = {value for value, _label in ManagerAuditEvent.ACTION_CHOICES}
+    if action in valid_actions:
+        events = events.filter(action=action)
+    else:
+        action = "all"
+    start_date = parse_date(request.GET.get("from", "").strip())
+    end_date = parse_date(request.GET.get("to", "").strip())
+    if start_date:
+        events = events.filter(created_at__date__gte=start_date)
+    if end_date:
+        events = events.filter(created_at__date__lte=end_date)
+    if not start_date and not end_date and scope != "all":
+        events = events.filter(created_at__gte=now - timedelta(days=days))
+    search = (request.GET.get("q") or "").strip()
+    if search:
+        events = events.filter(
+            Q(target_username__icontains=search)
+            | Q(actor__username__icontains=search)
+            | Q(details__icontains=search)
+        )
+    total = events.count()
+    rows = [["Date and time", "Action", "Account", "Role", "Admin", "Details"]]
+    for event in events[:4000]:
+        rows.append([
+            event.created_at.strftime("%Y-%m-%d %H:%M"),
+            event.get_action_display(),
+            event.target_username,
+            event.target_role or "—",
+            event.actor.username if event.actor else "Former admin",
+            event.details or "—",
+        ])
+
+    period = (
+        f"{start_date or 'all dates'} to {end_date or 'today'}"
+        if start_date or end_date
+        else "all dates" if scope == "all" else f"last {days} days"
+    )
+    return build_simple_table_pdf(
+        title=f"EasyRent — Manager Activity ({period})",
+        subtitle=(
+            f"{len(rows) - 1} of {total} events shown"
+            f"{' (capped at 4,000)' if total > 4000 else ''}. "
+            f"Generated: {now.strftime('%Y-%m-%d %H:%M')}"
+        ),
+        rows=rows,
+        filename=f"easyrent_activity_{now:%Y%m%d}.pdf",
         landscape=True,
     )

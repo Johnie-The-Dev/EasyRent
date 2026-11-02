@@ -66,6 +66,42 @@ class PasswordResetCode(models.Model):
         return (self.used_at is None) and (timezone.now() <= self.expires_at)
 
 
+# ---------------- Manager audit trail ----------------
+
+class ManagerAuditEvent(models.Model):
+    ACTION_SUSPENDED = "account_suspended"
+    ACTION_REACTIVATED = "account_reactivated"
+    ACTION_DELETED = "account_deleted"
+    ACTION_CHOICES = [
+        (ACTION_SUSPENDED, "Account suspended"),
+        (ACTION_REACTIVATED, "Account reactivated"),
+        (ACTION_DELETED, "Account deleted"),
+    ]
+
+    actor = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="manager_audit_events",
+    )
+    action = models.CharField(max_length=32, choices=ACTION_CHOICES)
+    target_username = models.CharField(max_length=150)
+    target_role = models.CharField(max_length=10, blank=True)
+    details = models.CharField(max_length=255, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at", "-id"]
+        indexes = [
+            models.Index(fields=["action", "created_at"]),
+            models.Index(fields=["target_username", "created_at"]),
+        ]
+
+    def __str__(self):
+        return f"{self.get_action_display()}: {self.target_username}"
+
+
 # ---------------- Notifications (navbar) ----------------
 
 class Notification(models.Model):
